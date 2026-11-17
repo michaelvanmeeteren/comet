@@ -2468,17 +2468,20 @@ function tick() {
       }
     }
   }
-  // online: is er nog maar een rijder onderweg, dan is die sowieso laatste en is de race voorbij.
-  // Alleen het spel dat die rijder zelf rijdt (of de host bij een computerrijder) beslist dat.
+  // online: is er nog maar een rijder onderweg, dan krijgt die 15 seconden om te finishen, anders DNF.
+  // Iedereen telt mee af (voor in beeld); alleen het spel dat die rijder rijdt (of de host bij een computerrijder) beslist.
   if (G.mode === 'online' && live && G.ents.length > 1) {
     const left = G.ents.filter(o => !o.finished);
-    const e = left.length === 1 ? left[0] : null;
-    if (e && !e.remote) {
-      const t = now + 0.01;   // net na de rest, ook als die in dezelfde tick binnenkwam
-      e.finished = true; e.finishTime = t; e.arrive = G.time;
-      if (e.bot != null) { NET.send({ t: 'botfin', bot: e.bot, time: t }); NET.send({ t: 'botsdone' }); }
-      if (e === P) { finishRun(t); showMsg('LAST ONE LEFT', 'the race is over', '#ffb833', 2.5); }
-    }
+    if (left.length === 1) {
+      if (G.lastT == null) { G.lastT = LAST_GRACE; if (left[0] === P) showMsg('LAST ONE LEFT', 'finish within ' + LAST_GRACE + ' seconds!', '#ffb833', 2.5); }
+      G.lastT -= DT;
+      const e = left[0];
+      if (G.lastT <= 0 && !e.remote) {
+        e.finished = true; e.dnf = true; e.finishTime = 1e9; e.arrive = G.time;
+        if (e.bot != null) { NET.send({ t: 'botfin', bot: e.bot, time: -1 }); NET.send({ t: 'botsdone' }); }
+        if (e === P) { finishRun(-1); showMsg('DNF', 'did not finish', '#ff8a8a', 2.5); }
+      }
+    } else G.lastT = null;
   }
   if (G.mode === 'online') netSendState();
   if (racing) {
@@ -4357,7 +4360,7 @@ function render(dt) {
       for (let k = 0; k < len; k++) ctx.fillRect(Math.round(cx + dx * (r0 + k)), Math.round(cy + dy * (r0 + k)), 1, 1);
     }
   }
-  if (G.intro > 0 && !G.paused) drawIntro(u); else drawHud(u, speed, runT);
+  if (G.intro > 0 && !G.paused) drawIntro(u); else { drawHud(u, speed, runT); if (G.mode === 'online' && G.lastT != null && G.lastT > 0) drawLastCountdown(u); }
 }
 
 // Intro voor de race: zwarte balken boven en onder, naam van de cup en de baan, in een cup de rivalen op een rij.
@@ -4392,6 +4395,13 @@ function drawIntro(u) {
   if (G.mode !== 'online' && Math.floor(G.time * 2) % 2) text('ENTER: SKIP', W - 40 * u, H - bar / 2 + 7 * u, 16 * u, '#cfd3ff', 'right', 700);
 }
 
+// online: de laatste rijder krijgt nog even; iedereen ziet de seconden aftellen
+function drawLastCountdown(u) {
+  const P = G.player, mine = !P.finished, s = Math.ceil(G.lastT), warn = s <= 5;
+  const y = mine ? H * 0.47 : H * 0.8, pulse = warn && G.lastT % 1 > 0.5;
+  text(mine ? 'FINISH IN' : 'LAST RACER', W / 2, y - 34 * u, 16 * u, '#cfd3ff', 'center', 800);
+  text(String(s), W / 2, y + 24 * u, 72 * u, pulse ? '#ff4f4f' : warn ? '#ff8a8a' : '#ffb833', 'center', 900);
+}
 function drawHud(u, speed, runT) {
   const pad = 22 * u, P = G.player, th = THEMES[CUPS[T.cup].theme], acc = '#ffb833';
   const rec = record(), tt = G.mode === 'tt';
@@ -4810,6 +4820,7 @@ function drawMenu(u) {
 // schuiven. De host laat ook de computerrijders rijden en stuurt hun posities mee. Server: server/server.js.
 const NET_VERSION = 3;
 const POINTS8 = [10, 7, 5, 3, 2, 1, 0, 0];   // online kunnen er acht deelnemers zijn
+const LAST_GRACE = 15;   // seconden die de laatste rijder nog krijgt, daarna DNF
 const EMOTES = ['GG!', 'NICE!', 'WOW!', 'OOPS!'];
 const NET = {
   ws: null, id: null, status: 'off', err: '', room: null, pending: null, buf: {}, botBuf: [], feed: [],
@@ -4906,7 +4917,7 @@ function netOnMessage(m) {
     }
     case 'botfin': {
       const e = G.ents.find(x => x.remote && x.bot === m.bot);
-      if (e && !e.finished) { e.finished = true; e.finishTime = m.time; e.arrive = G.time; }
+      if (e && !e.finished) { e.finished = true; e.dnf = !(m.time > 0); e.finishTime = m.time > 0 ? m.time : 1e9; e.arrive = G.time; }
       break;
     }
     case 'left': {
@@ -4942,7 +4953,7 @@ function netStartRace(m) {
 function netSetupRace(p) {
   const m = NET.race, players = NET.room.players, rng = mulberry32(m.seed);
   const place = (e, slot) => placeOnGrid(e, 90 + 75 * slot, slot % 2 ? 62 : -62);
-  p.netId = NET.id; p.face = ui.char;
+  p.netId = NET.id; p.face = ui.char; G.lastT = null;
   m.grid.forEach((id, slot) => {
     if (id === NET.id) { place(p, slot); return; }
     const q = players.find(x => x.id === id);
@@ -5241,7 +5252,7 @@ function drawOnlineResult(u) {
   const pos = order.indexOf(G.player) + 1, winT = order[0].finished && !order[0].dnf ? order[0].finishTime : null;
   const oc = NET.race && NET.race.omode === 1;
   text(T.name.toUpperCase() + (oc ? ' - CUP RACE ' + (NET.race.cupRace + 1) + '/3' : ' - ONLINE ' + CLASSES[ui.cls].name), W / 2, py + 44 * u, 20 * u, '#ffb833', 'center', 900);
-  text(ord(pos).toUpperCase() + ' PLACE', W / 2, py + 92 * u, 44 * u, pos === 1 ? '#ffd24a' : '#fff', 'center', 900);
+  text(G.player.dnf ? 'DID NOT FINISH' : ord(pos).toUpperCase() + ' PLACE', W / 2, py + 92 * u, 44 * u, G.player.dnf ? '#ff8a8a' : pos === 1 ? '#ffd24a' : '#fff', 'center', 900);
   order.forEach((e, i) => {
     const y = py + (150 + 46 * i) * u;
     if (e === G.player) { ctx.fillStyle = 'rgba(255,255,255,0.12)'; ctx.fillRect(px + 26 * u, y - 32 * u, pw - 52 * u, 44 * u); }
