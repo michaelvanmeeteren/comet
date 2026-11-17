@@ -5026,7 +5026,7 @@ function drawOnlineMenu(u) {
   const host = isHost();
   header(u, 'ROOM  ' + R.code, R.state === 'race' ? (host ? 'E: end the race for everyone      Esc: leave room' : 'Esc: leave room')
     : host ? 'up/down: select      left/right: change      Enter: start race      Esc: leave room' : 'Esc: leave room      1-4: emotes');
-  text('Friends join with code ' + R.code + ' on ' + NET.addr.toUpperCase(), W / 2, 122 * u, 15 * u, '#cfd3ff', 'center', 700, false);
+  text('Friends join with code ' + R.code + ' on ' + (NET.since ? (location.host + location.pathname).replace(/\/$/, '') : NET.addr).toUpperCase(), W / 2, 122 * u, 15 * u, '#cfd3ff', 'center', 700, false);
   // spelers
   const lw = Math.min(420 * u, W * 0.45), lx = W / 2 - lw - 10 * u, ly = 150 * u, rowH = 54 * u;
   panel(lx, ly, lw, rowH * 8 + 20 * u, 0.8);
