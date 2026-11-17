@@ -2239,6 +2239,7 @@ function menuKey(code, key) {
       break;
     case 'cup':
       if (lr) ui.cup = (ui.cup + lr + CUPS.length) % CUPS.length;
+      if (ud) { const n = ui.cup + ud * 4; if (n >= 0 && n < CUPS.length) ui.cup = n; beep(520, 0.06, 'square', 0.04); }
       if (ok) ui.screen = ui.mode === 0 ? 'track' : 'char';
       if (back) ui.screen = ui.mode === 1 ? 'cls' : 'mode';
       break;
@@ -4363,7 +4364,7 @@ function drawIntro(u) {
   }
   if (open < 1) return;
   const slide = Math.round(Math.max(0, 1 - (t - 0.2) * 4) * 60 * u);
-  text(CUPS[T.cup].name + (tt ? ' - TIME TRIAL' : G.mode === 'online' ? ' - ONLINE ' + CLASSES[ui.cls].name : ' - RACE ' + (cupRun.race + 1) + '/3'), 40 * u - slide, H - bar - 78 * u, 20 * u, '#ffb833', 'left', 800);
+  text(CUPS[T.cup].name + (tt ? ' - TIME TRIAL' : G.mode === 'online' ? (NET.race && NET.race.omode === 1 ? ' - ONLINE CUP - RACE ' + (NET.race.cupRace + 1) + '/3' : ' - ONLINE ' + CLASSES[ui.cls].name) : ' - RACE ' + (cupRun.race + 1) + '/3'), 40 * u - slide, H - bar - 78 * u, 20 * u, '#ffb833', 'left', 800);
   if (roadWx(T.index)) text(roadWx(T.index).label, W - 40 * u + slide, H - bar - 30 * u, 16 * u, '#9fd8ff', 'right', 800);
   text(T.name.toUpperCase(), 40 * u - slide, H - bar - 22 * u, 60 * u, '#fff', 'left', 900);
   if (G.mode === 'online') {
@@ -4412,7 +4413,7 @@ function drawHud(u, speed, runT) {
     text(MEDAL_NAME[next], rx0 + 36 * u, pad + 53 * u, 13 * u, acc, 'left', 700);
     text(fmt(getMedals(T, ui.car)[next - 1]), rx0 + rw - 14 * u, pad + 53 * u, 15 * u, '#fff', 'right', 700, false);
   } else if (G.mode === 'online') {
-    text('online', rx0 + rw - 14 * u, pad + 27 * u, 15 * u, '#7dffb0', 'right', 700, false);
+    text(NET.race && NET.race.omode === 1 ? 'race ' + (NET.race.cupRace + 1) + '/3' : 'online', rx0 + rw - 14 * u, pad + 27 * u, 15 * u, '#7dffb0', 'right', 700, false);
     text('ROOM ' + (NET.room ? NET.room.code : '----'), rx0 + 14 * u, pad + 53 * u, 13 * u, acc, 'left', 700);
     text(CLASSES[ui.cls].name, rx0 + rw - 14 * u, pad + 53 * u, 15 * u, '#fff', 'right', 700, false);
   } else {
@@ -4609,6 +4610,45 @@ function drawCarTop(cx, cy, scale, car, pal) {
   }
 }
 
+// Alle cups in rijen van vier. De rij van de gekozen cup schuift in beeld; de rij erna is half te zien.
+// mode: 0 tijdrit (medailles), 1 cup (beste plaats), 2 online (alleen de banen)
+let cupScroll = 0;
+function drawCupGrid(u, sel, mode) {
+  const cols = 4, gap = 18 * u, cw = Math.min(250 * u, (W - 80 * u - gap * (cols - 1)) / cols), ch = 300 * u;
+  const x0 = W / 2 - (cw * cols + gap * (cols - 1)) / 2, y0 = 150 * u, areaH = Math.min(H - y0 - 70 * u, ch * 1.5 + gap);
+  const rows = Math.ceil(CUPS.length / cols), maxS = Math.max(0, rows * (ch + gap) - gap - areaH);
+  const target = Math.max(0, Math.min(maxS, Math.floor(sel / cols) * (ch + gap)));
+  cupScroll += (target - cupScroll) * 0.2;
+  if (Math.abs(target - cupScroll) < 0.5) cupScroll = target;
+  const sc = Math.round(cupScroll);
+  ctx.save();
+  ctx.beginPath(); ctx.rect(0, Math.round(y0 - 8 * u), W, Math.round(areaH + 16 * u)); ctx.clip();
+  CUPS.forEach((c, i) => {
+    const x = x0 + (i % cols) * (cw + gap), y = Math.round(y0 + Math.floor(i / cols) * (ch + gap)) - sc;
+    if (y > y0 + areaH + 8 * u || y + ch < y0 - 8 * u) return;
+    const t2 = THEMES[c.theme], isSel = sel === i;
+    card(x, y, cw, ch, isSel, t2.ui);
+    ctx.fillStyle = t2.ui; ctx.fillRect(Math.round(x + 18 * u), Math.round(y + 18 * u), Math.round(cw - 36 * u), Math.round(6 * u));
+    text(c.name, x + cw / 2, y + 58 * u, 24 * u, isSel ? t2.accent : '#fff', 'center', 900);
+    for (let k = 0; k < 3; k++) {
+      const tr = TRACKS[i * 3 + k], yy = y + (94 + 28 * k) * u;
+      text(tr.name, x + 20 * u, yy, 13 * u, '#fff', 'left', 600, false);
+      if (mode === 0) medalDot(x + cw - 28 * u, yy - 6 * u, 7 * u, medalFor(tr));
+    }
+    if (mode === 1) {
+      const best = save.cups[cupKey(i)];
+      text(best ? 'Best: ' + ord(best) + ' place' : 'Not raced yet', x + cw / 2, y + 184 * u, 15 * u, best && best <= 3 ? MEDAL_COL[4 - best] : '#cfd3ff', 'center', 700, false);
+    }
+    const words = c.sub.split(' '), half = Math.ceil(words.length / 2);
+    text(words.slice(0, half).join(' '), x + cw / 2, y + 208 * u, 12 * u, '#cfd3ff', 'center', 500, false);
+    text(words.slice(half).join(' '), x + cw / 2, y + 224 * u, 12 * u, '#cfd3ff', 'center', 500, false);
+    const em = ART_OBJ['e' + i];
+    if (em) { const es = Math.round(56 * u); ctx.drawImage(em, Math.round(x + cw / 2 - es / 2), Math.round(y + ch - es - 8 * u + (isSel ? Math.sin(G.time * 4) * 2 * u : 0)), es, es); }
+  });
+  ctx.restore();
+  if (sc < maxS - 1) text('- MORE CUPS BELOW -', W / 2, y0 + areaH + 30 * u, 13 * u, '#cfd3ff', 'center', 700);
+  if (sc > 1) text('- MORE CUPS ABOVE -', W / 2, y0 - 16 * u, 13 * u, '#cfd3ff', 'center', 700);
+}
 function drawMenu(u) {
   if (songTitle) text('MUSIC: ' + songTitle + ' - RETRO BIT', 10, H - 8, 13 * u, '#7dffb0', 'left');
   const th = THEMES[CUPS[ui.cup].theme];
@@ -4665,32 +4705,8 @@ function drawMenu(u) {
   }
   if (ui.screen === 'cup') {
     header(u, ui.mode === 0 ? 'TIME TRIAL - CHOOSE A CUP' : 'CHOOSE A CUP', hint);
-    if (ui.mode === 1) text(CLASSES[ui.cls].name, W / 2, H * 0.24 - 22 * u, 20 * u, '#ffb833', 'center', 800);
-    const cw = Math.min(250 * u, (W - 100 * u) / 4 - 16 * u), ch = 330 * u, gap = 16 * u;
-    const x0 = W / 2 - (cw * 4 + gap * 3) / 2, y0 = H * 0.24;
-    const page = Math.floor(ui.cup / 4), pages = Math.ceil(CUPS.length / 4);
-    text('< ' + (page + 1) + ' / ' + pages + ' >', W / 2, y0 + ch + 104 * u, 16 * u, '#fff', 'center', 800);
-    CUPS.forEach((c, i) => {
-      if (Math.floor(i / 4) !== page) return;
-      const x = x0 + (i % 4) * (cw + gap), t2 = THEMES[c.theme], sel = ui.cup === i;
-      card(x, y0, cw, ch, sel, t2.ui);
-      ctx.fillStyle = t2.ui; ctx.fillRect(x + 18 * u, y0 + 18 * u, cw - 36 * u, 6 * u);
-      text(c.name, x + cw / 2, y0 + 66 * u, 26 * u, sel ? t2.accent : '#fff', 'center', 900);
-      const em = ART_OBJ['e' + i];
-      if (em) ctx.drawImage(em, Math.round(x + cw / 2 - em.width / 2), Math.round(y0 + ch - 10 * u + (sel ? Math.sin(G.time * 4) * 2 * u : 0)));
-      for (let k = 0; k < 3; k++) {
-        const tr = TRACKS[i * 3 + k], yy = y0 + (116 + 42 * k) * u;
-        text(tr.name, x + 22 * u, yy, 13 * u, '#fff', 'left', 600, false);
-        if (ui.mode === 0) medalDot(x + cw - 30 * u, yy - 6 * u, 8 * u, medalFor(tr));
-      }
-      if (ui.mode === 1) {
-        const best = save.cups[cupKey(i)];
-        text(best ? 'Best: ' + ord(best) + ' place' : 'Not raced yet', x + cw / 2, y0 + 262 * u, 16 * u, best && best <= 3 ? MEDAL_COL[4 - best] : '#cfd3ff', 'center', 700, false);
-      }
-      const words = c.sub.split(' '), half = Math.ceil(words.length / 2);
-      text(words.slice(0, half).join(' '), x + cw / 2, y0 + 292 * u, 13 * u, '#cfd3ff', 'center', 500, false);
-      text(words.slice(half).join(' '), x + cw / 2, y0 + 310 * u, 13 * u, '#cfd3ff', 'center', 500, false);
-    });
+    if (ui.mode === 1) text(CLASSES[ui.cls].name, W / 2, 124 * u, 18 * u, '#ffb833', 'center', 800);
+    drawCupGrid(u, ui.cup, ui.mode);
     return;
   }
   if (ui.screen === 'track') {
@@ -4780,7 +4796,8 @@ function drawMenu(u) {
 // Elke speler rekent zijn eigen voertuig uit en stuurt 20 keer per seconde zijn positie naar de server; die geeft het door.
 // De andere spelers worden 100 ms achter de laatste berichten getekend, zodat er altijd twee standen zijn om tussen te
 // schuiven. De host laat ook de computerrijders rijden en stuurt hun posities mee. Server: server/server.js.
-const NET_VERSION = 1;
+const NET_VERSION = 2;
+const POINTS8 = [10, 7, 5, 3, 2, 1, 0, 0];   // online kunnen er acht deelnemers zijn
 const EMOTES = ['GG!', 'NICE!', 'WOW!', 'OOPS!'];
 const NET = {
   ws: null, id: null, status: 'off', err: '', room: null, pending: null, buf: {}, botBuf: [], feed: [],
@@ -4849,9 +4866,15 @@ function netOnMessage(m) {
     case 'err': NET.err = m.msg; break;
     case 'room':
       if (!m.code) { NET.room = null; break; }
-      NET.room = m; NET.err = '';
-      ui.cls = m.cls;
-      if (G.state === 'menu') { ui.bgWant = m.track; requestTrack(m.track); }
+      {
+        const prev = NET.room;
+        NET.room = m; NET.err = '';
+        ui.cls = m.cls;
+        // een race is voor iedereen afgelopen: punten tellen (in een cup)
+        if (prev && prev.code === m.code && prev.state === 'race' && m.state === 'lobby') netScoreRace();
+        const bg = m.cup * 3 + (m.omode === 1 ? m.cupRace : m.tr);
+        if (G.state === 'menu' && TRACKS[bg] && loadedTrack !== bg) { ui.bgWant = bg; requestTrack(bg); }
+      }
       break;
     case 'start': netStartRace(m); break;
     case 's': {
@@ -4897,8 +4920,9 @@ function netTyping() { return !NET.room && (NET.row === 0 || NET.row === 2); }
 // Startvolgorde en deelnemers zijn bij iedereen gelijk: spelers in de volgorde van de server, daarna de computerrijders.
 function netStartRace(m) {
   const me = NET.room && NET.room.players.find(p => p.id === NET.id);
-  if (!me || !m.grid.includes(NET.id)) return;
+  if (!me || !m.grid.includes(NET.id)) { NET.race = null; return; }
   NET.race = m; NET.buf = {}; NET.botBuf = [];
+  if (m.omode === 1 && m.cupRace === 0) { NET.cup = { table: {}, race: -1 }; NET.cupDone = false; }
   ui.cls = m.cls;
   G.state2 = '';
   startRace(m.track, 'online');
@@ -4970,7 +4994,36 @@ function netQuitRace() {
   toMenu('online');
 }
 
-// ---- online-scherm: verbinden, kamer maken of meedoen, lobby
+// ---- punten in een online cup: iedereen telt zelf, uit dezelfde uitslag
+function netScoreRace() {
+  const r = NET.race;
+  if (!r || r.scored) return;
+  r.scored = true;
+  if (r.omode !== 1) return;
+  if (!NET.cup) NET.cup = { table: {}, race: -1 };
+  liveOrder().forEach((e, i) => {
+    const key = e === G.player ? 'p' + NET.id : e.netId != null ? 'p' + e.netId : 'b' + e.bot;
+    const row = NET.cup.table[key] || (NET.cup.table[key] = { name: e === G.player ? RIVALS[ui.char].name : e.name, face: e.face, pts: 0, me: e === G.player });
+    row.pts += e.dnf ? 0 : POINTS8[i] || 0;
+  });
+  NET.cup.race = r.cupRace;
+  NET.cupDone = r.cupRace >= 2;
+  if (isHost() && !NET.cupDone) NET.send({ t: 'set', cupRace: r.cupRace + 1 });
+}
+function netHostStart() {
+  const R = NET.room, cup = R.omode === 1;
+  if (cup && NET.cupDone) {
+    // na de eindstand: opnieuw beginnen met kiezen
+    NET.cupDone = false; NET.cup = null;
+    Object.assign(R, { step: 'mode', cupRace: 0 });
+    NET.send({ t: 'set', step: 'mode', cupRace: 0 });
+    return;
+  }
+  NET.send({ t: 'start', track: R.cup * 3 + (cup ? R.cupRace : R.tr) });
+}
+const netSteps = R => R.omode === 1 ? ['mode', 'cup', 'cls', 'bots', 'ready'] : ['mode', 'cup', 'track', 'cls', 'bots', 'ready'];
+
+// ---- online-scherm: verbinden, kamer maken of meedoen, en dan de keuzes van de host
 function netMenuKey(code, key, lr, ud, ok, back) {
   if (!NET.room) {
     // rijen: 0 serveradres, 1 kamer maken, 2 meedoen met code
@@ -4994,25 +5047,39 @@ function netMenuKey(code, key, lr, ud, ok, back) {
     else NET.err = 'TYPE THE 4-LETTER ROOM CODE';
     return;
   }
-  const R = NET.room;
+  const R = NET.room, host = isHost();
   if (/^Digit[1-4]$/.test(code)) { netEmote(+code[5] - 1); return; }
-  if (back) { NET.send({ t: 'leave' }); NET.room = null; return; }
-  if (R.state === 'race') {
-    if (isHost() && code === 'KeyE') NET.send({ t: 'end' });
+  if (!host || R.state === 'race') {
+    if (R.state === 'race' && host && code === 'KeyE') NET.send({ t: 'end' });
+    if (back) { NET.send({ t: 'leave' }); NET.room = null; }
     return;
   }
-  if (!isHost()) return;
-  // de host stelt in: rijen 0 baan, 1 klasse, 2 computerrijders
-  if (ud) { NET.lrow = (NET.lrow + ud + 3) % 3; beep(520, 0.06, 'square', 0.04); return; }
-  if (lr) {
-    const m = { track: R.track, cls: R.cls, bots: R.bots };
-    if (NET.lrow === 0) m.track = (R.track + lr + TRACKS.length) % TRACKS.length;
-    if (NET.lrow === 1) m.cls = (R.cls + lr + 3) % 3;
-    if (NET.lrow === 2) m.bots = Math.max(0, Math.min(8 - R.players.length, R.bots + lr));
-    NET.send({ t: 'set', ...m });
+  // de host: elke keuze is een eigen scherm; Enter verder, Esc terug
+  const set = o => { Object.assign(R, o); NET.send({ t: 'set', ...o }); };
+  const steps = netSteps(R);
+  let si = steps.indexOf(R.step);
+  if (si < 0) si = 0;
+  if (back) {
+    if (si === 0) { NET.send({ t: 'leave' }); NET.room = null; }
+    else set({ step: steps[si - 1] });
     return;
   }
-  if (ok) NET.send({ t: 'start' });
+  if (lr || ud) beep(520, 0.06, 'square', 0.04);
+  switch (R.step) {
+    case 'mode': if (lr || ud) set({ omode: 1 - R.omode, cupRace: 0 }); break;
+    case 'cup':
+      if (lr) set({ cup: (R.cup + lr + CUPS.length) % CUPS.length, cupRace: 0 });
+      if (ud) { const n = R.cup + ud * 4; if (n >= 0 && n < CUPS.length) set({ cup: n, cupRace: 0 }); }
+      break;
+    case 'track': if (lr) set({ tr: (R.tr + lr + 3) % 3 }); break;
+    case 'cls': if (lr) set({ cls: (R.cls + lr + 3) % 3 }); break;
+    case 'bots': if (lr || ud) set({ bots: Math.max(0, Math.min(8 - R.players.length, R.bots + (lr || -ud))) }); break;
+  }
+  if (ok) {
+    beep(780, 0.06, 'square', 0.04);
+    if (R.step !== 'ready') set({ step: steps[si + 1] });
+    else netHostStart();
+  }
 }
 function drawOnlineMenu(u) {
   const R = NET.room, acc = '#ffb833';
@@ -5037,37 +5104,95 @@ function drawOnlineMenu(u) {
     return;
   }
   const host = isHost();
-  header(u, 'ROOM  ' + R.code, R.state === 'race' ? (host ? 'E: end the race for everyone      Esc: leave room' : 'Esc: leave room')
-    : host ? 'up/down: select      left/right: change      Enter: start race      Esc: leave room' : 'Esc: leave room      1-4: emotes');
-  text('Friends join with code ' + R.code + ' on ' + (NET.since ? (location.host + location.pathname).replace(/\/$/, '') : NET.addr).toUpperCase(), W / 2, 122 * u, 15 * u, '#cfd3ff', 'center', 700, false);
-  // spelers
-  const lw = Math.min(420 * u, W * 0.45), lx = W / 2 - lw - 10 * u, ly = 150 * u, rowH = 54 * u;
-  panel(lx, ly, lw, rowH * 8 + 20 * u, 0.8);
-  R.players.forEach((p, i) => {
-    const y = ly + 10 * u + i * rowH + rowH / 2;
-    drawFace(p.char, lx + 34 * u, y, 0.8);
-    text(RIVALS[p.char].name, lx + 66 * u, y + 2 * u, 17 * u, RIVALS[p.char].pal[2], 'left', 800);
-    text(CARS[p.car].name + (p.id === R.host ? '   HOST' : '') + (p.id === NET.id ? '   YOU' : '') + (p.inRace ? '   RACING' : ''), lx + 66 * u, y + 19 * u, 12 * u, '#cfd3ff', 'left', 600, false);
-  });
-  for (let b = 0; b < R.bots && R.players.length + b < 8; b++) {
-    const y = ly + 10 * u + (R.players.length + b) * rowH + rowH / 2;
-    text('COMPUTER RACER', lx + 66 * u, y + 8 * u, 15 * u, '#8a88b0', 'left', 700);
+  // wat de host kiest, laten alle schermen zien
+  ui.cup = R.cup; ui.track = R.tr; ui.cls = R.cls;
+  if (R.state === 'race') {
+    header(u, 'ROOM  ' + R.code, '');
+    text('A RACE IS IN PROGRESS', W / 2, H * 0.42, 34 * u, '#fff', 'center', 900);
+    text('You join the next one', W / 2, H * 0.42 + 36 * u, 16 * u, '#cfd3ff', 'center', 700, false);
+  } else if (R.step === 'mode') {
+    header(u, 'SINGLE RACE OR CUP?', '');
+    const gap = 30 * u, cw = Math.min(340 * u, (W - 60 * u - gap) / 2), ch = 260 * u, x0 = W / 2 - cw - gap / 2, y0 = H * 0.28;
+    [['SINGLE RACE', 'One race on a track', 'of your choice'], ['CUP', 'Three races in a row,', 'points for every race']].forEach((it, i) => {
+      const x = x0 + i * (cw + gap), sel = R.omode === i;
+      card(x, y0, cw, ch, sel);
+      text(it[0], x + cw / 2, y0 + 90 * u, 38 * u, sel ? acc : '#fff', 'center', 900);
+      text(it[1], x + cw / 2, y0 + 150 * u, 14 * u, '#cfd3ff', 'center', 600, false);
+      text(it[2], x + cw / 2, y0 + 172 * u, 14 * u, '#cfd3ff', 'center', 600, false);
+    });
+  } else if (R.step === 'cup') {
+    header(u, R.omode === 1 ? 'CHOOSE A CUP' : 'CHOOSE A CUP FOR THE TRACK', '');
+    drawCupGrid(u, R.cup, 2);
+  } else if (R.step === 'track' || R.step === 'cls') {
+    // dezelfde schermen als buiten online, met de keuze van de host
+    const keep = ui.screen;
+    ui.screen = R.step;
+    drawMenu(u);
+    ui.screen = keep;
+  } else if (R.step === 'bots') {
+    header(u, 'COMPUTER RACERS', '');
+    const max = 8 - R.players.length;
+    text((host ? '<  ' : '') + R.bots + (host ? '  >' : ''), W / 2, H * 0.48, 90 * u, acc, 'center', 900);
+    text(R.players.length + ' players + ' + R.bots + ' computer racers  (up to 8 in total, ' + max + ' free)', W / 2, H * 0.48 + 50 * u, 15 * u, '#cfd3ff', 'center', 700, false);
+  } else {
+    drawOnlineReady(u, R, host);
   }
-  // instellingen
-  const sx = W / 2 + 10 * u, sw = lw, tr = TRACKS[R.track];
-  const set = [['TRACK', tr.name.toUpperCase() + '  (' + CUPS[tr.cup].name + ')'], ['CLASS', CLASSES[R.cls].name + '  ' + CLASSES[R.cls].sub.toUpperCase()], ['COMPUTER RACERS', String(R.bots)]];
-  set.forEach((st, i) => {
-    const y = ly + i * 84 * u, sel = host && NET.lrow === i && R.state !== 'race';
-    card(sx, y, sw, 72 * u, sel);
-    text(st[0], sx + 18 * u, y + 26 * u, 14 * u, sel ? acc : '#cfd3ff', 'left', 800);
-    text((sel ? '< ' : '') + st[1] + (sel ? ' >' : ''), sx + 18 * u, y + 54 * u, 16 * u, '#fff', 'left', 800);
-  });
-  const sz = 120 * u;
-  pixelTrack(ctx, tr, sx + sw / 2 - sz / 2, ly + 258 * u, sz, '#16101a', 4);
-  pixelTrack(ctx, tr, sx + sw / 2 - sz / 2, ly + 258 * u, sz, '#b8b4d0', 2);
-  const msg = R.state === 'race' ? 'RACE IN PROGRESS - YOU JOIN THE NEXT ONE' : host ? 'PRESS ENTER TO START' : 'WAITING FOR THE HOST TO START';
-  if (Math.sin(G.time * 5) > -0.3) text(msg, W / 2, ly + rowH * 8 + 64 * u, 20 * u, '#fff', 'center', 900);
+  // kamerbalk bovenin: code en spelers
+  ctx.fillStyle = 'rgba(8,5,22,0.8)'; ctx.fillRect(0, 0, W, Math.round(40 * u));
+  text('ROOM ' + R.code, 16 * u, 27 * u, 16 * u, acc, 'left', 900);
+  R.players.forEach((p, i) => drawFace(p.char, W - 26 * u - i * 34 * u, 20 * u, 0.6));
+  if (R.state !== 'race') {
+    const st = netSteps(R), si = Math.max(0, st.indexOf(R.step));
+    text('STEP ' + (si + 1) + ' / ' + st.length, W / 2, 27 * u, 14 * u, '#cfd3ff', 'center', 800);
+  }
+  // onderbalk: wat je kunt doen
+  ctx.fillStyle = 'rgba(8,5,22,0.92)'; ctx.fillRect(0, Math.round(H - 56 * u), W, Math.round(56 * u));
+  const hint = R.state === 'race' ? (host ? 'E: end the race for everyone      Esc: leave room' : 'Esc: leave room')
+    : host ? (R.step === 'ready' ? 'Enter: start      Esc: back      1-4: emotes' : 'arrows: choose      Enter: next      Esc: back      1-4: emotes')
+    : 'The host is choosing...      Esc: leave room      1-4: emotes';
+  text(hint, W / 2, H - 22 * u, 15 * u, host ? '#cfd3ff' : '#ffb833', 'center', 700, false);
   netDrawFeed(u);
+}
+// laatste stap: overzicht van spelers en keuzes, en bij een cup de tussenstand
+function drawOnlineReady(u, R, host) {
+  const cup = R.omode === 1, acc = '#ffb833';
+  header(u, cup ? (NET.cupDone ? 'FINAL STANDINGS' : 'CUP - RACE ' + (R.cupRace + 1) + ' / 3') : 'READY TO RACE', '');
+  const lw = Math.min(420 * u, W * 0.45), lx = W / 2 - lw - 10 * u, ly = 140 * u, rowH = 44 * u;
+  panel(lx, ly, lw, rowH * 8 + 20 * u, 0.8);
+  const table = cup && NET.cup ? Object.values(NET.cup.table).sort((a, b) => b.pts - a.pts) : null;
+  if (table && table.length) {
+    table.forEach((r, i) => {
+      const y = ly + 10 * u + i * rowH + rowH / 2;
+      if (r.me) { ctx.fillStyle = 'rgba(255,255,255,0.1)'; ctx.fillRect(Math.round(lx + 6 * u), Math.round(y - rowH / 2 + 2 * u), Math.round(lw - 12 * u), Math.round(rowH - 4 * u)); }
+      text(String(i + 1), lx + 22 * u, y + 7 * u, 18 * u, acc, 'center', 800);
+      drawFace(r.face, lx + 62 * u, y, 0.8);
+      text(r.name, lx + 96 * u, y + 7 * u, 17 * u, '#fff', 'left', 800);
+      text(r.pts + ' PT', lx + lw - 18 * u, y + 7 * u, 17 * u, acc, 'right', 800);
+    });
+  } else {
+    R.players.forEach((p, i) => {
+      const y = ly + 10 * u + i * rowH + rowH / 2;
+      drawFace(p.char, lx + 34 * u, y, 0.8);
+      text(RIVALS[p.char].name, lx + 66 * u, y + 2 * u, 17 * u, RIVALS[p.char].pal[2], 'left', 800);
+      text(CARS[p.car].name + (p.id === R.host ? '   HOST' : '') + (p.id === NET.id ? '   YOU' : ''), lx + 66 * u, y + 19 * u, 12 * u, '#cfd3ff', 'left', 600, false);
+    });
+    for (let b = 0; b < R.bots && R.players.length + b < 8; b++)
+      text('COMPUTER RACER', lx + 66 * u, ly + 10 * u + (R.players.length + b) * rowH + rowH / 2 + 8 * u, 15 * u, '#8a88b0', 'left', 700);
+  }
+  const sx = W / 2 + 10 * u, sw = lw, tr = TRACKS[R.cup * 3 + (cup ? R.cupRace : R.tr)];
+  const rows = [['MODE', cup ? 'CUP  -  RACE ' + (R.cupRace + 1) + ' OF 3' : 'SINGLE RACE'], ['TRACK', tr.name.toUpperCase() + '  (' + CUPS[R.cup].name + ')'],
+    ['CLASS', CLASSES[R.cls].name + '  ' + CLASSES[R.cls].sub.toUpperCase()], ['COMPUTER RACERS', String(R.bots)]];
+  rows.forEach((r, i) => {
+    const y = ly + i * 66 * u;
+    card(sx, y, sw, 58 * u, false);
+    text(r[0], sx + 16 * u, y + 22 * u, 12 * u, '#cfd3ff', 'left', 800);
+    text(r[1], sx + 16 * u, y + 45 * u, 15 * u, '#fff', 'left', 800);
+  });
+  const sz = 110 * u;
+  pixelTrack(ctx, tr, sx + sw / 2 - sz / 2, ly + 272 * u, sz, '#16101a', 4);
+  pixelTrack(ctx, tr, sx + sw / 2 - sz / 2, ly + 272 * u, sz, '#b8b4d0', 2);
+  const msg = host ? (cup && NET.cupDone ? 'PRESS ENTER FOR A NEW EVENT' : 'PRESS ENTER TO START') : 'WAITING FOR THE HOST TO START';
+  if (Math.sin(G.time * 5) > -0.3) text(msg, W / 2, ly + rowH * 8 + 54 * u, 20 * u, '#fff', 'center', 900);
 }
 function netDrawFeed(u) {
   let y = H * 0.3;
@@ -5084,7 +5209,8 @@ function drawOnlineResult(u) {
   const order = liveOrder(), pw = 560 * u, ph = (150 + 46 * order.length + 70) * u, px = (W - pw) / 2, py = H * 0.08;
   panel(px, py, pw, ph, 0.88);
   const pos = order.indexOf(G.player) + 1, winT = order[0].finished && !order[0].dnf ? order[0].finishTime : null;
-  text(T.name.toUpperCase() + ' - ONLINE ' + CLASSES[ui.cls].name, W / 2, py + 44 * u, 20 * u, '#ffb833', 'center', 900);
+  const oc = NET.race && NET.race.omode === 1;
+  text(T.name.toUpperCase() + (oc ? ' - CUP RACE ' + (NET.race.cupRace + 1) + '/3' : ' - ONLINE ' + CLASSES[ui.cls].name), W / 2, py + 44 * u, 20 * u, '#ffb833', 'center', 900);
   text(ord(pos).toUpperCase() + ' PLACE', W / 2, py + 92 * u, 44 * u, pos === 1 ? '#ffd24a' : '#fff', 'center', 900);
   order.forEach((e, i) => {
     const y = py + (150 + 46 * i) * u;
@@ -5094,10 +5220,11 @@ function drawOnlineResult(u) {
     drawFace(e.face, px + 98 * u, y - 10 * u);
     text(e === G.player ? 'YOU' : e.name, px + 136 * u, y, 18 * u, e.bot != null ? '#cfd3ff' : '#fff', 'left', 700, false);
     const right = e.dnf ? 'DNF' : e.finished ? fmt(e.finishTime) + (winT != null && i > 0 ? '  +' + (e.finishTime - winT).toFixed(2) : '') : 'LAP ' + Math.min(LAPS, e.lap + 1) + '/' + LAPS;
-    text(right, px + pw - 40 * u, y, 15 * u, '#fff', 'right', 600, false);
+    text(right, px + pw - (oc ? 110 : 40) * u, y, 15 * u, '#fff', 'right', 600, false);
+    if (oc) text('+' + (e.dnf ? 0 : POINTS8[i] || 0), px + pw - 40 * u, y, 16 * u, '#7dffb0', 'right', 800, false);
     ctx.globalAlpha = 1;
   });
-  text('Enter: back to the room      1-4: emotes', W / 2, py + ph - 24 * u, 14 * u, '#cfd3ff', 'center', 600, false);
+  text(oc ? 'Enter: back to the room for the standings      1-4: emotes' : 'Enter: back to the room      1-4: emotes', W / 2, py + ph - 24 * u, 14 * u, '#cfd3ff', 'center', 600, false);
 }
 
 // ---------------------------------------------------------------- hoofdlus
