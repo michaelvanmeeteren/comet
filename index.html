@@ -2468,6 +2468,18 @@ function tick() {
       }
     }
   }
+  // online: is er nog maar een rijder onderweg, dan is die sowieso laatste en is de race voorbij.
+  // Alleen het spel dat die rijder zelf rijdt (of de host bij een computerrijder) beslist dat.
+  if (G.mode === 'online' && live && G.ents.length > 1) {
+    const left = G.ents.filter(o => !o.finished);
+    const e = left.length === 1 ? left[0] : null;
+    if (e && !e.remote) {
+      const t = now + 0.01;   // net na de rest, ook als die in dezelfde tick binnenkwam
+      e.finished = true; e.finishTime = t; e.arrive = G.time;
+      if (e.bot != null) { NET.send({ t: 'botfin', bot: e.bot, time: t }); NET.send({ t: 'botsdone' }); }
+      if (e === P) { finishRun(t); showMsg('LAST ONE LEFT', 'the race is over', '#ffb833', 2.5); }
+    }
+  }
   if (G.mode === 'online') netSendState();
   if (racing) {
     G.ticks++;
