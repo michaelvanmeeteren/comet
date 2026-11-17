@@ -4796,7 +4796,7 @@ function drawMenu(u) {
 // Elke speler rekent zijn eigen voertuig uit en stuurt 20 keer per seconde zijn positie naar de server; die geeft het door.
 // De andere spelers worden 100 ms achter de laatste berichten getekend, zodat er altijd twee standen zijn om tussen te
 // schuiven. De host laat ook de computerrijders rijden en stuurt hun posities mee. Server: server/server.js.
-const NET_VERSION = 2;
+const NET_VERSION = 3;
 const POINTS8 = [10, 7, 5, 3, 2, 1, 0, 0];   // online kunnen er acht deelnemers zijn
 const EMOTES = ['GG!', 'NICE!', 'WOW!', 'OOPS!'];
 const NET = {
@@ -5015,13 +5015,13 @@ function netHostStart() {
   if (cup && NET.cupDone) {
     // na de eindstand: opnieuw beginnen met kiezen
     NET.cupDone = false; NET.cup = null;
-    Object.assign(R, { step: 'mode', cupRace: 0 });
-    NET.send({ t: 'set', step: 'mode', cupRace: 0 });
+    Object.assign(R, { step: 'lobby', cupRace: 0 });
+    NET.send({ t: 'set', step: 'lobby', cupRace: 0 });
     return;
   }
   NET.send({ t: 'start', track: R.cup * 3 + (cup ? R.cupRace : R.tr) });
 }
-const netSteps = R => R.omode === 1 ? ['mode', 'cup', 'cls', 'bots', 'ready'] : ['mode', 'cup', 'track', 'cls', 'bots', 'ready'];
+const netSteps = R => R.omode === 1 ? ['lobby', 'mode', 'cup', 'cls', 'bots', 'ready'] : ['lobby', 'mode', 'cup', 'track', 'cls', 'bots', 'ready'];
 
 // ---- online-scherm: verbinden, kamer maken of meedoen, en dan de keuzes van de host
 function netMenuKey(code, key, lr, ud, ok, back) {
@@ -5110,6 +5110,24 @@ function drawOnlineMenu(u) {
     header(u, 'ROOM  ' + R.code, '');
     text('A RACE IS IN PROGRESS', W / 2, H * 0.42, 34 * u, '#fff', 'center', 900);
     text('You join the next one', W / 2, H * 0.42 + 36 * u, 16 * u, '#cfd3ff', 'center', 700, false);
+  } else if (R.step === 'lobby') {
+    // eerst verzamelen: wie is er binnen? De host gaat met Enter naar de keuzes.
+    header(u, 'LOBBY', '');
+    text('ROOM CODE', W / 2, 118 * u, 14 * u, '#cfd3ff', 'center', 800);
+    text(R.code, W / 2, 162 * u, 48 * u, acc, 'center', 900);
+    const cols = 4, gap = 14 * u, cw = Math.min(200 * u, (W - 60 * u - gap * 3) / cols), ch = 120 * u;
+    const x0 = W / 2 - (cw * cols + gap * (cols - 1)) / 2, y0 = 190 * u;
+    for (let i = 0; i < 8; i++) {
+      const x = x0 + (i % cols) * (cw + gap), y = y0 + Math.floor(i / cols) * (ch + gap), p = R.players[i];
+      card(x, y, cw, ch, !!p && p.id === NET.id);
+      if (p) {
+        drawFace(p.char, x + cw / 2, y + 40 * u, 0.9);
+        text(RIVALS[p.char].name, x + cw / 2, y + 86 * u, 16 * u, RIVALS[p.char].pal[2], 'center', 900);
+        text(CARS[p.car].name + (p.id === R.host ? '  - HOST' : ''), x + cw / 2, y + 106 * u, 11 * u, p.id === R.host ? acc : '#cfd3ff', 'center', 700, false);
+      } else text('WAITING...', x + cw / 2, y + ch / 2 + 6 * u, 14 * u, '#5a5880', 'center', 800);
+    }
+    const msg = host ? (R.players.length > 1 ? 'PRESS ENTER WHEN EVERYONE IS IN' : 'SHARE THE CODE - OR PRESS ENTER TO GO ALONE') : 'WAITING FOR THE HOST...';
+    if (Math.sin(G.time * 5) > -0.3) text(msg, W / 2, y0 + 2 * ch + gap + 40 * u, 18 * u, '#fff', 'center', 900);
   } else if (R.step === 'mode') {
     header(u, 'SINGLE RACE OR CUP?', '');
     const gap = 30 * u, cw = Math.min(340 * u, (W - 60 * u - gap) / 2), ch = 260 * u, x0 = W / 2 - cw - gap / 2, y0 = H * 0.28;
@@ -5143,13 +5161,13 @@ function drawOnlineMenu(u) {
   R.players.forEach((p, i) => drawFace(p.char, W - 26 * u - i * 34 * u, 20 * u, 0.6));
   if (R.state !== 'race') {
     const st = netSteps(R), si = Math.max(0, st.indexOf(R.step));
-    text('STEP ' + (si + 1) + ' / ' + st.length, W / 2, 27 * u, 14 * u, '#cfd3ff', 'center', 800);
+    text(si === 0 ? R.players.length + ' / 8 PLAYERS' : 'STEP ' + si + ' / ' + (st.length - 1), W / 2, 27 * u, 14 * u, '#cfd3ff', 'center', 800);
   }
   // onderbalk: wat je kunt doen
   ctx.fillStyle = 'rgba(8,5,22,0.92)'; ctx.fillRect(0, Math.round(H - 56 * u), W, Math.round(56 * u));
   const hint = R.state === 'race' ? (host ? 'E: end the race for everyone      Esc: leave room' : 'Esc: leave room')
-    : host ? (R.step === 'ready' ? 'Enter: start      Esc: back      1-4: emotes' : 'arrows: choose      Enter: next      Esc: back      1-4: emotes')
-    : 'The host is choosing...      Esc: leave room      1-4: emotes';
+    : host ? (R.step === 'lobby' ? 'Enter: choose the race      Esc: leave room      1-4: emotes' : R.step === 'ready' ? 'Enter: start      Esc: back      1-4: emotes' : 'arrows: choose      Enter: next      Esc: back      1-4: emotes')
+    : R.step === 'lobby' ? 'Waiting for the host...      Esc: leave room      1-4: emotes' : 'Everyone sees what the host chooses...      Esc: leave room      1-4: emotes';
   text(hint, W / 2, H - 22 * u, 15 * u, host ? '#cfd3ff' : '#ffb833', 'center', 700, false);
   netDrawFeed(u);
 }
