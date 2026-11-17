@@ -4793,13 +4793,16 @@ const NET = {
 };
 // Op de website (GitHub Pages) staat in server.json het adres van de server die nu draait; het startscript op de pc
 // van de host zet het daar neer. Zo hoeft niemand een adres te typen. Lokaal of via de server zelf bestaat dit bestand niet.
-if (location.protocol === 'https:' || location.hostname.endsWith('github.io')) {
-  fetch('server.json?' + Date.now(), { cache: 'no-store' }).then(r => r.ok ? r.json() : null).then(j => {
+const NET_SITE = location.protocol === 'https:' || location.hostname.endsWith('github.io');
+function netRefreshAddr() {
+  if (!NET_SITE) return Promise.resolve();
+  return fetch('server.json?' + Date.now(), { cache: 'no-store' }).then(r => r.ok ? r.json() : null).then(j => {
     if (j && j.url && !NET.typed) NET.addr = j.url;
     if (j) NET.since = j.updated || '';
-    if (j && !j.url) NET.err = 'THE ONLINE SERVER IS OFFLINE RIGHT NOW';
+    NET.err = j && !j.url ? 'THE ONLINE SERVER IS OFFLINE RIGHT NOW' : '';
   }).catch(() => {});
 }
+netRefreshAddr();
 function netUrl() {
   let a = NET.addr.trim();
   if (/^https:\/\//i.test(a)) a = 'wss://' + a.slice(8);
@@ -4807,7 +4810,17 @@ function netUrl() {
   else if (!/^wss?:\/\//i.test(a)) a = (location.protocol === 'https:' ? 'wss://' : 'ws://') + a;
   return a.replace(/\/+$/, '').replace(/\/ws$/, '') + '/ws';
 }
+// Op de website wordt het adres vlak voor het verbinden opnieuw opgehaald: de server kan intussen opnieuw gestart zijn
+// en heeft dan een ander tunneladres.
 function netConnect(then) {
+  if (NET_SITE && !NET.typed && !(NET.ws && NET.ws.readyState === 1 && NET.id != null)) {
+    NET.status = 'connecting';
+    netRefreshAddr().then(() => netConnectNow(then));
+    return;
+  }
+  netConnectNow(then);
+}
+function netConnectNow(then) {
   NET.pending = then || null;
   if (NET.ws && NET.ws.readyState === 1 && NET.id != null) { if (then) then(); NET.pending = null; return; }
   if (NET.ws) { try { NET.ws.close(); } catch (e) {} }
