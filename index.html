@@ -4903,6 +4903,14 @@ function netConnectNow(then) {
   };
   ws.onerror = () => {};
 }
+// keuzes van de host: meteen op het eigen scherm, en met een volgnummer naar de server
+const NET_HOST_KEYS = ['step', 'omode', 'cup', 'tr', 'cls', 'bots', 'cupRace'];
+function netSet(o) {
+  if (!NET.room) return;
+  Object.assign(NET.room, o);
+  NET.setSeq = (NET.setSeq || 0) + 1; NET.setAt = performance.now();
+  NET.send({ t: 'set', seq: NET.setSeq, ...o });
+}
 function netOnMessage(m) {
   switch (m.t) {
     case 'welcome':
@@ -4914,6 +4922,11 @@ function netOnMessage(m) {
       if (!m.code) { NET.room = null; break; }
       {
         const prev = NET.room;
+        if (!prev || prev.code !== m.code) NET.setSeq = 0;
+        // de host kiest sneller dan de server antwoordt: een antwoord op een oudere keuze mag de nieuwere keuzes op het
+        // scherm niet terugzetten (m.hs = de laatste keuze die de server verwerkt heeft)
+        else if (m.host === NET.id && m.state === 'lobby' && m.hs != null && m.hs < NET.setSeq && performance.now() - NET.setAt < 3000)
+          for (const k of NET_HOST_KEYS) m[k] = prev[k];
         NET.room = m; NET.err = '';
         ui.cls = m.cls;
         // een race is voor iedereen afgelopen: punten tellen (in een cup)
@@ -5054,15 +5067,14 @@ function netScoreRace() {
   });
   NET.cup.race = r.cupRace;
   NET.cupDone = r.cupRace >= 2;
-  if (isHost() && !NET.cupDone) NET.send({ t: 'set', cupRace: r.cupRace + 1 });
+  if (isHost() && !NET.cupDone) netSet({ cupRace: r.cupRace + 1 });
 }
 function netHostStart() {
   const R = NET.room, cup = R.omode === 1;
   if (cup && NET.cupDone) {
     // na de eindstand: opnieuw beginnen met kiezen
     NET.cupDone = false; NET.cup = null;
-    Object.assign(R, { step: 'lobby', cupRace: 0 });
-    NET.send({ t: 'set', step: 'lobby', cupRace: 0 });
+    netSet({ step: 'lobby', cupRace: 0 });
     return;
   }
   NET.send({ t: 'start', track: R.cup * 3 + (cup ? R.cupRace : R.tr) });
@@ -5103,7 +5115,7 @@ function netMenuKey(code, key, lr, ud, ok, back) {
     return;
   }
   // de host: elke keuze is een eigen scherm; Enter verder, Esc terug
-  const set = o => { Object.assign(R, o); NET.send({ t: 'set', ...o }); };
+  const set = netSet;
   const steps = netSteps(R);
   let si = steps.indexOf(R.step);
   if (si < 0) si = 0;
