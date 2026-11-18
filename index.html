@@ -2340,6 +2340,7 @@ function updateParts(dt) {
 // ---------------------------------------------------------------- spelverloop
 function tick() {
   const racing = G.state === 'race', P = G.player, live = racing || G.state === 'finished';
+  if (G.mode === 'online') netDelay();
   for (const e of G.ents) {
     const inp = e.in;
     if (e.remote) { netApply(e); continue; }   // andere spelers: positie komt van het netwerk
@@ -4953,6 +4954,9 @@ function netOnMessage(m) {
     case 'start': netStartRace(m); break;
     case 's': {
       const now = performance.now();
+      // hoe onregelmatig komen de berichten binnen? (het spel stuurt er elke 50 ms een)
+      const prevAt = NET.buf[m.id] && NET.buf[m.id].length ? NET.buf[m.id][NET.buf[m.id].length - 1].at : 0;
+      if (prevAt) { const gap = now - prevAt; NET.gapMax = Math.max(gap, (NET.gapMax || 50) * 0.98); }
       (NET.buf[m.id] || (NET.buf[m.id] = [])).push({ at: now, d: m });
       if (NET.buf[m.id].length > 30) NET.buf[m.id].splice(0, 10);
       if (m.bots) m.bots.forEach((b, i) => {
@@ -4975,6 +4979,10 @@ function netOnMessage(m) {
       const i = G.ents.findIndex(x => x.netId === m.id);
       if (i >= 0 && G.state !== 'menu') { netFeed(G.ents[i].name + ' LEFT', '#ff8a8a'); G.ents.splice(i, 1); }
       delete NET.buf[m.id];
+      // de host is weg: zijn computerrijders worden nergens meer gereden; ze blijven anders stilstaan en de race
+      // (en de laatste-rijder-klok) loopt nooit af
+      if (NET.race && NET.race.host === m.id && G.mode === 'online' && G.state !== 'menu')
+        for (const e of G.ents) if (e.remote && e.bot != null && !e.finished) { e.finished = true; e.dnf = true; e.finishTime = 1e9; e.arrive = G.time; }
       break;
     }
     case 'end': if (G.mode === 'online' && G.state !== 'menu') toMenu('online'); break;
@@ -5031,10 +5039,17 @@ function netSetupRace(p) {
     G.ents.push(e);
   }
 }
-// Stand van een ander voertuig: 100 ms terug in de tijd, tussen twee berichten in (of kort vooruit gerekend).
+// Stand van een ander voertuig: even terug in de tijd, tussen twee berichten in (of kort vooruit gerekend).
+// Hoe ver terug past zich aan: 100 ms bij een rustige verbinding, meer (tot 250 ms) als berichten met horten binnenkomen,
+// zodat de auto's van anderen niet gaan springen. De vertraging verandert geleidelijk.
+function netDelay() {
+  const want = Math.max(100, Math.min(250, (NET.gapMax || 50) * 1.2 + 20));
+  NET.delay = NET.delay == null ? want : NET.delay + (want - NET.delay) * (want > NET.delay ? 0.05 : 0.005);
+  return NET.delay;
+}
 function netSample(buf) {
   if (!buf || !buf.length) return null;
-  const tr = performance.now() - 100;
+  const tr = performance.now() - NET.delay;
   let a = buf[0], b = null;
   for (let i = buf.length - 1; i >= 0; i--) if (buf[i].at <= tr) { a = buf[i]; b = buf[i + 1] || null; break; }
   if (b) {
@@ -5047,11 +5062,16 @@ function netSample(buf) {
   return { x: L.x + L.vx * ex, y: L.y + L.vy * ex, th: L.th, z: L.z, vx: L.vx, vy: L.vy, st: L.st, b: L.b, p: L.p, l: L.l };
 }
 function netApply(e) {
-  const d = netSample(e.bot != null ? NET.botBuf[e.bot] : NET.buf[e.netId]);
+  const buf = e.bot != null ? NET.botBuf[e.bot] : NET.buf[e.netId], d = netSample(buf);
   if (!d) return;
   e.x = d.x; e.y = d.y; e.th = d.th; e.z = d.z || 0; e.vx = d.vx; e.vy = d.vy; e.steer = d.st || 0;
   e.boosting = !!d.b; e.in.acc = Math.hypot(d.vx, d.vy) > 60;
-  if (!e.finished) { e.progress = d.p; e.lap = d.l; }
+  if (!e.finished) {
+    // de plek in het klassement (1ST, 2ND) komt uit het nieuwste bericht, vooruit gerekend naar nu,
+    // niet uit de vertraagde stand in beeld: anders lijkt wie net voor je rijdt achter je te zitten
+    const L = buf[buf.length - 1], age = Math.min(0.3, (performance.now() - L.at) / 1000);
+    e.progress = L.d.p + Math.hypot(L.d.vx, L.d.vy) * age; e.lap = L.d.l;
+  }
 }
 function netSendState() {
   if (!NET.room || G.state === 'menu' || (++NET.sendN) % 6) return;
@@ -5334,9 +5354,12 @@ loadTrack(1);
 let last = performance.now(), accu = 0;
 function frame(now) {
   let dt = (now - last) / 1000; last = now;
-  if (dt > 0.1) dt = 0.1;
+  // online moet de race gelijk blijven lopen met de klok van de anderen: na een hapering (tot een seconde) rekent het
+  // spel de gemiste stappen in. Anders rijdt wie hapert in beeld achter, maar met een kortere eigen racetijd.
+  const maxDt = G.mode === 'online' && G.state !== 'menu' ? 1 : 0.1;
+  if (dt > maxDt) dt = maxDt;
   if (!(dt >= 0)) dt = 0;   // na een lange laadtijd kan het eerste beeldje een negatieve tijd geven
-  update(dt);
+  update(Math.min(dt, 0.1));   // camera, menu's en effecten blijven bij de oude grens; alleen de physics haalt in
   if (G.state !== 'menu' && (!G.paused || G.mode === 'online')) {
     accu += dt;
     while (accu >= DT) {
