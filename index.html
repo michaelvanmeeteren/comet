@@ -5073,7 +5073,9 @@ const netSteps = R => R.omode === 1 ? ['lobby', 'mode', 'cup', 'cls', 'bots', 'r
 function netMenuKey(code, key, lr, ud, ok, back) {
   if (!NET.room) {
     // rijen: 0 serveradres, 1 kamer maken, 2 meedoen met code
-    if (ud) { NET.row = (NET.row + ud + 3) % 3; beep(520, 0.06, 'square', 0.04); return; }
+    // in een tekstveld zijn W en S letters, geen pijltjes
+    const letter = NET.row !== 1 && /^Key[A-Z]$/.test(code);
+    if (ud && !letter) { NET.row = (NET.row + ud + 3) % 3; beep(520, 0.06, 'square', 0.04); return; }
     if (code === 'Escape') { ui.screen = 'car'; return; }
     if (NET.row === 0 || NET.row === 2) {
       const field = NET.row === 0 ? 'addr' : 'code';
@@ -5159,10 +5161,17 @@ function drawOnlineMenu(u) {
   } else if (R.step === 'lobby') {
     // eerst verzamelen: wie is er binnen? De host gaat met Enter naar de keuzes.
     header(u, 'LOBBY', '');
-    text('ROOM CODE', W / 2, 118 * u, 14 * u, '#cfd3ff', 'center', 800);
-    text(R.code, W / 2, 162 * u, 48 * u, acc, 'center', 900);
+    // de code als vier losse tegels: groot, wit op donker, goed te lezen en voor te lezen
+    const tw = Math.round(50 * u), th2 = Math.round(56 * u), tg = Math.round(12 * u), tx0 = Math.round(W / 2 - (tw * 4 + tg * 3) / 2), ty0 = Math.round(118 * u);
+    text('ROOM CODE', tx0 - 18 * u, ty0 + th2 / 2 + 6 * u, 15 * u, '#cfd3ff', 'right', 800);
+    [...R.code].forEach((c, i) => {
+      const x = tx0 + i * (tw + tg);
+      ctx.fillStyle = acc; ctx.fillRect(x - 3, ty0 - 3, tw + 6, th2 + 6);
+      ctx.fillStyle = '#0b0718'; ctx.fillRect(x, ty0, tw, th2);
+      text(c, x + tw / 2, ty0 + th2 / 2 + 15 * u, 42 * u, '#fff', 'center', 800);
+    });
     const cols = 4, gap = 14 * u, cw = Math.min(200 * u, (W - 60 * u - gap * 3) / cols), ch = 120 * u;
-    const x0 = W / 2 - (cw * cols + gap * (cols - 1)) / 2, y0 = 190 * u;
+    const x0 = W / 2 - (cw * cols + gap * (cols - 1)) / 2, y0 = 198 * u;
     for (let i = 0; i < 8; i++) {
       const x = x0 + (i % cols) * (cw + gap), y = y0 + Math.floor(i / cols) * (ch + gap), p = R.players[i];
       card(x, y, cw, ch, !!p && p.id === NET.id);
@@ -5203,7 +5212,7 @@ function drawOnlineMenu(u) {
   }
   // kamerbalk bovenin: code en spelers
   ctx.fillStyle = 'rgba(8,5,22,0.8)'; ctx.fillRect(0, 0, W, Math.round(40 * u));
-  text('ROOM ' + R.code, 16 * u, 27 * u, 16 * u, acc, 'left', 900);
+  text('ROOM ' + R.code, 16 * u, 28 * u, 20 * u, '#fff', 'left', 800);
   R.players.forEach((p, i) => drawFace(p.char, W - 26 * u - i * 34 * u, 20 * u, 0.6));
   if (R.state !== 'race') {
     const st = netSteps(R), si = Math.max(0, st.indexOf(R.step));
