@@ -4751,7 +4751,33 @@ function buildLogo() {
   // plek van de kroon: midden boven de O (de letters staan schuin, dus bovenaan verschoven)
   logoArt = { c, m, s, w: c.width, h: c.height, lettersBottom: top + lh, crownX: pad + (oX + LH * S) * U, crownY: top };
 }
+// Het logo zelf is een plaatje (art/obj/logo.png, gemaakt met SpriteCook). Zolang dat er niet is: de getekende versie hieronder.
+let logoBox = null;
 function drawLogo(u, y) {
+  const im = ART_OBJ.logo;
+  if (!im) return drawLogoDrawn(u, y);
+  if (!logoBox) {
+    // de lege rand om het logo heen niet meetellen
+    const c = document.createElement('canvas'); c.width = im.width; c.height = im.height;
+    const g = c.getContext('2d'); g.drawImage(im, 0, 0);
+    const d = g.getImageData(0, 0, c.width, c.height).data;
+    let x0 = c.width, y0 = c.height, x1 = 0, y1 = 0;
+    for (let j = 0; j < c.height; j++) for (let i = 0; i < c.width; i++) if (d[(j * c.width + i) * 4 + 3] > 20) { x0 = Math.min(x0, i); y0 = Math.min(y0, j); x1 = Math.max(x1, i); y1 = Math.max(y1, j); }
+    logoBox = { x: x0, y: y0, w: x1 - x0 + 1, h: y1 - y0 + 1 };
+  }
+  // snelheidsstrepen erachter
+  for (let i = 0; i < 9; i++) {
+    const len = Math.round((80 + (i * 53) % 140) * u), sp = 420 + (i * 97) % 300;
+    const sx = Math.round(((i * 211 - G.time * sp) % (W + len) + W + len) % (W + len) - len);
+    ctx.fillStyle = i % 3 === 0 ? 'rgba(255,79,138,0.85)' : 'rgba(207,211,255,0.6)';
+    ctx.fillRect(sx, Math.round(H * 0.4 - (110 - i * 13) * u), len, Math.max(2, Math.round(5 * u)));
+  }
+  const b = logoBox, hh = Math.round(Math.min(270 * u, H * 0.4 + 60 * u)), ww = Math.round(b.w * hh / b.h);
+  const bob = Math.round(Math.sin(G.time * 2) * 2 * u);
+  ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(im, b.x, b.y, b.w, b.h, Math.round(W / 2 - ww / 2), Math.round(H * 0.4 + 100 * u - hh) + bob, ww, hh);
+}
+function drawLogoDrawn(u, y) {
   if (!logoArt) buildLogo();
   const L = logoArt, k = Math.max(1, Math.round(150 * u / L.h)), lw = L.w * k, x0 = Math.round(W / 2 - lw / 2), y0 = Math.round(y - L.lettersBottom * k);
   // snelheidsstrepen erachter
