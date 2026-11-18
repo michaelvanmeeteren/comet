@@ -4671,13 +4671,12 @@ function drawCupGrid(u, sel, mode) {
   if (sc < maxS - 1) text('- MORE CUPS BELOW -', W / 2, y0 + areaH + 30 * u, 13 * u, '#cfd3ff', 'center', 700);
   if (sc > 1) text('- MORE CUPS ABOVE -', W / 2, y0 - 16 * u, 13 * u, '#cfd3ff', 'center', 700);
 }
-// Logo op het startscherm: K.O.T.T. - KING OF THE TRACK. Een pixelkroon, "KING OF THE" tussen gouden lijnen,
-// TRACK groot met snelheidsstrepen erachter, en de afkorting eronder.
+// Logo op het startscherm: een pixelkroon, K.O.T.T. groot met snelheidsstrepen erachter, en KING OF THE TRACK eronder.
 function drawLogo(u, y) {
   const px = Math.max(2, Math.round(8 * u)), bob = Math.round(Math.sin(G.time * 2.2) * 3 * u);
   // kroon
   const crown = ['X...X...X', 'XX.XXX.XX', 'XXXXXXXXX', 'XXXXXXXXX', 'XXXXXXXXX', 'XXXXXXXXX'];
-  const gem = { '2,3': '#ff4f8a', '4,3': '#7dffb0', '6,3': '#4fc3ff' }, cy = Math.round(y - 250 * u) + bob, cx = Math.round(W / 2 - 4.5 * px);
+  const gem = { '2,3': '#ff4f8a', '4,3': '#7dffb0', '6,3': '#4fc3ff' }, cy = Math.round(y - 185 * u) + bob, cx = Math.round(W / 2 - 4.5 * px);
   ctx.fillStyle = '#1a1030';
   crown.forEach((r, j) => [...r].forEach((c, i) => { if (c === 'X') ctx.fillRect(cx + i * px + px / 2, cy + j * px + px / 2, px, px); }));
   crown.forEach((r, j) => [...r].forEach((c, i) => {
@@ -4694,17 +4693,8 @@ function drawLogo(u, y) {
     ctx.fillRect(sx - s, sy, s * 2 + 1, Math.max(1, Math.round(px / 3)));
     ctx.fillRect(sx, sy - s, Math.max(1, Math.round(px / 3)), s * 2 + 1);
   }
-  // KING OF THE, met gouden lijnen links en rechts
-  const ky = Math.round(y - 150 * u), lw = Math.round(120 * u), gapX = Math.round(150 * u), lh = Math.max(2, Math.round(4 * u));
-  text('KING OF THE', W / 2 + 3, ky + 3, 40 * u, '#1a1030', 'center');
-  text('KING OF THE', W / 2, ky, 40 * u, '#ffd24a', 'center', 900);
-  ctx.fillStyle = '#ffd24a';
-  ctx.fillRect(Math.round(W / 2 - gapX - lw), ky - Math.round(16 * u), lw, lh);
-  ctx.fillRect(Math.round(W / 2 + gapX), ky - Math.round(16 * u), lw, lh);
-  ctx.fillStyle = '#c98a12';
-  ctx.fillRect(Math.round(W / 2 - gapX - lw * 0.6), ky - Math.round(16 * u) + lh * 2, Math.round(lw * 0.6), lh);
-  ctx.fillRect(Math.round(W / 2 + gapX), ky - Math.round(16 * u) + lh * 2, Math.round(lw * 0.6), lh);
-  // snelheidsstrepen achter TRACK
+  const lw = Math.round(90 * u), lh = Math.max(2, Math.round(4 * u));
+  // snelheidsstrepen achter K.O.T.T.
   for (let k = 0; k < 9; k++) {
     const len = Math.round((80 + (k * 53) % 140) * u), sp = 420 + (k * 97) % 300;
     const sx = Math.round(((k * 211 - G.time * sp) % (W + len) + W + len) % (W + len) - len);
@@ -4717,11 +4707,11 @@ function drawLogo(u, y) {
   text('K.O.T.T.', W / 2 + 4, y + 4, 150 * u, '#b01f6a', 'center');
   text('K.O.T.T.', W / 2 + 2, y + 2, 150 * u, '#ff4f8a', 'center');
   text('K.O.T.T.', W / 2, y, 150 * u, '#fff', 'center', 900);
-  // TRACK eronder, net als KING OF THE tussen gouden lijnen
+  // KING OF THE TRACK voluit eronder, tussen gouden lijnen
   const ty = Math.round(y + 54 * u);
-  text('TRACK', W / 2 + 3, ty + 3, 40 * u, '#1a1030', 'center');
-  text('TRACK', W / 2, ty, 40 * u, '#ffd24a', 'center', 900);
-  const tg = Math.round(100 * u);
+  text('KING OF THE TRACK', W / 2 + 3, ty + 3, 34 * u, '#1a1030', 'center');
+  text('KING OF THE TRACK', W / 2, ty, 34 * u, '#ffd24a', 'center', 900);
+  const tg = Math.round(290 * u);
   ctx.fillStyle = '#ffd24a';
   ctx.fillRect(Math.round(W / 2 - tg - lw), ty - Math.round(16 * u), lw, lh);
   ctx.fillRect(Math.round(W / 2 + tg), ty - Math.round(16 * u), lw, lh);
