@@ -2563,6 +2563,13 @@ function update(dt) {
     return;
   }
   if (G.paused && G.mode !== 'online') return;
+  if (G.state === 'countdown' && G.mode === 'online' && NET.goAt) {
+    // online telt iedereen af naar hetzelfde moment, los van laden, haperen of de intro overslaan;
+    // wie de intro overslaat wacht achter de streep (READY?) tot de aftelling bij iedereen begint
+    const rem = (NET.goAt - Date.now()) / 1000;
+    if (G.intro > 0) G.intro = Math.min(G.intro, Math.max(0, rem - 3.2) + dt);
+    G.countdown = Math.min(3.2, rem) + dt;   // hieronder gaat er nog dt af
+  }
   if (G.state === 'countdown' && G.intro > 0) G.intro = Math.max(0, G.intro - dt);
   else if (G.state === 'countdown') {
     G.countdown -= dt;
@@ -4915,8 +4922,16 @@ function netOnMessage(m) {
   switch (m.t) {
     case 'welcome':
       NET.id = m.id; NET.status = 'on'; NET.offset = m.time - Date.now();
+      // klok gelijkzetten met de server: een paar keer heen en terug meten, de snelste meting telt
+      NET.bestRtt = Infinity;
+      for (let i = 0; i < 6; i++) setTimeout(() => NET.send({ t: 'ping', c: Date.now() }), 150 * i);
       if (NET.pending) { const p = NET.pending; NET.pending = null; p(); }
       break;
+    case 'pong': {
+      const now = Date.now(), rtt = now - m.c;
+      if (rtt >= 0 && rtt < NET.bestRtt) { NET.bestRtt = rtt; NET.offset = m.s - (m.c + now) / 2; }
+      break;
+    }
     case 'err': NET.err = m.msg; break;
     case 'room':
       if (!m.code) { NET.room = null; break; }
@@ -4985,6 +5000,8 @@ function netStartRace(m) {
   ui.cls = m.cls;
   G.state2 = '';
   startRace(m.track, 'online');
+  // gezamenlijk startmoment op de klok van de server: intro plus aftellen, bij iedereen tegelijk afgelopen
+  NET.goAt = m.time ? m.time - NET.offset + (INTRO_T + 3.2) * 1000 : 0;
 }
 function netSetupRace(p) {
   const m = NET.race, players = NET.room.players, rng = mulberry32(m.seed);
