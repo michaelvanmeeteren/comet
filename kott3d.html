@@ -111,8 +111,8 @@ const MODELS = {
 // x, z, hoogte, kanteling in graden (de richting volgt de bocht vanzelf)
 const CP = [
   [0, 0, 0, 0], [1400, 1300, 60, 0], [2300, 2400, 200, 0], [2300, 3000, 280, 0], [2300, 3600, 320, 0],   // recht omhoog naar de schans
-  [2300, 4300, 190, 0], [2300, 4900, 110, 0], [2300, 5600, 90, 0], [2250, 6300, 120, 10],            // over het water, lager landen, rechtdoor
-  [1400, 7000, 220, 30], [0, 7100, 300, 30], [-1400, 6500, 340, 28], [-2300, 5000, 360, 22], [-2500, 3000, 370, 12], [-1500, 1500, 365, 0],
+  [2300, 4300, 190, 0], [2300, 4900, 110, 0], [2300, 5600, 90, 0], [2250, 6300, 120, 30],            // over het water, lager landen, rechtdoor
+  [1400, 7000, 230, 50], [0, 7100, 300, 55], [-1400, 6500, 340, 52], [-2300, 5000, 360, 40], [-2500, 3000, 370, 12], [-1500, 1500, 365, 0],
   [0, 0, 360, 0], [1100, -1100, 330, 6], [2100, -2300, 270, 40], [2050, -3500, 215, 74], [1000, -4250, 205, 80],
   [-350, -4150, 205, 80], [-1350, -3300, 195, 66], [-1550, -2000, 100, 22], [-1000, -900, 20, 0]
 ];
@@ -449,6 +449,7 @@ function minRadius(pts) {
   return mr;
 }
 // een vlakke baan uit komeet.html krijgt heuvels, kantelingen in de bochten en afgeronde krappe bochten
+const FLOW_MIN_R = 650, FLOW_R = 1500, FLOW_BANK_MAX = 62;
 function autoTrack(def, idx) {
   const n = def.pts.length, cp = def.pts.map(([x, y], i) => [x, y, 70 + 170 * (0.5 + 0.5 * Math.sin(i * 1.7 + idx * 2.3)), 0]);
   let dense = [];
@@ -457,8 +458,9 @@ function autoTrack(def, idx) {
     for (let k = 0; k < 40; k++) { const t = k / 40, q = [0, 1, 2, 3].map(j => crom(a[j], b[j], c[j], d[j], t)); dense.push([q[0], q[2], q[1], 0]); }
   }
   let r = resample(dense);
-  const minR = def.minR || def.hw + 150;
-  for (let w = 0; w <= 60 && minRadius(r.pts) < minR; w += 3) {
+  // vol gas door elke bocht: geen bocht krapper dan FLOW_MIN_R (het stuur kan dat bij topsnelheid net aan, met de kanteling erbij)
+  const minR = Math.max(def.minR || def.hw + 150, FLOW_MIN_R);
+  for (let w = 0; w <= 240 && minRadius(r.pts) < minR; w += 3) {
     const xs = smoothArr(smoothArr(r.pts.map(p => p[0]), w), w), zs = smoothArr(smoothArr(r.pts.map(p => p[2]), w), w);
     r = resample(r.pts.map((p, i) => [xs[i], p[1], zs[i], 0]));
   }
@@ -469,10 +471,15 @@ function autoTrack(def, idx) {
     const ux = b[0] - a[0], uz = b[2] - a[2], vx = d[0] - b[0], vz = d[2] - b[2];
     c[i] = Math.abs(Math.atan2(ux * vz - uz * vx, ux * vx + uz * vz)) / (3 * r.step);
   }
-  const bank = smoothArr(smoothArr(c.map(k => Math.min(50, k * 26000)), 12), 12);
+  // kanteling zo dat de bocht in het wegvlak minstens zo ruim is als FLOW_R (kg = kromming x cos kanteling); door de hele bocht vasthouden
+  const want = c.map(k => k > 1e-6 ? Math.min(FLOW_BANK_MAX, Math.acos(Math.min(1, 1 / (k * FLOW_R))) * 180 / Math.PI) : 0);
+  const held = want.map((_, i) => { let m = 0; for (let j = -14; j <= 14; j++) m = Math.max(m, want[(i + j + N) % N]); return m; });
+  const bank = smoothArr(smoothArr(held, 10), 10);
+  // heuvels geleidelijk: hoogte uitgesmeerd over ruim 1000 eenheden, zodat geen top of dal je van de weg trekt
+  const ys = smoothArr(smoothArr(pts.map(p => p[1]), 36), 36);
   const need = bank.map(b => def.hw * Math.sin(b * Math.PI / 180) + 25);
-  const lift = smoothArr(smoothArr(need.map((nd, i) => { let m = 0; for (let j = -30; j <= 30; j++) { const q = (i + j + N) % N; m = Math.max(m, need[q] - pts[q][1]); } return Math.max(0, m); }), 25), 25);
-  return pts.map((p, i) => [p[0], p[1] + lift[i], p[2], bank[i]]);
+  const lift = smoothArr(smoothArr(need.map((nd, i) => { let m = 0; for (let j = -45; j <= 45; j++) { const q = (i + j + N) % N; m = Math.max(m, need[q] - ys[q]); } return Math.max(0, m); }), 36), 36);
+  return pts.map((p, i) => [p[0], ys[i] + lift[i], p[2], bank[i]]);
 }
 function buildTrack(def, idx) {
   HW = def.hw;
@@ -497,7 +504,7 @@ function buildTrack(def, idx) {
   // richting van de bocht (rechts = +), uitgesmeerd zodat de kanteling niet verspringt
   const curv = T.map((t, i) => dot(sub(T[(i + 1) % N], T[(i - 1 + N) % N]), R0[i]));
   const sgn = new Float32Array(N);
-  for (let i = 0; i < N; i++) { let a = 0; for (let j = -30; j <= 30; j++) a += curv[(i + j + N) % N]; sgn[i] = Math.tanh(a / 61 * 160); }
+  for (let i = 0; i < N; i++) { let a = 0; for (let j = -12; j <= 12; j++) a += curv[(i + j + N) % N]; sgn[i] = Math.tanh(a / 25 * 160); }
   const R = [], U = [];
   for (let i = 0; i < N; i++) {
     const b = bankMag[i] * sgn[i] * Math.PI / 180, u0 = cross(R0[i], T[i]);
@@ -997,7 +1004,7 @@ const POINTS = [10, 7, 5, 3, 2, 1];
 const MEDAL_COL = ['#4a4860', '#c8793a', '#cfd6e0', '#ffd24a'], MEDAL_NAME = ['', 'BRONZE', 'SILVER', 'GOLD'];
 const PAL_GHOST = ['#9ff', '#7de', '#5cd', '#4bc', '#268', '#aff', '#dff'];
 // opslag: keuzes, records met ghost per baan en voertuig, beste cupresultaat per cup en klasse
-const SAVE3 = 'kott3d.save.v1';
+const SAVE3 = 'kott3d.save.v2';   // opgehoogd: de banen kregen ruimere bochten (records, ghosts en medailletijden kloppen niet meer)
 const save = (() => { try { return Object.assign({ char: 0, car: 0, cls: 1, rec: {}, ghost: {}, cups: {} }, JSON.parse(localStorage.getItem(SAVE3)) || {}); } catch (e) { return { char: 0, car: 0, cls: 1, rec: {}, ghost: {}, cups: {} }; } })();
 function store() { try { localStorage.setItem(SAVE3, JSON.stringify(save)); } catch (e) {} }
 // spelstatus buiten de race: menu of race, en welke modus
