@@ -52,49 +52,49 @@ const TRACK_DEFS = [
     pts: [[1500,4200],[1500,2300],[2600,1300],[4400,1200],[6200,1500],[7000,2800],[6600,4200],[5200,4700],[4800,5800],[5600,6800],[4600,7300],[2800,7000],[1700,6000]] },
   { id: 'k2', name: 'Night Harbour', cup: 0, hw: 150, haz: { pads: 7, slow: 1 },
     pts: [[1200,5200],[1200,3000],[1500,1500],[2800,1000],[4000,1500],[4300,2700],[3400,3500],[3800,4500],[5200,4300],[5800,3000],[5600,1600],[6600,1000],[7300,1900],[7200,4200],[6900,6000],[5800,7000],[4200,6600],[3200,7200],[1900,6900]] },
-  { id: 'k3', name: 'Funfair Pier', cup: 0, hw: 150, haz: { pads: 7, slow: 2, block: 1 },
+  { id: 'k3', name: 'Funfair Pier', cup: 0, hw: 150, haz: { pads: 7, slow: 2, gate: 1 },
     pts: [[1000,6800],[1000,1600],[1800,900],[2700,1500],[2700,4600],[3500,5400],[4400,4700],[4400,1800],[5300,900],[6500,1100],[7200,2200],[7000,4000],[6000,5000],[6300,6300],[5500,7200],[3000,7300],[1700,7400]] },
   { id: 'p1', minR: 430, name: 'Blossom Lane', cup: 1, hw: 150, haz: { pads: 6, ice: 2 },
     pts: [[1200,4400],[1200,2400],[2200,1200],[4200,1000],[6200,1200],[7300,2200],[7300,3800],[6400,4800],[6600,6200],[5600,7200],[3600,7200],[2000,6800],[1200,5800]] },
   { id: 'p2', minR: 430, name: 'Bamboo Rain', cup: 1, hw: 150, haz: { pads: 7, ice: 3, slow: 1 },
     pts: [[1100,3600],[1100,2000],[2000,1100],[4000,1000],[6400,1000],[7300,1900],[7300,3400],[6400,4300],[4800,4400],[4000,5200],[4000,6400],[3100,7300],[1900,7200],[1100,6200],[1100,4800]] },
-  { id: 'p3', minR: 430, name: 'Neon Crossing', cup: 1, hw: 150, haz: { pads: 6, ice: 1, block: 1, slow: 1 },
+  { id: 'p3', minR: 430, name: 'Neon Crossing', cup: 1, hw: 150, haz: { pads: 6, ice: 1, slalom: 1, slow: 1 },
     pts: [[1200,2600],[1800,1300],[3400,1000],[6000,1000],[7100,1500],[7400,2400],[7100,3300],[6000,3800],[4200,3800],[3000,3900],[2500,4600],[3000,5300],[4200,5400],[6000,5400],[6900,5600],[7400,6400],[6900,7200],[6000,7400],[4000,7400],[1900,7300],[1100,6400],[1100,4400]] },
   { id: 'v1', minR: 430, name: 'Lava Moat', cup: 2, hw: 150, haz: { pads: 6, jump: 1, slow: 2 },
     pts: [[1200,3200],[1700,1700],[3200,1000],[5400,1000],[6900,1600],[7400,3000],[6800,4300],[5400,4700],[4600,5600],[4700,6700],[3800,7400],[2400,7200],[1300,6200],[1100,4600]] },
-  { id: 'v2', name: 'Dungeon Run', cup: 2, hw: 145, haz: { pads: 7, jump: 2, block: 2 },
+  { id: 'v2', name: 'Dungeon Run', cup: 2, hw: 145, haz: { pads: 7, jump: 2, block: 1, gate: 1 },
     pts: [[1000,1800],[2200,1000],[6000,1000],[7200,1800],[7000,3200],[5600,3400],[2800,3000],[1900,3900],[2700,4900],[5600,4800],[7100,5300],[7200,6700],[6000,7300],[2400,7300],[1200,6600],[900,4600]] },
-  { id: 'v3', minR: 430, name: 'Tyrant Keep', cup: 2, hw: 145, haz: { pads: 6, jump: 1, block: 2, slow: 2 },
+  { id: 'v3', minR: 430, name: 'Tyrant Keep', cup: 2, hw: 145, haz: { pads: 6, jump: 1, slalom: 1, block: 1, slow: 2 },
     pts: [[1000,4200],[1000,2200],[1900,1100],[3600,1000],[6000,1000],[7200,1900],[7300,3600],[7300,5600],[6600,7000],[5200,7300],[4300,6500],[4300,4800],[4300,3400],[3600,2800],[2900,3400],[2900,5200],[2900,6600],[2000,7300],[1200,6600],[1000,5400]] },
   { id: 's1', minR: 430, name: 'Meteor Field', cup: 3, hw: 150, haz: { pads: 6, ice: 1, jump: 1, block: 1 },
     pts: [[1100,4000],[1100,2200],[1900,1100],[3200,1100],[3900,2000],[3900,4000],[3900,5400],[4700,6300],[5700,5600],[5700,3800],[5700,2000],[6500,1100],[7300,1900],[7300,4000],[7300,6200],[6500,7300],[4400,7400],[2400,7400],[1300,6800],[1100,5400]] },
-  { id: 's2', minR: 430, name: 'Ring Road', cup: 3, hw: 145, haz: { pads: 6, ice: 2, block: 2, slow: 2 },
+  { id: 's2', minR: 430, name: 'Ring Road', cup: 3, hw: 145, haz: { pads: 6, ice: 2, gate: 1, block: 1, slow: 2 },
     pts: [[1000,4100],[1000,2300],[1500,1400],[2400,1000],[4100,1000],[5800,1000],[6700,1400],[7200,2300],[7200,4000],[6700,5200],[5600,5700],[4900,6500],[4000,7300],[2600,7300],[1500,6800],[1000,5800]] },
-  { id: 's3', minR: 430, name: 'Supernova', cup: 3, hw: 145, haz: { pads: 7, ice: 1, jump: 1, block: 1, slow: 2 },
+  { id: 's3', minR: 430, name: 'Supernova', cup: 3, hw: 145, haz: { pads: 7, ice: 1, jump: 1, slalom: 1, slow: 2 },
     pts: [[1000,4600],[1000,2800],[1300,1700],[2000,1100],[2800,1100],[3300,1900],[3500,2700],[4100,3200],[4700,2700],[4900,1900],[5400,1100],[6200,1100],[6900,1700],[7200,2800],[7200,4600],[7200,5800],[6700,6900],[5600,7400],[4100,7400],[2600,7400],[1500,6900],[1000,5800]] },
   { id: 'd1', name: 'Oasis Run', cup: 4, hw: 150, minR: 430, haz: { pads: 6, slow: 1 },
     pts: [[1200,4300],[1200,2600],[1900,1400],[3400,1000],[5400,1100],[6800,1800],[7300,3200],[7000,4800],[6000,5600],[5600,6600],[4600,7300],[3000,7300],[1700,6700],[1200,5600]] },
-  { id: 'd2', name: 'Caravan Bazaar', cup: 4, hw: 150, minR: 430, haz: { pads: 7, slow: 2, block: 1 },
+  { id: 'd2', name: 'Caravan Bazaar', cup: 4, hw: 150, minR: 430, haz: { pads: 7, slow: 2, gate: 1 },
     pts: [[1100,4000],[1100,2200],[1900,1100],[3600,1000],[5600,1000],[6900,1500],[7400,2700],[6900,3900],[5600,4300],[4800,5000],[4900,6200],[4200,7200],[2800,7400],[1600,6800],[1100,5600]] },
-  { id: 'd3', name: 'Canyon Port', cup: 4, hw: 150, minR: 430, haz: { pads: 7, slow: 1, jump: 1 },
+  { id: 'd3', name: 'Canyon Port', cup: 4, hw: 150, minR: 430, haz: { pads: 7, slow: 1, jump: 1, slalom: 1 },
     pts: [[1000,3000],[1500,1600],[2900,1000],[4400,1500],[5200,2800],[6200,3400],[7200,2800],[7400,4200],[7000,5800],[6000,7000],[4400,7400],[2600,7200],[1400,6400],[1000,4800]] },
   { id: 'l1', name: 'Marigold Road', cup: 5, hw: 150, minR: 430, haz: { pads: 6, ice: 1, slow: 1 },
     pts: [[1300,4000],[1300,2400],[2200,1300],[3800,1000],[5200,1400],[5800,2600],[6800,3000],[7400,4200],[7200,5800],[6200,7000],[4600,7400],[3000,7000],[2400,5800],[1500,5200]] },
   { id: 'l2', name: 'Monsoon Jungle', cup: 5, hw: 150, minR: 430, haz: { pads: 7, ice: 3, slow: 1 },
     pts: [[1100,2800],[1900,1400],[3600,1000],[5400,1300],[6200,2400],[6000,3800],[6800,4800],[7400,6000],[6600,7200],[5000,7400],[3600,6800],[3000,5600],[1900,5200],[1100,4200]] },
-  { id: 'l3', name: 'Festival of Lights', cup: 5, hw: 150, minR: 430, haz: { pads: 7, ice: 2, block: 1, slow: 1 },
+  { id: 'l3', name: 'Festival of Lights', cup: 5, hw: 150, minR: 430, haz: { pads: 7, ice: 2, gate: 1, slow: 1 },
     pts: [[1100,4200],[1100,2400],[1900,1200],[3600,1000],[5600,1000],[7000,1600],[7400,3000],[6600,4000],[5000,4200],[4200,5000],[4600,6000],[6000,6200],[7200,6600],[6800,7400],[5000,7400],[2800,7400],[1500,6800],[1100,5600]] },
   { id: 'f1', name: 'Glacier Moat', cup: 6, hw: 150, minR: 430, haz: { pads: 6, ice: 2, jump: 1 },
     pts: [[1200,5600],[1200,3600],[2000,2000],[3600,1100],[5400,1000],[6800,1600],[7400,3000],[7000,4600],[5800,5600],[4600,6400],[3400,7200],[2000,7000]] },
-  { id: 'f2', name: 'Crystal Crypt', cup: 6, hw: 150, minR: 430, haz: { pads: 7, ice: 1, jump: 1, block: 1 },
+  { id: 'f2', name: 'Crystal Crypt', cup: 6, hw: 150, minR: 430, haz: { pads: 7, ice: 1, jump: 1, slalom: 1 },
     pts: [[1000,4200],[1000,2200],[1800,1100],[3800,1000],[6200,1000],[7300,1800],[7300,3400],[6400,4300],[6400,5600],[7200,6600],[6400,7400],[4200,7400],[2200,7400],[1100,6600],[1000,5400]] },
-  { id: 'f3', name: 'Frozen Throne', cup: 6, hw: 150, minR: 430, haz: { pads: 7, ice: 1, jump: 1, block: 1, slow: 1 },
+  { id: 'f3', name: 'Frozen Throne', cup: 6, hw: 150, minR: 430, haz: { pads: 7, ice: 1, jump: 1, gate: 1, slow: 1 },
     pts: [[1000,4000],[1000,2000],[1900,1000],[3200,1100],[3700,2200],[3700,4000],[4400,5000],[5400,4400],[5400,2400],[6000,1200],[7000,1100],[7400,2200],[7400,4400],[7400,6200],[6600,7300],[4400,7400],[2400,7400],[1200,6600],[1000,5200]] },
   { id: 'g1', name: 'Aurora Gate', cup: 7, hw: 150, minR: 430, haz: { pads: 6, ice: 1, jump: 1, block: 1 },
     pts: [[1200,4200],[1200,2400],[2100,1200],[4000,1000],[5800,1300],[7000,2200],[7400,3800],[6900,5400],[5600,6200],[4000,6000],[3200,6800],[2200,7200],[1300,6400]] },
-  { id: 'g2', name: 'Titan Ring', cup: 7, hw: 150, minR: 430, haz: { pads: 7, ice: 2, block: 2, slow: 1 },
+  { id: 'g2', name: 'Titan Ring', cup: 7, hw: 150, minR: 430, haz: { pads: 7, ice: 2, slalom: 1, gate: 1, slow: 1 },
     pts: [[1000,4100],[1300,2500],[2500,1300],[4100,1000],[5700,1300],[6900,2500],[7200,4100],[6900,5700],[5700,6900],[4100,7200],[2500,6900],[1300,5700]] },
-  { id: 'g3', name: 'Big Bang', cup: 7, hw: 150, minR: 430, haz: { pads: 8, ice: 2, jump: 2, block: 2, slow: 2 },
+  { id: 'g3', name: 'Big Bang', cup: 7, hw: 150, minR: 430, haz: { pads: 8, ice: 2, jump: 2, slalom: 1, gate: 1, block: 1, slow: 2 },
     pts: [[1000,4400],[1000,2400],[1700,1200],[3000,1000],[3800,1800],[4000,3200],[4800,3900],[5800,3300],[6000,1900],[6600,1100],[7300,1700],[7400,3400],[7400,5400],[6800,6800],[5400,7400],[3600,7400],[2000,7000],[1100,6000]] }
 ];
 
@@ -245,6 +245,19 @@ function placeHazards(tr, def, seed) {
   };
   scan(want.jump || 0, 950, 200, (k, p) => k.mx < [1 / 1900, 1 / 1300, 1 / 900][p],
     s => haz.push({ type: 'jump', s0: s + 60, s1: s + 100 }));
+  // slalom: twee versperringen vlak na elkaar aan wisselende kanten, voorbij het midden, dus zigzaggen
+  scan(want.slalom || 0, 1150, 300, (k, p) => k.mx < [1 / 1600, 1 / 1100, 1 / 800][p],
+    s => {
+      const sd = rnd() < 0.5 ? -1 : 1;
+      haz.push({ type: 'block', kind: 'slalom', s0: s, s1: s + 430, side: sd, depth: hw * 1.25 });
+      haz.push({ type: 'block', kind: 'part', s0: s + 720, s1: s + 1150, side: -sd, depth: hw * 1.25 });
+    });
+  // poort: aan beide kanten tegelijk een versperring, alleen in het midden kun je erdoor
+  scan(want.gate || 0, 380, 260, (k, p) => k.mx < [1 / 1400, 1 / 900, 1 / 600][p],
+    s => {
+      haz.push({ type: 'block', kind: 'gate', s0: s, s1: s + 380, side: -1, depth: hw * 0.62 });
+      haz.push({ type: 'block', kind: 'part', s0: s, s1: s + 380, side: 1, depth: hw * 0.62 });
+    });
   scan(want.block || 0, 460, 260, (k, p) => k.mx < [1 / 1400, 1 / 900, 1 / 600][p],
     s => haz.push({ type: 'block', s0: s, s1: s + 460, side: rnd() < 0.5 ? -1 : 1, depth: hw * 0.86 }));
   scan(want.ice || 0, 560, 260, (k, p) => k.mx < 1 / 430 && (p > 0 || k.mean > 1 / 4000),
@@ -405,20 +418,30 @@ function cornerSpeed(R, car) {
 }
 
 // Computerbestuurder: volgt een rijlijn, remt voor bochten en ontwijkt versmallingen.
+const aiNear = [];
 function aiControl(e) {
   const sp = Math.hypot(e.vx, e.vy), hw = T.hw, inp = e.in;
   const look = 150 + sp * 0.3;
   let lo = -(hw - 55), hi = hw - 55;
+  // gevaren van dichtbij naar ver; past een verder gevaar niet meer bij het dichtste (slalom), dan eerst het dichtste nemen
+  const near = aiNear;
+  near.length = 0;
   for (const hz of T.haz) {
     if (hz.type !== 'block' && hz.type !== 'slow') continue;
     let a = hz.s0 - e.s; if (a < -T.len / 2) a += T.len;
     const b = a + (hz.s1 - hz.s0);
     if (b < -40 || a > look + 320) continue;
+    near.push([a, hz]);
+  }
+  near.sort((p, q) => p[0] - q[0]);
+  for (const [, hz] of near) {
+    const lo0 = lo, hi0 = hi;
     if (hz.type === 'block') {
       if (hz.side > 0) hi = Math.min(hi, hw - hz.depth - 48); else lo = Math.max(lo, -(hw - hz.depth) + 48);
     } else {
       if (hz.d1 >= hw - 1) hi = Math.min(hi, hz.d0 - 40); else lo = Math.max(lo, hz.d1 + 40);
     }
+    if (lo > hi - 20) { lo = lo0; hi = hi0; break; }
   }
   const lane = Math.max(lo, Math.min(hi, e.lane));
   e.laneS += (lane - e.laneS) * Math.min(1, DT * 4);
@@ -2770,23 +2793,58 @@ function fillDisc(cx, cy, r) {
   }
 }
 
+// Belichting van de schepen: licht van boven, dus bovenkanten lichter en steile zijkanten donkerder.
+// In een paar vaste stappen, zodat het pixelart blijft (geen vloeiende verlopen).
+const SHIP_SIZE = 1.2;   // schepen iets groter tekenen dan hun botsmaat, zodat de details beter te zien zijn
+const shipPts = [], shadeCache = new Map();
+function shipLight(M) {
+  return M.f.map(f => {
+    const [a, b, c] = f[0].map(k => M.v[k]);
+    const ux = b[0] - a[0], uy = b[1] - a[1], uz = b[2] - a[2], vx = c[0] - a[0], vy = c[1] - a[1], vz = c[2] - a[2];
+    const nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx, up = Math.abs(nz) / (Math.hypot(nx, ny, nz) || 1);
+    return Math.round((0.8 + 0.3 * up) * 10) / 10;   // 0.8 (steil) tot 1.1 (plat)
+  });
+}
+function shade(col, k) {
+  if (k === 1) return col;
+  const key = col + k;
+  let r = shadeCache.get(key);
+  if (r) return r;
+  let h = col.replace('#', '');
+  if (h.length === 3) h = h.replace(/./g, c => c + c);
+  const n = parseInt(h, 16);
+  if (h.length !== 6 || isNaN(n)) return col;
+  const f = v => Math.max(0, Math.min(255, Math.round(k > 1 ? v + (255 - v) * (k - 1) * 1.2 : v * k)));
+  r = 'rgb(' + f(n >> 16) + ',' + f((n >> 8) & 255) + ',' + f(n & 255) + ')';
+  shadeCache.set(key, r);
+  return r;
+}
 function drawShip(x, y, th, roll, zBase, car, pal, alpha, glow) {
   const M = MODELS[car.id], V = M.v;
   const fx = Math.cos(th), fy = Math.sin(th), rx = -fy, ry = fx;
   const cr2 = Math.cos(roll), sr2 = Math.sin(roll);
   // lokaal punt (met helling in de bocht) naar het scherm
-  const put = (lx0, ly0, lz0) => {
+  const put = (lx1, ly1, lz1) => {
+    const lx0 = lx1 * SHIP_SIZE, ly0 = ly1 * SHIP_SIZE, lz0 = lz1 * SHIP_SIZE;
     const lx = lx0 * cr2 - lz0 * sr2, lz = lx0 * sr2 + lz0 * cr2;
     return project(x + rx * lx + fx * ly0, y + ry * lx + fy * ly0, zBase + lz);
   };
   if (alpha > 0.9) {
     const pts = [];
     let ok = true;
-    for (const [lx, ly] of M.sh) {
+    for (const [lx1, ly1] of M.sh) {
+      const lx = lx1 * SHIP_SIZE, ly = ly1 * SHIP_SIZE;
       if (!project(x + rx * lx + fx * ly, y + ry * lx + fy * ly, 0)) { ok = false; break; }
       pts.push(pr[0], pr[1]);
     }
-    if (ok) { ctx.fillStyle = 'rgba(0,0,0,0.45)'; fillPoly(pts); }
+    if (ok) {
+      ctx.fillStyle = 'rgba(0,0,0,0.45)'; fillPoly(pts);
+      // zweefgloed: een kleinere vlek in de sierkleur onder het schip, die zachtjes ademt
+      const k = 0.55 + Math.sin(G.time * 5 + x * 0.01) * 0.05, gx = pts.reduce((a, v, i) => i % 2 ? a : a + v, 0) / (pts.length / 2), gy = pts.reduce((a, v, i) => i % 2 ? a + v : a, 0) / (pts.length / 2);
+      for (let i = 0; i < pts.length; i += 2) { shipPts[i] = gx + (pts[i] - gx) * k; shipPts[i + 1] = gy + (pts[i + 1] - gy) * k; }
+      shipPts.length = pts.length;
+      ctx.globalAlpha = 0.35; ctx.fillStyle = pal[5] || '#ff4f8a'; fillPoly(shipPts); ctx.globalAlpha = 1;
+    }
   }
   for (let i = 0; i < V.length; i++) {
     if (!put(V[i][0], V[i][1], V[i][2])) return;
@@ -2800,11 +2858,22 @@ function drawShip(x, y, th, roll, zBase, car, pal, alpha, glow) {
   }).sort((a, b) => b[1] - a[1]);
   ctx.globalAlpha = alpha;
   const poly = [];
+  // donkere omlijning: het hele schip een pixel naar alle kanten, daarna de vlakken eroverheen
+  if (alpha > 0.9) {
+    const o = Math.max(1, Math.round(H / 360));
+    ctx.fillStyle = '#0d0818';
+    for (const [dx, dy] of [[-o, 0], [o, 0], [0, -o], [0, o]]) for (const f of M.f) {
+      poly.length = 0;
+      for (const k of f[0]) poly.push(tv[k][0] + dx, tv[k][1] + dy);
+      fillPoly(poly);
+    }
+  }
+  const lit = M.lit || (M.lit = shipLight(M));
   for (const [fi] of order) {
     const f = M.f[fi];
     poly.length = 0;
     for (const k of f[0]) poly.push(tv[k][0], tv[k][1]);
-    ctx.fillStyle = pal[f[1]] || '#d8f2ff';
+    ctx.fillStyle = shade(pal[f[1]] || '#d8f2ff', f[2] ? 1 : lit[fi]);
     fillPoly(poly);
   }
   if (alpha > 0.9) {
@@ -2818,13 +2887,23 @@ function drawShip(x, y, th, roll, zBase, car, pal, alpha, glow) {
   }
   if (glow > 0) {
     const boost = glow > 1.2, many = M.eng.length > 1 ? 0.72 : 1;
+    const flick = 0.85 + 0.3 * (((G.raceTicks * 7) % 5) / 4);
+    const cols = boost ? ['#2f7fe0', '#8fe8ff', '#ffffff'] : ['#e0541a', '#ffc04a', '#fff6d0'];
     for (const E of M.eng) {
+      // vlam: een punt die naar achteren wijst, langer bij meer gas en boost, in drie lagen
+      const w = E[2] * 0.42 * many, len = (5 + 9 * glow) * flick * many;
+      [[1, 1], [0.66, 0.7], [0.33, 0.42]].forEach(([sw, sl], li) => {
+        if (!put(E[0] - w * sw, E[1], E[2])) return;
+        const ax = pr[0], ay = pr[1];
+        if (!put(E[0] + w * sw, E[1], E[2])) return;
+        const bx = pr[0], by = pr[1];
+        if (!put(E[0], E[1] - len * sl, E[2] - 0.5)) return;
+        ctx.fillStyle = cols[li]; fillPoly([ax, ay, bx, by, pr[0], pr[1]]);
+      });
       if (!put(E[0], E[1], E[2])) continue;
-      const cx = pr[0], cy = pr[1];
-      const r = cam.f / pr[2] * H / 2 * (2.2 + 2.6 * glow) * many + ((G.raceTicks >> 2) & 1);
-      ctx.fillStyle = boost ? '#2f7fe0' : '#e0541a'; fillDisc(cx, cy, r);
-      ctx.fillStyle = boost ? '#8fe8ff' : '#ffc04a'; fillDisc(cx, cy, r * 0.62);
-      ctx.fillStyle = '#ffffff'; fillDisc(cx, cy, r * 0.3);
+      const r = cam.f / pr[2] * H / 2 * (1.4 + 1.4 * glow) * many;
+      ctx.fillStyle = cols[1]; fillDisc(pr[0], pr[1], r);
+      ctx.fillStyle = cols[2]; fillDisc(pr[0], pr[1], r * 0.5);
     }
   }
   ctx.globalAlpha = 1;
@@ -4773,8 +4852,8 @@ function drawMenu(u) {
       pixelTrack(ctx, tr, x + (cw - sz) / 2, y0 + 60 * u, sz, '#16101a', 5);
       pixelTrack(ctx, tr, x + (cw - sz) / 2, y0 + 60 * u, sz, sel ? th.ui : '#b8b4d0', 3);
       const counts = {};
-      tr.haz.forEach(h => counts[h.type] = (counts[h.type] || 0) + 1);
-      const labels = [['ice', LOOKS[tr.index].names.ice], ['jump', 'jump'], ['block', 'chicane'], ['slow', LOOKS[tr.index].names.slow]].filter(l => counts[l[0]]).map(l => counts[l[0]] + 'x ' + l[1]);
+      tr.haz.forEach(h => counts[h.kind || h.type] = (counts[h.kind || h.type] || 0) + 1);
+      const labels = [['ice', LOOKS[tr.index].names.ice], ['jump', 'jump'], ['block', 'chicane'], ['slow', LOOKS[tr.index].names.slow], ['slalom', 'slalom'], ['gate', 'gate']].filter(l => counts[l[0]]).map(l => counts[l[0]] + 'x ' + l[1]);
       if (labels.length > 2) {
         text(labels.slice(0, 2).join('  '), x + cw / 2, y0 + 268 * u, 13 * u, '#cfd3ff', 'center');
         text(labels.slice(2).join('  '), x + cw / 2, y0 + 284 * u, 13 * u, '#cfd3ff', 'center');
@@ -4859,7 +4938,7 @@ const NET = {
     if (location.protocol.startsWith('http')) return location.host;
     try { return localStorage.getItem('comet.server') || 'localhost:8080'; } catch (e) { return 'localhost:8080'; }
   })(),
-  code: '', row: 1, lrow: 0, sendN: 0, offset: 0,
+  code: '', row: 2, lrow: 0, sendN: 0, offset: 0,
   send(m) { if (this.ws && this.ws.readyState === 1) this.ws.send(JSON.stringify(m)); }
 };
 // Op de website (GitHub Pages) staat in server.json het adres van de server die nu draait; het startscript op de pc
@@ -4900,7 +4979,7 @@ function netConnectNow(then) {
   let ws;
   try { ws = new WebSocket(netUrl()); } catch (e) { NET.status = 'off'; NET.err = 'BAD SERVER ADDRESS'; return; }
   NET.ws = ws;
-  ws.onopen = () => NET.send({ t: 'hello', v: NET_VERSION, name: RIVALS[ui.char].name, char: ui.char, car: ui.car });
+  ws.onopen = () => NET.send({ t: 'hello', v: NET_VERSION, name: netName(), char: ui.char, car: ui.car });
   ws.onmessage = ev => { let m; try { m = JSON.parse(ev.data); } catch (e) { return; } netOnMessage(m); };
   ws.onclose = () => {
     if (NET.ws !== ws) return;
@@ -4988,16 +5067,19 @@ function netOnMessage(m) {
     case 'end': if (G.mode === 'online' && G.state !== 'menu') toMenu('online'); break;
     case 'emote': {
       const p = NET.room && NET.room.players.find(x => x.id === m.id);
-      if (p) netFeed(RIVALS[p.char].name + ': ' + EMOTES[m.e], RIVALS[p.char].pal[2]);
+      if (p) netFeed(p.name + ': ' + EMOTES[m.e], RIVALS[p.char].pal[2]);
       break;
     }
   }
 }
 function netFeed(txt, col) { NET.feed.push({ txt, col, t: G.time }); if (NET.feed.length > 5) NET.feed.shift(); }
 function netEmote(i) { if (NET.room) NET.send({ t: 'emote', e: i }); }
-function netPick() { if (NET.id != null) NET.send({ t: 'pick', char: ui.char, car: ui.car }); }
+function netPick() { if (NET.id != null) NET.send({ t: 'pick', char: ui.char, car: ui.car, name: netName() }); }
 const isHost = () => NET.room && NET.room.host === NET.id;
-function netTyping() { return !NET.room && (NET.row === 0 || NET.row === 2); }
+function netTyping() { return !NET.room && NET.row !== 2; }
+let netNameTyped = (() => { try { return localStorage.getItem('kott-name') || ''; } catch (e) { return ''; } })();
+const netName = () => netNameTyped.trim() || RIVALS[ui.char].name;
+function netSaveName() { try { localStorage.setItem('kott-name', netNameTyped); } catch (e) {} netPick(); }
 
 // Startvolgorde en deelnemers zijn bij iedereen gelijk: spelers in de volgorde van de server, daarna de computerrijders.
 function netStartRace(m) {
@@ -5019,7 +5101,7 @@ function netSetupRace(p) {
     if (id === NET.id) { place(p, slot); return; }
     const q = players.find(x => x.id === id);
     if (!q) return;
-    const e = newEntity(CARS[q.car] || CARS[0], { remote: true, netId: id, name: RIVALS[q.char].name, pal: RIVALS[q.char].pal });
+    const e = newEntity(CARS[q.car] || CARS[0], { remote: true, netId: id, name: q.name, pal: RIVALS[q.char].pal });
     e.face = q.char;
     place(e, slot);
     G.ents.push(e);
@@ -5099,7 +5181,7 @@ function netScoreRace() {
   if (!NET.cup) NET.cup = { table: {}, race: -1 };
   liveOrder().forEach((e, i) => {
     const key = e === G.player ? 'p' + NET.id : e.netId != null ? 'p' + e.netId : 'b' + e.bot;
-    const row = NET.cup.table[key] || (NET.cup.table[key] = { name: e === G.player ? RIVALS[ui.char].name : e.name, face: e.face, pts: 0, me: e === G.player });
+    const row = NET.cup.table[key] || (NET.cup.table[key] = { name: e === G.player ? netName() : e.name, face: e.face, pts: 0, me: e === G.player });
     row.pts += e.dnf ? 0 : POINTS8[i] || 0;
   });
   NET.cup.race = r.cupRace;
@@ -5121,25 +5203,36 @@ const netSteps = R => R.omode === 1 ? ['lobby', 'mode', 'cup', 'cls', 'bots', 'r
 // ---- online-scherm: verbinden, kamer maken of meedoen, en dan de keuzes van de host
 function netMenuKey(code, key, lr, ud, ok, back) {
   if (!NET.room) {
-    // rijen: 0 serveradres, 1 kamer maken, 2 meedoen met code
+    // rijen: 0 je naam, 1 serveradres, 2 kamer maken, 3 meedoen met code
     // in een tekstveld zijn W en S letters, geen pijltjes
-    const letter = NET.row !== 1 && /^Key[A-Z]$/.test(code);
-    if (ud && !letter) { NET.row = (NET.row + ud + 3) % 3; beep(520, 0.06, 'square', 0.04); return; }
+    const letter = NET.row !== 2 && /^Key[A-Z]$/.test(code);
+    if (ud && !letter) { NET.row = (NET.row + ud + 4) % 4; beep(520, 0.06, 'square', 0.04); return; }
     if (code === 'Escape') { ui.screen = 'car'; return; }
-    if (NET.row === 0 || NET.row === 2) {
-      const field = NET.row === 0 ? 'addr' : 'code';
-      if (code === 'Backspace') { NET[field] = NET[field].slice(0, -1); if (NET.row === 0) NET.typed = true; return; }
+    if (NET.row === 0) {
+      // naam: hoofdletters, cijfers, spatie en een paar tekens die het lettertype kent; hoogstens 12
+      if (code === 'Backspace') { netNameTyped = netNameTyped.slice(0, -1); netSaveName(); return; }
+      if (key && key.length === 1) {
+        const ch = key.toUpperCase();
+        if (/[A-Z0-9 .!?'-]/.test(ch) && netNameTyped.length < 12 && !(ch === ' ' && !netNameTyped)) { netNameTyped += ch; netSaveName(); }
+        return;
+      }
+      if (code === 'Enter') { NET.row = 2; beep(780, 0.06, 'square', 0.04); }
+      return;
+    }
+    if (NET.row === 1 || NET.row === 3) {
+      const field = NET.row === 1 ? 'addr' : 'code';
+      if (code === 'Backspace') { NET[field] = NET[field].slice(0, -1); if (NET.row === 1) NET.typed = true; return; }
       if (key && key.length === 1 && code !== 'Space') {
-        const ch = NET.row === 0 ? key.toLowerCase() : key.toUpperCase();
-        const okc = NET.row === 0 ? /[a-z0-9.:\/-]/.test(ch) : /[A-Z]/.test(ch);
-        if (okc && NET[field].length < (NET.row === 0 ? 60 : 4)) { NET[field] += ch; if (NET.row === 0) NET.typed = true; }
+        const ch = NET.row === 1 ? key.toLowerCase() : key.toUpperCase();
+        const okc = NET.row === 1 ? /[a-z0-9.:\/-]/.test(ch) : /[A-Z]/.test(ch);
+        if (okc && NET[field].length < (NET.row === 1 ? 60 : 4)) { NET[field] += ch; if (NET.row === 1) NET.typed = true; }
         return;
       }
     }
     if (code !== 'Enter') return;
     beep(780, 0.06, 'square', 0.04);
-    if (NET.row === 0) netConnect();
-    else if (NET.row === 1) netConnect(() => NET.send({ t: 'create' }));
+    if (NET.row === 1) netConnect();
+    else if (NET.row === 2) netConnect(() => NET.send({ t: 'create' }));
     else if (NET.code.length === 4) netConnect(() => NET.send({ t: 'join', code: NET.code }));
     else NET.err = 'TYPE THE 4-LETTER ROOM CODE';
     return;
@@ -5182,21 +5275,23 @@ function drawOnlineMenu(u) {
   const R = NET.room, acc = '#ffb833';
   if (!R) {
     header(u, 'ONLINE', 'up/down: select      type to edit      Enter: go      Esc: back');
-    const pw = Math.min(640 * u, W - 40 * u), px = W / 2 - pw / 2, y0 = H * 0.25, rh = 76 * u;
-    const rows = [['SERVER', NET.addr + (NET.row === 0 && Math.sin(G.time * 8) > 0 ? '_' : '')], ['CREATE A ROOM', ''],
-      ['JOIN A ROOM', (NET.code || '') + (NET.row === 2 && NET.code.length < 4 && Math.sin(G.time * 8) > 0 ? '_' : '')]];
+    const pw = Math.min(640 * u, W - 40 * u), px = W / 2 - pw / 2, y0 = H * 0.22, rh = 66 * u, blink = Math.sin(G.time * 8) > 0;
+    const rows = [['YOUR NAME', netNameTyped + (NET.row === 0 && netNameTyped.length < 12 && blink ? '_' : ''), RIVALS[ui.char].name],
+      ['SERVER', NET.addr + (NET.row === 1 && blink ? '_' : ''), ''], ['CREATE A ROOM', null, ''],
+      ['JOIN A ROOM', (NET.code || '') + (NET.row === 3 && NET.code.length < 4 && blink ? '_' : ''), 'CODE']];
     rows.forEach((rw, i) => {
-      const y = y0 + i * (rh + 14 * u), sel = NET.row === i;
+      const y = y0 + i * (rh + 12 * u), sel = NET.row === i;
       card(px, y, pw, rh, sel);
       text(rw[0], px + 24 * u, y + rh / 2 + 8 * u, 22 * u, sel ? acc : '#fff', 'left', 900);
-      if (i !== 1) {
-        ctx.fillStyle = 'rgba(0,0,0,0.45)'; ctx.fillRect(Math.round(px + pw * 0.42), Math.round(y + 18 * u), Math.round(pw * 0.55), Math.round(rh - 36 * u));
-        text(rw[1] || (i === 2 ? 'CODE' : ''), px + pw * 0.45, y + rh / 2 + 7 * u, 18 * u, rw[1] ? '#fff' : '#6a6890', 'left', 800);
+      if (rw[1] !== null) {
+        ctx.fillStyle = 'rgba(0,0,0,0.45)'; ctx.fillRect(Math.round(px + pw * 0.42), Math.round(y + 15 * u), Math.round(pw * 0.55), Math.round(rh - 30 * u));
+        text(rw[1] || rw[2], px + pw * 0.45, y + rh / 2 + 7 * u, 18 * u, rw[1] ? '#fff' : '#6a6890', 'left', 800);
       }
     });
+    const yb = y0 + 4 * (rh + 12 * u);
     const st = NET.status === 'connecting' ? 'CONNECTING...' : NET.status === 'on' ? 'CONNECTED' : 'NOT CONNECTED';
-    text(st, W / 2, y0 + 3 * (rh + 14 * u) + 30 * u, 16 * u, NET.status === 'on' ? '#7dffb0' : '#cfd3ff', 'center', 800);
-    if (NET.err) text(NET.err, W / 2, y0 + 3 * (rh + 14 * u) + 58 * u, 16 * u, '#ff8a8a', 'center', 800);
+    text(st, W / 2, yb + 24 * u, 16 * u, NET.status === 'on' ? '#7dffb0' : '#cfd3ff', 'center', 800);
+    if (NET.err) text(NET.err, W / 2, yb + 50 * u, 16 * u, '#ff8a8a', 'center', 800);
     text(NET.since ? 'Server address from the website, last started ' + NET.since : 'Start the server with  node server/server.js  and type its address above', W / 2, H - 70 * u, 13 * u, '#8a88b0', 'center', 600, false);
     return;
   }
@@ -5226,7 +5321,7 @@ function drawOnlineMenu(u) {
       card(x, y, cw, ch, !!p && p.id === NET.id);
       if (p) {
         drawFace(p.char, x + cw / 2, y + 40 * u, 0.9);
-        text(RIVALS[p.char].name, x + cw / 2, y + 86 * u, 16 * u, RIVALS[p.char].pal[2], 'center', 900);
+        text(p.name, x + cw / 2, y + 86 * u, 16 * u, RIVALS[p.char].pal[2], 'center', 900);
         text(CARS[p.car].name + (p.id === R.host ? '  - HOST' : ''), x + cw / 2, y + 106 * u, 11 * u, p.id === R.host ? acc : '#cfd3ff', 'center', 700, false);
       } else text('WAITING...', x + cw / 2, y + ch / 2 + 6 * u, 14 * u, '#5a5880', 'center', 800);
     }
@@ -5295,7 +5390,7 @@ function drawOnlineReady(u, R, host) {
     R.players.forEach((p, i) => {
       const y = ly + 10 * u + i * rowH + rowH / 2;
       drawFace(p.char, lx + 34 * u, y, 0.8);
-      text(RIVALS[p.char].name, lx + 66 * u, y + 2 * u, 17 * u, RIVALS[p.char].pal[2], 'left', 800);
+      text(p.name, lx + 66 * u, y + 2 * u, 17 * u, RIVALS[p.char].pal[2], 'left', 800);
       text(CARS[p.car].name + (p.id === R.host ? '   HOST' : '') + (p.id === NET.id ? '   YOU' : ''), lx + 66 * u, y + 19 * u, 12 * u, '#cfd3ff', 'left', 600, false);
     });
     for (let b = 0; b < R.bots && R.players.length + b < 8; b++)
