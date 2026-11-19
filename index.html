@@ -25,7 +25,17 @@ const WORLD = 8192, WALL = 26, SHIP_R = 20, LAPS = 3, DT = 1 / 120, PERIOD_TARGE
 const PAD_HW = 55, PAD_HL = 80;
 // ramp in een bocht: de buitenrand loopt schuin omhoog en de vangrail schuift BANK_W naar buiten.
 // De schuinte begint BANK_IN binnen de gewone rand en is aan de buitenkant BANK_H hoog; BANK_T is de aanloop.
-const BANK_W = 60, BANK_IN = 50, BANK_H = 46, BANK_T = 320, BANK_TILT = 1.2;   // bovenaan ongeveer 70 graden schuin
+const BANK_W = 60, BANK_IN = 50, BANK_H = 46, BANK_T = 320, BANK_TILT = 1.2;
+// golven: een strook water van WAVE_HW breed die in WAVE_RUN seconden dwars over de weg schuift, elke WAVE_P seconden.
+// lavagat: GAP_L lang, vlak achter een schans; wie er op de grond in komt, valt en wordt GAP_BACK terug neergezet.
+const WAVE_HW = 55, WAVE_RUN = 1.6, WAVE_P = 3.6, GAP_L = 300, GAP_BACK = 520;
+let raceTime = 0;   // racetijd in seconden, voor alles wat met de tijd meebeweegt (golven)
+// Waar staat de golf nu? Afstand tot de middenlijn van het midden van de strook, of null als het even rustig is.
+function waveAt(hz, hw, t) {
+  const f = (((t + hz.ph) % WAVE_P) + WAVE_P) % WAVE_P / WAVE_RUN;
+  if (f >= 1) return null;
+  return hz.dir * (-(hw + WAVE_HW) + f * 2 * (hw + WAVE_HW));
+}   // bovenaan ongeveer 70 graden schuin
 // driftboost: na zo lang driften (seconden) het volgende niveau; loslaten geeft een korte boost
 const DRIFT_LV = [0.7, 1.5, 2.4], driftLevel = t => t > DRIFT_LV[2] ? 3 : t > DRIFT_LV[1] ? 2 : t > DRIFT_LV[0] ? 1 : 0;
 
@@ -53,53 +63,53 @@ const CUPS = [
 ];
 
 const TRACK_DEFS = [
-  { id: 'k1', name: 'Palm Beach', cup: 0, hw: 150, haz: { pads: 6, chain: 1, bank: 1, bumps: 1 },
+  { id: 'k1', name: 'Palm Beach', cup: 0, hw: 150, haz: { pads: 6, wave: 2, chain: 1, bank: 1 },
     pts: [[1500,4200],[1500,2300],[2600,1300],[4400,1200],[6200,1500],[7000,2800],[6600,4200],[5200,4700],[4800,5800],[5600,6800],[4600,7300],[2800,7000],[1700,6000]] },
-  { id: 'k2', name: 'Night Harbour', cup: 0, hw: 150, haz: { pads: 7, slow: 1, chain: 1, bank: 1, bumps: 1 },
+  { id: 'k2', name: 'Night Harbour', cup: 0, hw: 150, haz: { pads: 7, wave: 2, slow: 1, bank: 1, bumps: 1 },
     pts: [[1200,5200],[1200,3000],[1500,1500],[2800,1000],[4000,1500],[4300,2700],[3400,3500],[3800,4500],[5200,4300],[5800,3000],[5600,1600],[6600,1000],[7300,1900],[7200,4200],[6900,6000],[5800,7000],[4200,6600],[3200,7200],[1900,6900]] },
-  { id: 'k3', name: 'Funfair Pier', cup: 0, hw: 150, haz: { pads: 7, slow: 2, chain: 1, bank: 2, bumps: 1 },
+  { id: 'k3', name: 'Funfair Pier', cup: 0, hw: 150, haz: { pads: 7, wave: 1, slow: 1, chain: 2, bank: 2, bumps: 1 },
     pts: [[1000,6800],[1000,1600],[1800,900],[2700,1500],[2700,4600],[3500,5400],[4400,4700],[4400,1800],[5300,900],[6500,1100],[7200,2200],[7000,4000],[6000,5000],[6300,6300],[5500,7200],[3000,7300],[1700,7400]] },
-  { id: 'p1', minR: 430, name: 'Blossom Lane', cup: 1, hw: 150, haz: { pads: 6, ice: 2, chain: 1, bank: 1, bumps: 1 },
+  { id: 'p1', minR: 430, name: 'Blossom Lane', cup: 1, hw: 150, haz: { pads: 6, ice: 2, chain: 2, bank: 1 },
     pts: [[1200,4400],[1200,2400],[2200,1200],[4200,1000],[6200,1200],[7300,2200],[7300,3800],[6400,4800],[6600,6200],[5600,7200],[3600,7200],[2000,6800],[1200,5800]] },
-  { id: 'p2', minR: 430, name: 'Bamboo Rain', cup: 1, hw: 150, haz: { pads: 7, ice: 3, slow: 1, chain: 1, bank: 1, bumps: 1 },
+  { id: 'p2', minR: 430, name: 'Bamboo Rain', cup: 1, hw: 150, haz: { pads: 7, ice: 4, bank: 1, bumps: 1 },
     pts: [[1100,3600],[1100,2000],[2000,1100],[4000,1000],[6400,1000],[7300,1900],[7300,3400],[6400,4300],[4800,4400],[4000,5200],[4000,6400],[3100,7300],[1900,7200],[1100,6200],[1100,4800]] },
-  { id: 'p3', minR: 430, name: 'Neon Crossing', cup: 1, hw: 150, haz: { pads: 6, ice: 1, slow: 1, chain: 1, bank: 2, bumps: 1 },
+  { id: 'p3', minR: 430, name: 'Neon Crossing', cup: 1, hw: 150, haz: { pads: 7, ice: 2, slow: 1, chain: 2, bank: 2 },
     pts: [[1200,2600],[1800,1300],[3400,1000],[6000,1000],[7100,1500],[7400,2400],[7100,3300],[6000,3800],[4200,3800],[3000,3900],[2500,4600],[3000,5300],[4200,5400],[6000,5400],[6900,5600],[7400,6400],[6900,7200],[6000,7400],[4000,7400],[1900,7300],[1100,6400],[1100,4400]] },
-  { id: 'v1', minR: 430, name: 'Lava Moat', cup: 2, hw: 150, haz: { pads: 6, jump: 1, slow: 2, chain: 1, bank: 1, bumps: 1 },
+  { id: 'v1', minR: 430, name: 'Lava Moat', cup: 2, hw: 150, haz: { pads: 6, gap: 2, slow: 1, bank: 1 },
     pts: [[1200,3200],[1700,1700],[3200,1000],[5400,1000],[6900,1600],[7400,3000],[6800,4300],[5400,4700],[4600,5600],[4700,6700],[3800,7400],[2400,7200],[1300,6200],[1100,4600]] },
-  { id: 'v2', name: 'Dungeon Run', cup: 2, hw: 145, haz: { pads: 7, jump: 2, chain: 2, bank: 1, bumps: 1 },
+  { id: 'v2', name: 'Dungeon Run', cup: 2, hw: 145, haz: { pads: 7, gap: 1, jump: 1, bumps: 2, bank: 1 },
     pts: [[1000,1800],[2200,1000],[6000,1000],[7200,1800],[7000,3200],[5600,3400],[2800,3000],[1900,3900],[2700,4900],[5600,4800],[7100,5300],[7200,6700],[6000,7300],[2400,7300],[1200,6600],[900,4600]] },
-  { id: 'v3', minR: 430, name: 'Tyrant Keep', cup: 2, hw: 145, haz: { pads: 6, jump: 1, slow: 2, chain: 2, bank: 2, bumps: 1 },
+  { id: 'v3', minR: 430, name: 'Tyrant Keep', cup: 2, hw: 145, haz: { pads: 6, gap: 2, slow: 1, bank: 2, chain: 1 },
     pts: [[1000,4200],[1000,2200],[1900,1100],[3600,1000],[6000,1000],[7200,1900],[7300,3600],[7300,5600],[6600,7000],[5200,7300],[4300,6500],[4300,4800],[4300,3400],[3600,2800],[2900,3400],[2900,5200],[2900,6600],[2000,7300],[1200,6600],[1000,5400]] },
-  { id: 's1', minR: 430, name: 'Meteor Field', cup: 3, hw: 150, haz: { pads: 6, ice: 1, jump: 1, chain: 1, bank: 1, bumps: 1 },
+  { id: 's1', minR: 430, name: 'Meteor Field', cup: 3, hw: 150, haz: { pads: 6, jump: 2, bumps: 2, bank: 1 }, grav: 0.55,
     pts: [[1100,4000],[1100,2200],[1900,1100],[3200,1100],[3900,2000],[3900,4000],[3900,5400],[4700,6300],[5700,5600],[5700,3800],[5700,2000],[6500,1100],[7300,1900],[7300,4000],[7300,6200],[6500,7300],[4400,7400],[2400,7400],[1300,6800],[1100,5400]] },
-  { id: 's2', minR: 430, name: 'Ring Road', cup: 3, hw: 145, haz: { pads: 6, ice: 2, slow: 2, chain: 2, bank: 1, bumps: 1 },
+  { id: 's2', minR: 430, name: 'Ring Road', cup: 3, hw: 145, haz: { pads: 6, jump: 2, bumps: 1, ice: 1, bank: 1 }, grav: 0.55,
     pts: [[1000,4100],[1000,2300],[1500,1400],[2400,1000],[4100,1000],[5800,1000],[6700,1400],[7200,2300],[7200,4000],[6700,5200],[5600,5700],[4900,6500],[4000,7300],[2600,7300],[1500,6800],[1000,5800]] },
-  { id: 's3', minR: 430, name: 'Supernova', cup: 3, hw: 145, haz: { pads: 7, ice: 1, jump: 1, slow: 2, chain: 1, bank: 2, bumps: 1 },
+  { id: 's3', minR: 430, name: 'Supernova', cup: 3, hw: 145, haz: { pads: 7, jump: 2, bumps: 2, bank: 2, chain: 1 }, grav: 0.55,
     pts: [[1000,4600],[1000,2800],[1300,1700],[2000,1100],[2800,1100],[3300,1900],[3500,2700],[4100,3200],[4700,2700],[4900,1900],[5400,1100],[6200,1100],[6900,1700],[7200,2800],[7200,4600],[7200,5800],[6700,6900],[5600,7400],[4100,7400],[2600,7400],[1500,6900],[1000,5800]] },
-  { id: 'd1', name: 'Oasis Run', cup: 4, hw: 150, minR: 430, haz: { pads: 6, slow: 1, chain: 1, bank: 1, bumps: 1 },
+  { id: 'd1', name: 'Oasis Run', cup: 4, hw: 150, minR: 430, haz: { pads: 6, bumps: 3, slow: 2 },
     pts: [[1200,4300],[1200,2600],[1900,1400],[3400,1000],[5400,1100],[6800,1800],[7300,3200],[7000,4800],[6000,5600],[5600,6600],[4600,7300],[3000,7300],[1700,6700],[1200,5600]] },
-  { id: 'd2', name: 'Caravan Bazaar', cup: 4, hw: 150, minR: 430, haz: { pads: 7, slow: 2, chain: 1, bank: 1, bumps: 1 },
+  { id: 'd2', name: 'Caravan Bazaar', cup: 4, hw: 150, minR: 430, haz: { pads: 7, bumps: 2, slow: 2, chain: 1, bank: 1 },
     pts: [[1100,4000],[1100,2200],[1900,1100],[3600,1000],[5600,1000],[6900,1500],[7400,2700],[6900,3900],[5600,4300],[4800,5000],[4900,6200],[4200,7200],[2800,7400],[1600,6800],[1100,5600]] },
-  { id: 'd3', name: 'Canyon Port', cup: 4, hw: 150, minR: 430, haz: { pads: 7, slow: 1, jump: 1, chain: 1, bank: 2, bumps: 1 },
+  { id: 'd3', name: 'Canyon Port', cup: 4, hw: 150, minR: 430, haz: { pads: 7, bumps: 2, jump: 1, slow: 1, bank: 2 },
     pts: [[1000,3000],[1500,1600],[2900,1000],[4400,1500],[5200,2800],[6200,3400],[7200,2800],[7400,4200],[7000,5800],[6000,7000],[4400,7400],[2600,7200],[1400,6400],[1000,4800]] },
-  { id: 'l1', name: 'Marigold Road', cup: 5, hw: 150, minR: 430, haz: { pads: 6, ice: 1, slow: 1, chain: 1, bank: 1, bumps: 1 },
+  { id: 'l1', name: 'Marigold Road', cup: 5, hw: 150, minR: 430, haz: { pads: 8, chain: 2, bank: 1 },
     pts: [[1300,4000],[1300,2400],[2200,1300],[3800,1000],[5200,1400],[5800,2600],[6800,3000],[7400,4200],[7200,5800],[6200,7000],[4600,7400],[3000,7000],[2400,5800],[1500,5200]] },
-  { id: 'l2', name: 'Monsoon Jungle', cup: 5, hw: 150, minR: 430, haz: { pads: 7, ice: 3, slow: 1, chain: 1, bank: 1, bumps: 1 },
+  { id: 'l2', name: 'Monsoon Jungle', cup: 5, hw: 150, minR: 430, haz: { pads: 7, chain: 2, ice: 2, bank: 1 },
     pts: [[1100,2800],[1900,1400],[3600,1000],[5400,1300],[6200,2400],[6000,3800],[6800,4800],[7400,6000],[6600,7200],[5000,7400],[3600,6800],[3000,5600],[1900,5200],[1100,4200]] },
-  { id: 'l3', name: 'Festival of Lights', cup: 5, hw: 150, minR: 430, haz: { pads: 7, ice: 2, slow: 1, chain: 1, bank: 2, bumps: 1 },
+  { id: 'l3', name: 'Festival of Lights', cup: 5, hw: 150, minR: 430, haz: { pads: 7, chain: 3, bank: 2, slow: 1 },
     pts: [[1100,4200],[1100,2400],[1900,1200],[3600,1000],[5600,1000],[7000,1600],[7400,3000],[6600,4000],[5000,4200],[4200,5000],[4600,6000],[6000,6200],[7200,6600],[6800,7400],[5000,7400],[2800,7400],[1500,6800],[1100,5600]] },
-  { id: 'f1', name: 'Glacier Moat', cup: 6, hw: 150, minR: 430, haz: { pads: 6, ice: 2, jump: 1, chain: 1, bank: 1, bumps: 1 },
+  { id: 'f1', name: 'Glacier Moat', cup: 6, hw: 150, minR: 430, haz: { pads: 6, ice: 3, jump: 1, bank: 2 }, grip: 0.78,
     pts: [[1200,5600],[1200,3600],[2000,2000],[3600,1100],[5400,1000],[6800,1600],[7400,3000],[7000,4600],[5800,5600],[4600,6400],[3400,7200],[2000,7000]] },
-  { id: 'f2', name: 'Crystal Crypt', cup: 6, hw: 150, minR: 430, haz: { pads: 7, ice: 1, jump: 1, chain: 1, bank: 1, bumps: 1 },
+  { id: 'f2', name: 'Crystal Crypt', cup: 6, hw: 150, minR: 430, haz: { pads: 7, ice: 3, jump: 1, bank: 1 }, grip: 0.78,
     pts: [[1000,4200],[1000,2200],[1800,1100],[3800,1000],[6200,1000],[7300,1800],[7300,3400],[6400,4300],[6400,5600],[7200,6600],[6400,7400],[4200,7400],[2200,7400],[1100,6600],[1000,5400]] },
-  { id: 'f3', name: 'Frozen Throne', cup: 6, hw: 150, minR: 430, haz: { pads: 7, ice: 1, jump: 1, slow: 1, chain: 1, bank: 2, bumps: 1 },
+  { id: 'f3', name: 'Frozen Throne', cup: 6, hw: 150, minR: 430, haz: { pads: 7, ice: 3, bank: 2, bumps: 1 }, grip: 0.78,
     pts: [[1000,4000],[1000,2000],[1900,1000],[3200,1100],[3700,2200],[3700,4000],[4400,5000],[5400,4400],[5400,2400],[6000,1200],[7000,1100],[7400,2200],[7400,4400],[7400,6200],[6600,7300],[4400,7400],[2400,7400],[1200,6600],[1000,5200]] },
-  { id: 'g1', name: 'Aurora Gate', cup: 7, hw: 150, minR: 430, haz: { pads: 6, ice: 1, jump: 1, chain: 1, bank: 1, bumps: 1 },
+  { id: 'g1', name: 'Aurora Gate', cup: 7, hw: 150, minR: 430, haz: { pads: 6, jump: 1, gap: 1, chain: 1, bank: 1 }, grav: 0.8,
     pts: [[1200,4200],[1200,2400],[2100,1200],[4000,1000],[5800,1300],[7000,2200],[7400,3800],[6900,5400],[5600,6200],[4000,6000],[3200,6800],[2200,7200],[1300,6400]] },
-  { id: 'g2', name: 'Titan Ring', cup: 7, hw: 150, minR: 430, haz: { pads: 7, ice: 2, slow: 1, chain: 2, bank: 1, bumps: 1 },
+  { id: 'g2', name: 'Titan Ring', cup: 7, hw: 150, minR: 430, haz: { pads: 7, wave: 2, chain: 2, bank: 2 }, grav: 0.8,
     pts: [[1000,4100],[1300,2500],[2500,1300],[4100,1000],[5700,1300],[6900,2500],[7200,4100],[6900,5700],[5700,6900],[4100,7200],[2500,6900],[1300,5700]] },
-  { id: 'g3', name: 'Big Bang', cup: 7, hw: 150, minR: 430, haz: { pads: 8, ice: 2, jump: 2, slow: 2, chain: 2, bank: 2, bumps: 1 },
+  { id: 'g3', name: 'Big Bang', cup: 7, hw: 150, minR: 430, haz: { pads: 7, gap: 1, wave: 1, ice: 1, chain: 2, bank: 2, bumps: 1 }, grav: 0.8,
     pts: [[1000,4400],[1000,2400],[1700,1200],[3000,1000],[3800,1800],[4000,3200],[4800,3900],[5800,3300],[6000,1900],[6600,1100],[7300,1700],[7400,3400],[7400,5400],[6800,6800],[5400,7400],[3600,7400],[2000,7000],[1100,6000]] }
 ];
 
@@ -242,6 +252,7 @@ function measureTrack(def, index, SX, SY) {
 function placeHazards(tr, def, seed) {
   const rnd = mulberry32(seed), L = tr.len, hw = tr.hw, haz = [], pads = [], occ = [];
   const want = def.haz || {};
+  tr.grav = def.grav || 1; tr.gripMul = def.grip || 1;
   const kStat = (a, b) => {
     let mx = 0, sum = 0, sg = 0, cnt = 0;
     for (let s = a; s <= b; s += 20) { const k = tr.K[posAt(s, tr).i]; mx = Math.max(mx, Math.abs(k)); sum += Math.abs(k); sg += k; cnt++; }
@@ -281,6 +292,12 @@ function placeHazards(tr, def, seed) {
         pads.push({ x: q.x - q.ty * off, y: q.y + q.tx * off, dx: q.tx, dy: q.ty });
       }
     });
+  // lavagat: een schans en vlak daarachter het gat; schans en gat horen bij elkaar
+  scan(want.gap || 0, 760, 400, (k, p) => k.mx < [1 / 2000, 1 / 1400, 1 / 1000][p],
+    s => { haz.push({ type: 'jump', s0: s + 60, s1: s + 100, gap: true }); haz.push({ type: 'gap', s0: s + 150, s1: s + 150 + GAP_L }); });
+  // golven: een stuk weg waar om de paar seconden een golf overheen spoelt, elk met een eigen ritme
+  scan(want.wave || 0, 700, 300, (k, p) => k.mx < [1 / 900, 1 / 600, 1 / 430][p],
+    s => haz.push({ type: 'wave', s0: s, s1: s + 700, ph: rnd() * WAVE_P, dir: rnd() < 0.5 ? -1 : 1 }));
   // hobbels: een rij van vier bulten dwars over de weg, op een vrij rechte strook
   scan(want.bumps || 0, 720, 260, (k, p) => k.mx < [1 / 1300, 1 / 900, 1 / 600][p],
     s => { for (let i = 0; i < 4; i++) haz.push({ type: 'bump', s0: s + 60 + i * 180, s1: s + 96 + i * 180 }); });
@@ -293,10 +310,10 @@ function newEntity(car, opts) {
   return Object.assign({
     car, x: 0, y: 0, th: 0, vx: 0, vy: 0, z: 0, vz: 0, vl: 0, steer: 0,
     hint: 0, s: 0, d: 0, lastS: null, progress: 0, lap: 0, finished: false, finishTime: 0,
-    energy: 1, padT: 0, driftT: 0, bz: 0, btilt: 0, boosting: false, onIce: false, onSlow: false,
+    energy: 1, padT: 0, driftT: 0, bz: 0, btilt: 0, airT: 0, onWave: false, boosting: false, onIce: false, onSlow: false,
     skill: 1, ai: false, ref: false, lane: 0, laneS: 0, stuck: 0, hits: 0,
     in: { acc: false, brk: false, drift: false, steer: 0, boost: false },
-    ev: { hit: 0, pad: 0, jump: 0, land: 0, bump: 0, drift: 0 }, trail: []
+    ev: { hit: 0, pad: 0, jump: 0, land: 0, bump: 0, drift: 0, air: 0, fall: 0 }, trail: []
   }, opts || {});
 }
 
@@ -370,8 +387,13 @@ function stepEntity(e) {
   e.x += e.vx * DT; e.y += e.vy * DT;
 
   if (air || e.vz > 0) {
-    e.vz -= 760 * DT; e.z += e.vz * DT;
-    if (e.z <= 0) { e.z = 0; e.vz = 0; e.ev.land = 1; }
+    e.vz -= 760 * (T.grav || 1) * DT; e.z += e.vz * DT; e.airT += DT;
+    if (e.z <= 0) {
+      e.z = 0; e.vz = 0; e.ev.land = 1;
+      // luchtboost: wie lang in de lucht was, krijgt bij de landing een duwtje
+      if (e.airT > 0.6) { e.padT = Math.max(e.padT, 0.5); e.vx += Math.cos(e.th) * 120; e.vy += Math.sin(e.th) * 120; e.ev.air = 1; }
+      e.airT = 0;
+    }
   }
 
   const nr = nearest(e.x, e.y, e.hint, 45);
@@ -392,6 +414,28 @@ function stepEntity(e) {
     if (hz.side > 0) maxD = Math.max(maxD, wide); else minD = Math.min(minD, -wide);
   }
   e.bz = bankZ(e.s, e.d); e.btilt = bankTilt;
+  e.onWave = false;
+  if (e.z < 1) for (const hz of T.haz) {
+    if (e.s < hz.s0 || e.s > hz.s1) continue;
+    if (hz.type === 'wave') {
+      const c = waveAt(hz, hw, raceTime);
+      if (c !== null && Math.abs(e.d - c) < WAVE_HW) {
+        // de golf remt af en duwt je mee in de richting waarin hij spoelt
+        e.onWave = true;
+        const sp = Math.hypot(e.vx, e.vy);
+        if (sp > 360) { const k = 1 - (1 - 360 / sp) * 2.8 * DT; e.vx *= k; e.vy *= k; }
+        const push = hz.dir * 320 * DT;
+        e.vx += -T.TY[si] * push; e.vy += T.TX[si] * push;
+      }
+    } else if (hz.type === 'gap') {
+      // in het gat gevallen: een stukje terug weer neergezet, met weinig snelheid
+      const q = posAt(hz.s0 - GAP_BACK), dd = Math.max(-hw * 0.5, Math.min(hw * 0.5, e.d));
+      e.x = q.x - q.ty * dd; e.y = q.y + q.tx * dd; e.th = Math.atan2(q.ty, q.tx);
+      e.vx = q.tx * 220; e.vy = q.ty * 220; e.vz = 0; e.z = 0; e.padT = 0; e.driftT = 0;
+      e.ev.fall = 1;
+      return;
+    }
+  }
   if (bankTilt && e.z < 1) {
     // hoe steiler de wand, hoe harder je terug naar beneden glijdt: snelheid houdt je boven
     const g = 1150 * Math.sin(bankTilt) * DT;
@@ -501,7 +545,7 @@ function simulateReference(tr, car) {
   placeOnGrid(e, 90, 0);
   let ticks = 0;
   const max = 300 / DT;
-  while (e.progress < LAPS * tr.len && ticks < max) { aiControl(e); stepEntity(e); ticks++; }
+  while (e.progress < LAPS * tr.len && ticks < max) { raceTime = ticks * DT; aiControl(e); stepEntity(e); ticks++; }
   T = keep;
   return { time: ticks * DT, done: e.progress >= LAPS * tr.len, hits: e.hits };
 }
@@ -761,7 +805,7 @@ const WX_ROAD = {
 };
 const roadWx = i => { const w = [].concat(LOOKS[i].weather || []); for (const k of w) if (WX_ROAD[k]) return WX_ROAD[k]; return null; };
 const TRACKS = TRACK_DEFS.map((d, i) => buildTrack(d, i));
-TRACKS.forEach((tr, i) => { const rw = roadWx(i); tr.gripMul = rw ? rw.grip : 1; });
+TRACKS.forEach((tr, i) => { const rw = roadWx(i); tr.gripMul = (rw ? rw.grip : 1) * (TRACK_DEFS[i].grip || 1); });
 // Medailletijden [brons, zilver, goud] voor een baan met een bepaald voertuig. De computer rijdt de baan
 // één keer met dat voertuig; de uitkomst wordt onthouden. Zo is goud met elk voertuig even moeilijk.
 function getMedals(tr, car) {
@@ -1713,7 +1757,7 @@ function buildMaps(tr, C) {
       else if (hz.type === 'slow') haz[idx * 4 + 1] = Math.max(haz[idx * 4 + 1], cl(Math.min(along, d - hz.d0, hz.d1 + 30 - d)));
       else if (hz.type === 'bank') {
         if (d * hz.side > 0) haz[idx * 4 + 2] = Math.max(haz[idx * 4 + 2], 40 * Math.max(0, Math.min(1, (sv - hz.s0) / C.BANK_T, (hz.s1 - sv) / C.BANK_T)));
-      } else haz[idx * 4 + 3] = Math.max(haz[idx * 4 + 3], cl(Math.min(along, tr.hw + 30 - ad)));
+      } else if (hz.type === 'jump' || hz.type === 'bump') haz[idx * 4 + 3] = Math.max(haz[idx * 4 + 3], cl(Math.min(along, tr.hw + 30 - ad)));   // golven en gaten tekenen we apart
     }
   }
   // omzetten naar 16-bits floats, zodat het uploaden naar de videokaart snel gaat
@@ -2395,6 +2439,7 @@ function updateParts(dt) {
 // ---------------------------------------------------------------- spelverloop
 function tick() {
   const racing = G.state === 'race', P = G.player, live = racing || G.state === 'finished';
+  raceTime = G.raceTicks * DT;
   if (G.mode === 'online') netDelay();
   for (const e of G.ents) {
     const inp = e.in;
@@ -2480,12 +2525,18 @@ function tick() {
       if (e === P) { G.flash = Math.max(G.flash, 0.18); beep(660, 0.25, 'sawtooth', 0.07); beep(990, 0.3, 'sawtooth', 0.05); }
     }
     if (ev.jump && e === P) whoosh();
+    if (ev.air && e === P) { showMsg('AIR BOOST!', '', '#8fe8ff', 0.9); beep(990, 0.12, 'square', 0.06); }
+    if (ev.fall) {
+      if (e === P) { showMsg('TOO SLOW!', 'take the ramp at full speed', '#ff8a5a', 1.6); G.shake = Math.max(G.shake, 0.6); thud(0.5); }
+      for (let i = 0; i < 14; i++) spawn(e.x, e.y, 4, (Math.random() - 0.5) * 300, (Math.random() - 0.5) * 300, 80 + Math.random() * 120, 0.5, 4, T.cup === 7 ? '170,120,255' : '255,140,40', true, 300);
+    }
+    if (e.onWave && G.ticks % 2 === 0) spawn(e.x, e.y, 3, (Math.random() - 0.5) * 160, (Math.random() - 0.5) * 160, 90 + Math.random() * 80, 0.45, 3.5, '220,250,255', false, 380);
     if (ev.land) {
       for (let i = 0; i < 8; i++) spawn(e.x, e.y, 1, e.vx * 0.6 + (Math.random() - 0.5) * 240, e.vy * 0.6 + (Math.random() - 0.5) * 240, 20 + Math.random() * 40, 0.4, 7, '220,220,235', false, 0);
       if (e === P) { G.shake = Math.max(G.shake, 0.45); thud(0.3); }
     }
     if (ev.drift && e === P) beep([0, 660, 880, 1100][ev.drift], 0.16, 'square', 0.07);
-    ev.hit = ev.pad = ev.jump = ev.land = ev.bump = ev.drift = 0;
+    ev.hit = ev.pad = ev.jump = ev.land = ev.bump = ev.drift = ev.air = ev.fall = 0;
     // driftvonken achter het schip: wit, dan blauw, oranje en roze naarmate de drift langer duurt
     if (e.driftT > 0.25) {
       const col = ['235,235,255', '90,170,255', '255,160,40', '255,80,200'][driftLevel(e.driftT)];
@@ -4408,7 +4459,47 @@ const mirrored = c => c._m || (c._m = (() => {
   const k = m.getContext('2d'); k.translate(c.width, 0); k.scale(-1, 1); k.drawImage(c, 0, 0);
   return m;
 })());
+// Een strook over de weg, van s0 tot s1 en van d0 tot d1 (afstand tot de middenlijn), op de grond.
+const stripPts = [];
+function groundStrip(s0, s1, d0, d1, step) {
+  let prev = null;
+  for (let sv = s0; sv <= s1 + 0.1; sv += step) {
+    const q = posAt(Math.min(sv, s1));
+    const nx = -q.ty, ny = q.tx;
+    const ok1 = project(q.x + nx * d0, q.y + ny * d0, 0), ax = pr[0], ay = pr[1], az = pr[2];
+    const ok2 = ok1 && project(q.x + nx * d1, q.y + ny * d1, 0), bx = pr[0], by = pr[1];
+    const cur = ok2 && az > 40 ? [ax, ay, bx, by] : null;
+    if (cur && prev) fillPoly([prev[0], prev[1], prev[2], prev[3], cur[2], cur[3], cur[0], cur[1]]);
+    prev = cur;
+  }
+}
+function drawGround() {
+  const hw = T.hw, ahead = (s, a, b) => { let x = a - s; if (x < -T.len / 2) x += T.len; return x < 5000 && x + (b - a) > -400; };
+  const camS0 = G.player ? G.player.s : 0;
+  for (const hz of T.haz) {
+    if (!ahead(camS0, hz.s0, hz.s1)) continue;
+    if (hz.type === 'gap') {
+      // lava (of in de ruimte: de leegte), met een gloeiende rand
+      const lava = T.cup !== 7;
+      ctx.fillStyle = lava ? '#ff6a10' : '#3a1a6a'; groundStrip(hz.s0 - 10, hz.s1 + 10, -hw - WALL, hw + WALL, 40);
+      ctx.fillStyle = lava ? '#7a1a08' : '#0a0418'; groundStrip(hz.s0 + 14, hz.s1 - 14, -hw - WALL, hw + WALL, 40);
+      const fl = (G.time * 0.6) % 1;
+      ctx.fillStyle = lava ? '#ffb030' : '#a070ff';
+      for (let k = 0; k < 3; k++) { const a = hz.s0 + 30 + ((k / 3 + fl) % 1) * (hz.s1 - hz.s0 - 70); groundStrip(a, a + 18, -hw * 0.8 + k * 40, -hw * 0.2 + k * 60, 18); }
+    } else if (hz.type === 'wave') {
+      const c = waveAt(hz, hw, raceTime);
+      if (c === null) continue;
+      const a = Math.max(-hw - WALL, c - WAVE_HW), b = Math.min(hw + WALL, c + WAVE_HW);
+      if (b <= a) continue;
+      ctx.globalAlpha = 0.8; ctx.fillStyle = '#3ad8e8'; groundStrip(hz.s0, hz.s1, a, b, 50);
+      ctx.globalAlpha = 1; ctx.fillStyle = '#ffffff';
+      const front = hz.dir > 0 ? Math.min(b, c + WAVE_HW) : Math.max(a, c - WAVE_HW), fb = front - hz.dir * 14;
+      groundStrip(hz.s0, hz.s1, Math.min(front, fb), Math.max(front, fb), 50);
+    }
+  }
+}
 function drawWorld(ents) {
+  drawGround();
   drawList.length = 0;
   const maxX = W / H / cam.f;
   for (const o of T.scenery) {
@@ -4500,6 +4591,16 @@ function render(dt) {
 }
 
 // Intro voor de race: zwarte balken boven en onder, naam van de cup en de baan, in een cup de rivalen op een rij.
+function trackTip(tr) {
+  const n = t => tr.haz.filter(h => h.type === t).length;
+  if (n('gap')) return 'JUMP THE GAPS - TOO SLOW AND YOU FALL IN';
+  if (n('wave')) return 'WATCH OUT FOR THE WAVES';
+  if (tr.grav < 1) return 'LOW GRAVITY - BIG AIR, AIR BOOSTS';
+  if (TRACK_DEFS[tr.index].grip < 1) return 'SLIPPERY ICE - DRIFT EARLY';
+  if (n('bump') >= 8) return 'BUMPY DUNES AHEAD';
+  if (tr.pads.length >= 13) return 'CHAIN THE BOOST PADS';
+  return '';
+}
 function drawIntro(u) {
   const t = INTRO_T - G.intro, tt = G.mode === 'tt';
   const open = Math.min(1, t * 5, G.intro * 4);
@@ -4518,6 +4619,8 @@ function drawIntro(u) {
   text(CUPS[T.cup].name + (tt ? ' - TIME TRIAL' : G.mode === 'online' ? (NET.race && NET.race.omode === 1 ? ' - ONLINE CUP - RACE ' + (NET.race.cupRace + 1) + '/3' : ' - ONLINE ' + CLASSES[ui.cls].name) : ' - RACE ' + (cupRun.race + 1) + '/3'), 40 * u - slide, H - bar - 78 * u, 20 * u, '#ffb833', 'left', 800);
   if (roadWx(T.index)) text(roadWx(T.index).label, W - 40 * u + slide, H - bar - 30 * u, 16 * u, '#9fd8ff', 'right', 800);
   text(T.name.toUpperCase(), 40 * u - slide, H - bar - 22 * u, 60 * u, '#fff', 'left', 900);
+  const tip = trackTip(T);
+  if (tip) text(tip, W - 40 * u + slide, H - bar - (roadWx(T.index) ? 56 : 30) * u, 18 * u, '#ffd24a', 'right', 900);
   if (G.mode === 'online') {
     // alle deelnemers op een rij
     const n = G.ents.length;
