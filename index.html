@@ -22,7 +22,10 @@
 'use strict';
 //#CORE-BEGIN  (spelregels zonder beeld of geluid; wordt ook door het controlescript gebruikt)
 const WORLD = 8192, WALL = 26, SHIP_R = 20, LAPS = 3, DT = 1 / 120, PERIOD_TARGET = 320;
-const PAD_HW = 55, PAD_HL = 80, BLOCK_TAPER = 140;
+const PAD_HW = 55, PAD_HL = 80;
+// ramp in een bocht: de buitenrand loopt schuin omhoog en de vangrail schuift BANK_W naar buiten.
+// De schuinte begint BANK_IN binnen de gewone rand en is aan de buitenkant BANK_H hoog; BANK_T is de aanloop.
+const BANK_W = 60, BANK_IN = 50, BANK_H = 46, BANK_T = 320, BANK_TILT = 1.2;   // bovenaan ongeveer 70 graden schuin
 // driftboost: na zo lang driften (seconden) het volgende niveau; loslaten geeft een korte boost
 const DRIFT_LV = [0.7, 1.5, 2.4], driftLevel = t => t > DRIFT_LV[2] ? 3 : t > DRIFT_LV[1] ? 2 : t > DRIFT_LV[0] ? 1 : 0;
 
@@ -50,53 +53,53 @@ const CUPS = [
 ];
 
 const TRACK_DEFS = [
-  { id: 'k1', name: 'Palm Beach', cup: 0, hw: 150, haz: { pads: 6, chain: 1 },
+  { id: 'k1', name: 'Palm Beach', cup: 0, hw: 150, haz: { pads: 6, chain: 1, bank: 1, bumps: 1 },
     pts: [[1500,4200],[1500,2300],[2600,1300],[4400,1200],[6200,1500],[7000,2800],[6600,4200],[5200,4700],[4800,5800],[5600,6800],[4600,7300],[2800,7000],[1700,6000]] },
-  { id: 'k2', name: 'Night Harbour', cup: 0, hw: 150, haz: { pads: 7, slow: 1, chain: 1 },
+  { id: 'k2', name: 'Night Harbour', cup: 0, hw: 150, haz: { pads: 7, slow: 1, chain: 1, bank: 1, bumps: 1 },
     pts: [[1200,5200],[1200,3000],[1500,1500],[2800,1000],[4000,1500],[4300,2700],[3400,3500],[3800,4500],[5200,4300],[5800,3000],[5600,1600],[6600,1000],[7300,1900],[7200,4200],[6900,6000],[5800,7000],[4200,6600],[3200,7200],[1900,6900]] },
-  { id: 'k3', name: 'Funfair Pier', cup: 0, hw: 150, haz: { pads: 7, slow: 2, chain: 1 },
+  { id: 'k3', name: 'Funfair Pier', cup: 0, hw: 150, haz: { pads: 7, slow: 2, chain: 1, bank: 2, bumps: 1 },
     pts: [[1000,6800],[1000,1600],[1800,900],[2700,1500],[2700,4600],[3500,5400],[4400,4700],[4400,1800],[5300,900],[6500,1100],[7200,2200],[7000,4000],[6000,5000],[6300,6300],[5500,7200],[3000,7300],[1700,7400]] },
-  { id: 'p1', minR: 430, name: 'Blossom Lane', cup: 1, hw: 150, haz: { pads: 6, ice: 2, chain: 1 },
+  { id: 'p1', minR: 430, name: 'Blossom Lane', cup: 1, hw: 150, haz: { pads: 6, ice: 2, chain: 1, bank: 1, bumps: 1 },
     pts: [[1200,4400],[1200,2400],[2200,1200],[4200,1000],[6200,1200],[7300,2200],[7300,3800],[6400,4800],[6600,6200],[5600,7200],[3600,7200],[2000,6800],[1200,5800]] },
-  { id: 'p2', minR: 430, name: 'Bamboo Rain', cup: 1, hw: 150, haz: { pads: 7, ice: 3, slow: 1, chain: 1 },
+  { id: 'p2', minR: 430, name: 'Bamboo Rain', cup: 1, hw: 150, haz: { pads: 7, ice: 3, slow: 1, chain: 1, bank: 1, bumps: 1 },
     pts: [[1100,3600],[1100,2000],[2000,1100],[4000,1000],[6400,1000],[7300,1900],[7300,3400],[6400,4300],[4800,4400],[4000,5200],[4000,6400],[3100,7300],[1900,7200],[1100,6200],[1100,4800]] },
-  { id: 'p3', minR: 430, name: 'Neon Crossing', cup: 1, hw: 150, haz: { pads: 6, ice: 1, slow: 1, chain: 1 },
+  { id: 'p3', minR: 430, name: 'Neon Crossing', cup: 1, hw: 150, haz: { pads: 6, ice: 1, slow: 1, chain: 1, bank: 2, bumps: 1 },
     pts: [[1200,2600],[1800,1300],[3400,1000],[6000,1000],[7100,1500],[7400,2400],[7100,3300],[6000,3800],[4200,3800],[3000,3900],[2500,4600],[3000,5300],[4200,5400],[6000,5400],[6900,5600],[7400,6400],[6900,7200],[6000,7400],[4000,7400],[1900,7300],[1100,6400],[1100,4400]] },
-  { id: 'v1', minR: 430, name: 'Lava Moat', cup: 2, hw: 150, haz: { pads: 6, jump: 1, slow: 2, chain: 1 },
+  { id: 'v1', minR: 430, name: 'Lava Moat', cup: 2, hw: 150, haz: { pads: 6, jump: 1, slow: 2, chain: 1, bank: 1, bumps: 1 },
     pts: [[1200,3200],[1700,1700],[3200,1000],[5400,1000],[6900,1600],[7400,3000],[6800,4300],[5400,4700],[4600,5600],[4700,6700],[3800,7400],[2400,7200],[1300,6200],[1100,4600]] },
-  { id: 'v2', name: 'Dungeon Run', cup: 2, hw: 145, haz: { pads: 7, jump: 2, chain: 2 },
+  { id: 'v2', name: 'Dungeon Run', cup: 2, hw: 145, haz: { pads: 7, jump: 2, chain: 2, bank: 1, bumps: 1 },
     pts: [[1000,1800],[2200,1000],[6000,1000],[7200,1800],[7000,3200],[5600,3400],[2800,3000],[1900,3900],[2700,4900],[5600,4800],[7100,5300],[7200,6700],[6000,7300],[2400,7300],[1200,6600],[900,4600]] },
-  { id: 'v3', minR: 430, name: 'Tyrant Keep', cup: 2, hw: 145, haz: { pads: 6, jump: 1, slow: 2, chain: 2 },
+  { id: 'v3', minR: 430, name: 'Tyrant Keep', cup: 2, hw: 145, haz: { pads: 6, jump: 1, slow: 2, chain: 2, bank: 2, bumps: 1 },
     pts: [[1000,4200],[1000,2200],[1900,1100],[3600,1000],[6000,1000],[7200,1900],[7300,3600],[7300,5600],[6600,7000],[5200,7300],[4300,6500],[4300,4800],[4300,3400],[3600,2800],[2900,3400],[2900,5200],[2900,6600],[2000,7300],[1200,6600],[1000,5400]] },
-  { id: 's1', minR: 430, name: 'Meteor Field', cup: 3, hw: 150, haz: { pads: 6, ice: 1, jump: 1, chain: 1 },
+  { id: 's1', minR: 430, name: 'Meteor Field', cup: 3, hw: 150, haz: { pads: 6, ice: 1, jump: 1, chain: 1, bank: 1, bumps: 1 },
     pts: [[1100,4000],[1100,2200],[1900,1100],[3200,1100],[3900,2000],[3900,4000],[3900,5400],[4700,6300],[5700,5600],[5700,3800],[5700,2000],[6500,1100],[7300,1900],[7300,4000],[7300,6200],[6500,7300],[4400,7400],[2400,7400],[1300,6800],[1100,5400]] },
-  { id: 's2', minR: 430, name: 'Ring Road', cup: 3, hw: 145, haz: { pads: 6, ice: 2, slow: 2, chain: 2 },
+  { id: 's2', minR: 430, name: 'Ring Road', cup: 3, hw: 145, haz: { pads: 6, ice: 2, slow: 2, chain: 2, bank: 1, bumps: 1 },
     pts: [[1000,4100],[1000,2300],[1500,1400],[2400,1000],[4100,1000],[5800,1000],[6700,1400],[7200,2300],[7200,4000],[6700,5200],[5600,5700],[4900,6500],[4000,7300],[2600,7300],[1500,6800],[1000,5800]] },
-  { id: 's3', minR: 430, name: 'Supernova', cup: 3, hw: 145, haz: { pads: 7, ice: 1, jump: 1, slow: 2, chain: 1 },
+  { id: 's3', minR: 430, name: 'Supernova', cup: 3, hw: 145, haz: { pads: 7, ice: 1, jump: 1, slow: 2, chain: 1, bank: 2, bumps: 1 },
     pts: [[1000,4600],[1000,2800],[1300,1700],[2000,1100],[2800,1100],[3300,1900],[3500,2700],[4100,3200],[4700,2700],[4900,1900],[5400,1100],[6200,1100],[6900,1700],[7200,2800],[7200,4600],[7200,5800],[6700,6900],[5600,7400],[4100,7400],[2600,7400],[1500,6900],[1000,5800]] },
-  { id: 'd1', name: 'Oasis Run', cup: 4, hw: 150, minR: 430, haz: { pads: 6, slow: 1, chain: 1 },
+  { id: 'd1', name: 'Oasis Run', cup: 4, hw: 150, minR: 430, haz: { pads: 6, slow: 1, chain: 1, bank: 1, bumps: 1 },
     pts: [[1200,4300],[1200,2600],[1900,1400],[3400,1000],[5400,1100],[6800,1800],[7300,3200],[7000,4800],[6000,5600],[5600,6600],[4600,7300],[3000,7300],[1700,6700],[1200,5600]] },
-  { id: 'd2', name: 'Caravan Bazaar', cup: 4, hw: 150, minR: 430, haz: { pads: 7, slow: 2, chain: 1 },
+  { id: 'd2', name: 'Caravan Bazaar', cup: 4, hw: 150, minR: 430, haz: { pads: 7, slow: 2, chain: 1, bank: 1, bumps: 1 },
     pts: [[1100,4000],[1100,2200],[1900,1100],[3600,1000],[5600,1000],[6900,1500],[7400,2700],[6900,3900],[5600,4300],[4800,5000],[4900,6200],[4200,7200],[2800,7400],[1600,6800],[1100,5600]] },
-  { id: 'd3', name: 'Canyon Port', cup: 4, hw: 150, minR: 430, haz: { pads: 7, slow: 1, jump: 1, chain: 1 },
+  { id: 'd3', name: 'Canyon Port', cup: 4, hw: 150, minR: 430, haz: { pads: 7, slow: 1, jump: 1, chain: 1, bank: 2, bumps: 1 },
     pts: [[1000,3000],[1500,1600],[2900,1000],[4400,1500],[5200,2800],[6200,3400],[7200,2800],[7400,4200],[7000,5800],[6000,7000],[4400,7400],[2600,7200],[1400,6400],[1000,4800]] },
-  { id: 'l1', name: 'Marigold Road', cup: 5, hw: 150, minR: 430, haz: { pads: 6, ice: 1, slow: 1, chain: 1 },
+  { id: 'l1', name: 'Marigold Road', cup: 5, hw: 150, minR: 430, haz: { pads: 6, ice: 1, slow: 1, chain: 1, bank: 1, bumps: 1 },
     pts: [[1300,4000],[1300,2400],[2200,1300],[3800,1000],[5200,1400],[5800,2600],[6800,3000],[7400,4200],[7200,5800],[6200,7000],[4600,7400],[3000,7000],[2400,5800],[1500,5200]] },
-  { id: 'l2', name: 'Monsoon Jungle', cup: 5, hw: 150, minR: 430, haz: { pads: 7, ice: 3, slow: 1, chain: 1 },
+  { id: 'l2', name: 'Monsoon Jungle', cup: 5, hw: 150, minR: 430, haz: { pads: 7, ice: 3, slow: 1, chain: 1, bank: 1, bumps: 1 },
     pts: [[1100,2800],[1900,1400],[3600,1000],[5400,1300],[6200,2400],[6000,3800],[6800,4800],[7400,6000],[6600,7200],[5000,7400],[3600,6800],[3000,5600],[1900,5200],[1100,4200]] },
-  { id: 'l3', name: 'Festival of Lights', cup: 5, hw: 150, minR: 430, haz: { pads: 7, ice: 2, slow: 1, chain: 1 },
+  { id: 'l3', name: 'Festival of Lights', cup: 5, hw: 150, minR: 430, haz: { pads: 7, ice: 2, slow: 1, chain: 1, bank: 2, bumps: 1 },
     pts: [[1100,4200],[1100,2400],[1900,1200],[3600,1000],[5600,1000],[7000,1600],[7400,3000],[6600,4000],[5000,4200],[4200,5000],[4600,6000],[6000,6200],[7200,6600],[6800,7400],[5000,7400],[2800,7400],[1500,6800],[1100,5600]] },
-  { id: 'f1', name: 'Glacier Moat', cup: 6, hw: 150, minR: 430, haz: { pads: 6, ice: 2, jump: 1, chain: 1 },
+  { id: 'f1', name: 'Glacier Moat', cup: 6, hw: 150, minR: 430, haz: { pads: 6, ice: 2, jump: 1, chain: 1, bank: 1, bumps: 1 },
     pts: [[1200,5600],[1200,3600],[2000,2000],[3600,1100],[5400,1000],[6800,1600],[7400,3000],[7000,4600],[5800,5600],[4600,6400],[3400,7200],[2000,7000]] },
-  { id: 'f2', name: 'Crystal Crypt', cup: 6, hw: 150, minR: 430, haz: { pads: 7, ice: 1, jump: 1, chain: 1 },
+  { id: 'f2', name: 'Crystal Crypt', cup: 6, hw: 150, minR: 430, haz: { pads: 7, ice: 1, jump: 1, chain: 1, bank: 1, bumps: 1 },
     pts: [[1000,4200],[1000,2200],[1800,1100],[3800,1000],[6200,1000],[7300,1800],[7300,3400],[6400,4300],[6400,5600],[7200,6600],[6400,7400],[4200,7400],[2200,7400],[1100,6600],[1000,5400]] },
-  { id: 'f3', name: 'Frozen Throne', cup: 6, hw: 150, minR: 430, haz: { pads: 7, ice: 1, jump: 1, slow: 1, chain: 1 },
+  { id: 'f3', name: 'Frozen Throne', cup: 6, hw: 150, minR: 430, haz: { pads: 7, ice: 1, jump: 1, slow: 1, chain: 1, bank: 2, bumps: 1 },
     pts: [[1000,4000],[1000,2000],[1900,1000],[3200,1100],[3700,2200],[3700,4000],[4400,5000],[5400,4400],[5400,2400],[6000,1200],[7000,1100],[7400,2200],[7400,4400],[7400,6200],[6600,7300],[4400,7400],[2400,7400],[1200,6600],[1000,5200]] },
-  { id: 'g1', name: 'Aurora Gate', cup: 7, hw: 150, minR: 430, haz: { pads: 6, ice: 1, jump: 1, chain: 1 },
+  { id: 'g1', name: 'Aurora Gate', cup: 7, hw: 150, minR: 430, haz: { pads: 6, ice: 1, jump: 1, chain: 1, bank: 1, bumps: 1 },
     pts: [[1200,4200],[1200,2400],[2100,1200],[4000,1000],[5800,1300],[7000,2200],[7400,3800],[6900,5400],[5600,6200],[4000,6000],[3200,6800],[2200,7200],[1300,6400]] },
-  { id: 'g2', name: 'Titan Ring', cup: 7, hw: 150, minR: 430, haz: { pads: 7, ice: 2, slow: 1, chain: 2 },
+  { id: 'g2', name: 'Titan Ring', cup: 7, hw: 150, minR: 430, haz: { pads: 7, ice: 2, slow: 1, chain: 2, bank: 1, bumps: 1 },
     pts: [[1000,4100],[1300,2500],[2500,1300],[4100,1000],[5700,1300],[6900,2500],[7200,4100],[6900,5700],[5700,6900],[4100,7200],[2500,6900],[1300,5700]] },
-  { id: 'g3', name: 'Big Bang', cup: 7, hw: 150, minR: 430, haz: { pads: 8, ice: 2, jump: 2, slow: 2, chain: 2 },
+  { id: 'g3', name: 'Big Bang', cup: 7, hw: 150, minR: 430, haz: { pads: 8, ice: 2, jump: 2, slow: 2, chain: 2, bank: 2, bumps: 1 },
     pts: [[1000,4400],[1000,2400],[1700,1200],[3000,1000],[3800,1800],[4000,3200],[4800,3900],[5800,3300],[6000,1900],[6600,1100],[7300,1700],[7400,3400],[7400,5400],[6800,6800],[5400,7400],[3600,7400],[2000,7000],[1100,6000]] }
 ];
 
@@ -148,8 +151,22 @@ function nearest(x, y, hint, win) {
   return near;
 }
 
-function blockIntrusion(hz, s) {
-  return hz.depth * Math.max(0, Math.min(1, (s - hz.s0) / BLOCK_TAPER, (hz.s1 - s) / BLOCK_TAPER));
+// Hoogte van de grond op plek (s, d); bankSlope krijgt de helling (hoeveel hoger per stap naar +d),
+// bankTilt de schuinte waarmee schip en camera kantelen (naar boven toe steeds steiler, als een muur).
+let bankSlope = 0, bankTilt = 0;
+const bankAmt = (hz, s) => Math.max(0, Math.min(1, (s - hz.s0) / BANK_T, (hz.s1 - s) / BANK_T));
+function bankZ(s, d) {
+  bankSlope = 0; bankTilt = 0;
+  for (const hz of T.haz) {
+    if (hz.type !== 'bank' || s < hz.s0 || s > hz.s1) continue;
+    const amt = bankAmt(hz, s), span = BANK_IN + BANK_W, u = (d * hz.side - (T.hw - BANK_IN)) / span;
+    if (u <= 0) return 0;
+    const uu = Math.min(1, u);
+    bankSlope = hz.side * BANK_H * amt * 2 * uu / span;
+    bankTilt = hz.side * BANK_TILT * amt * Math.pow(uu, 1.2);
+    return BANK_H * amt * uu * uu;
+  }
+  return 0;
 }
 
 function buildTrack(def, index) {
@@ -247,8 +264,6 @@ function placeHazards(tr, def, seed) {
   };
   scan(want.jump || 0, 950, 200, (k, p) => k.mx < [1 / 1900, 1 / 1300, 1 / 900][p],
     s => haz.push({ type: 'jump', s0: s + 60, s1: s + 100 }));
-  scan(want.block || 0, 460, 260, (k, p) => k.mx < [1 / 1400, 1 / 900, 1 / 600][p],
-    s => haz.push({ type: 'block', s0: s, s1: s + 460, side: rnd() < 0.5 ? -1 : 1, depth: hw * 0.86 }));
   scan(want.ice || 0, 560, 260, (k, p) => k.mx < 1 / 430 && (p > 0 || k.mean > 1 / 4000),
     s => haz.push({ type: 'ice', s0: s, s1: s + 560 }));
   scan(want.slow || 0, 320, 220, (k, p) => k.mx < 1 / 470 && (p > 0 || k.mean > 1 / 1900),
@@ -266,6 +281,11 @@ function placeHazards(tr, def, seed) {
         pads.push({ x: q.x - q.ty * off, y: q.y + q.tx * off, dx: q.tx, dy: q.ty });
       }
     });
+  // hobbels: een rij van vier bulten dwars over de weg, op een vrij rechte strook
+  scan(want.bumps || 0, 720, 260, (k, p) => k.mx < [1 / 1300, 1 / 900, 1 / 600][p],
+    s => { for (let i = 0; i < 4; i++) haz.push({ type: 'bump', s0: s + 60 + i * 180, s1: s + 96 + i * 180 }); });
+  scan(want.bank || 0, 1000, 300, (k, p) => k.mx < 1 / 430 && k.mean > [1 / 1400, 1 / 2000, 1 / 2800][p],
+    (s, k) => haz.push({ type: 'bank', s0: s, s1: s + 1000, side: -k.sign }));
   tr.haz = haz; tr.pads = pads;
 }
 
@@ -273,7 +293,7 @@ function newEntity(car, opts) {
   return Object.assign({
     car, x: 0, y: 0, th: 0, vx: 0, vy: 0, z: 0, vz: 0, vl: 0, steer: 0,
     hint: 0, s: 0, d: 0, lastS: null, progress: 0, lap: 0, finished: false, finishTime: 0,
-    energy: 1, padT: 0, driftT: 0, boosting: false, onIce: false, onSlow: false,
+    energy: 1, padT: 0, driftT: 0, bz: 0, btilt: 0, boosting: false, onIce: false, onSlow: false,
     skill: 1, ai: false, ref: false, lane: 0, laneS: 0, stuck: 0, hits: 0,
     in: { acc: false, brk: false, drift: false, steer: 0, boost: false },
     ev: { hit: 0, pad: 0, jump: 0, land: 0, bump: 0, drift: 0 }, trail: []
@@ -365,14 +385,17 @@ function stepEntity(e) {
   e.lastS = nr.s; e.s = nr.s; e.d = nr.d;
 
   // vangrail en versmallingen
-  let maxD = hw - SHIP_R, minD = -maxD, blockHit = false;
-  if (e.z < 22) {
-    for (const hz of T.haz) {
-      if (hz.type !== 'block' || e.s < hz.s0 || e.s > hz.s1) continue;
-      const intr = blockIntrusion(hz, e.s);
-      if (hz.side > 0) { const m = hw - intr - SHIP_R; if (m < maxD) { maxD = m; blockHit = true; } }
-      else { const m = -(hw - intr) + SHIP_R; if (m > minD) { minD = m; blockHit = true; } }
-    }
+  let maxD = hw - SHIP_R, minD = -maxD;
+  for (const hz of T.haz) {
+    if (hz.type !== 'bank' || e.s < hz.s0 || e.s > hz.s1) continue;
+    const wide = hw + BANK_W * bankAmt(hz, e.s) - SHIP_R;
+    if (hz.side > 0) maxD = Math.max(maxD, wide); else minD = Math.min(minD, -wide);
+  }
+  e.bz = bankZ(e.s, e.d); e.btilt = bankTilt;
+  if (bankTilt && e.z < 1) {
+    // hoe steiler de wand, hoe harder je terug naar beneden glijdt: snelheid houdt je boven
+    const g = 1150 * Math.sin(bankTilt) * DT;
+    e.vx += T.TY[si] * g; e.vy -= T.TX[si] * g;
   }
   if (e.d > maxD || e.d < minD) {
     const sgn = e.d > maxD ? 1 : -1;
@@ -391,15 +414,18 @@ function stepEntity(e) {
         e.hits++;
       }
     }
-    const scrape = (blockHit ? 2.6 : 0.6) * DT;
+    const scrape = 0.6 * DT;
     e.vx *= 1 - scrape; e.vy *= 1 - scrape;
-    if (blockHit && Math.hypot(e.vx, e.vy) > 300) e.ev.hit = Math.max(e.ev.hit, 0.25);
   }
 
   if (!air) {
     for (const hz of T.haz) {
       if (hz.type === 'jump' && e.s >= hz.s0 && e.s <= hz.s1 && vf > 350) {
         e.vz = 110 + vf * 0.11; e.z = 0.02; e.ev.jump = 1;
+        break;
+      }
+      if (hz.type === 'bump' && e.s >= hz.s0 && e.s <= hz.s1 && vf > 300) {
+        e.vz = 60 + vf * 0.045; e.z = 0.02;
         break;
       }
     }
@@ -432,7 +458,7 @@ function aiControl(e) {
   const near = aiNear;
   near.length = 0;
   for (const hz of T.haz) {
-    if (hz.type !== 'block' && hz.type !== 'slow') continue;
+    if (hz.type !== 'slow') continue;
     let a = hz.s0 - e.s; if (a < -T.len / 2) a += T.len;
     const b = a + (hz.s1 - hz.s0);
     if (b < -40 || a > look + 320) continue;
@@ -441,11 +467,7 @@ function aiControl(e) {
   near.sort((p, q) => p[0] - q[0]);
   for (const [, hz] of near) {
     const lo0 = lo, hi0 = hi;
-    if (hz.type === 'block') {
-      if (hz.side > 0) hi = Math.min(hi, hw - hz.depth - 48); else lo = Math.max(lo, -(hw - hz.depth) + 48);
-    } else {
-      if (hz.d1 >= hw - 1) hi = Math.min(hi, hz.d0 - 40); else lo = Math.max(lo, hz.d1 + 40);
-    }
+    if (hz.d1 >= hw - 1) hi = Math.min(hi, hz.d0 - 40); else lo = Math.max(lo, hz.d1 + 40);
     if (lo > hi - 20) { lo = lo0; hi = hi0; break; }
   }
   const lane = Math.max(lo, Math.min(hi, e.lane));
@@ -1365,6 +1387,7 @@ void main(){
     vec2 uv = w / uWorld;
     vec4 t = texture(uMap, uv);
     vec4 hz = texture(uHaz, uv);
+    float bankA = clamp(hz.b / 40.0, 0.0, 1.0), hwE = uHalfW + ${BANK_W.toFixed(1)} * bankA;
     float sd = t.r, d = abs(sd);
     float ph = atan(t.b, t.g) / TAU;
     float fwD = fwidth(d) + 0.001;
@@ -1375,7 +1398,7 @@ void main(){
 
     // terrein buiten de baan
     vec3 ground = uPal[4];
-    float outD = d - uHalfW - uWall;      // afstand buiten de vangrail
+    float outD = d - hwE - uWall;      // afstand buiten de vangrail
     if (uKind == 0) {
       // TROPISCH STRAND: lichte vlonder, geel zand, turquoise zee met witte branding
       if (outD < 70.0) {
@@ -1530,8 +1553,15 @@ void main(){
     road = mix(road, slow, hm.g);
     vec3 ramp = mix(vec3(1.0, 0.85, 0.1), vec3(0.08), stripe(sd/44.0, fwD/44.0)) * 1.1;
     road = mix(road, ramp, hm.a);
+    // schuine ramp: banen die lichter worden naar boven, schuine strepen in de randkleur
+    if (bankA > 0.0) {
+      float ru = clamp((d - (uHalfW - ${BANK_IN.toFixed(1)})) / (${BANK_IN.toFixed(1)} + ${BANK_W.toFixed(1)} * bankA), 0.0, 1.0) * bankA;
+      vec3 bk = mix(uPal[7], vec3(1.0), 0.12 + 0.45 * floor(ru * 4.0) / 4.0);
+      bk = mix(bk, uPal[8], stripe(ph * 6.0 - ru * 1.5, aaP * 6.0) * 0.55);
+      road = mix(road, bk, step(0.02, ru));
+    }
 
-    float edge = smoothstep(uHalfW - 16.0 - aaD, uHalfW - 16.0 + aaD, d) * smoothstep(uHalfW - 5.0 + aaD, uHalfW - 5.0 - aaD, d);
+    float edge = smoothstep(hwE - 16.0 - aaD, hwE - 16.0 + aaD, d) * smoothstep(hwE - 5.0 + aaD, hwE - 5.0 - aaD, d);
     road = mix(road, uPal[8], edge);
 
     for (int i = 0; i < uPadCount; i++) {
@@ -1539,7 +1569,7 @@ void main(){
       float ly = dot(rel, uPads[i].zw);
       float lx = dot(rel, vec2(-uPads[i].w, uPads[i].z));
       if (abs(lx) < ${PAD_HW.toFixed(1)} && abs(ly) < ${PAD_HL.toFixed(1)}) {
-        float v = fract((ly - abs(lx)*0.9) / 44.0 - uTime*2.5);
+        float v = fract((ly + abs(lx)*0.9) / 44.0 - uTime*2.5);   // pijlpunt naar voren
         vec3 pc = mix(vec3(0.0, 0.25, 0.4), vec3(0.3, 1.0, 1.0), step(0.5, v));
         road = mix(pc, vec3(0.8, 1.0, 1.0), step(${(PAD_HW - 5).toFixed(1)}, abs(lx)));
       }
@@ -1554,10 +1584,9 @@ void main(){
 
     float bs = stripe(ph*8.0, aaP*8.0);
     vec3 wall = mix(uPal[9], uPal[10], bs) * 1.05;
-    road = mix(road, wall, hm.b);
 
-    float onRoad = smoothstep(uHalfW + aaD, uHalfW - aaD, d);
-    float onWall = smoothstep(uHalfW + uWall + aaD, uHalfW + uWall - aaD, d);
+    float onRoad = smoothstep(hwE + aaD, hwE - aaD, d);
+    float onWall = smoothstep(hwE + uWall + aaD, hwE + uWall - aaD, d);
     col = mix(ground, wall, onWall);
     col = mix(col, road, onRoad);
 
@@ -1673,7 +1702,7 @@ function buildMaps(tr, C) {
       }
     }
   }
-  const lim = tr.hw + 50, cl = v => v < -40 ? -40 : v > 40 ? 40 : v;
+  const lim = tr.hw + C.BANK_W + C.WALL + 10, cl = v => v < -40 ? -40 : v > 40 ? 40 : v;
   for (let idx = 0; idx < n; idx++) {
     if (best[idx] > lim) continue;
     const sv = sAt[idx], d = map[idx * 4], ad = Math.abs(d);
@@ -1682,10 +1711,8 @@ function buildMaps(tr, C) {
       const along = Math.min(sv - hz.s0, hz.s1 - sv);
       if (hz.type === 'ice') haz[idx * 4] = Math.max(haz[idx * 4], cl(Math.min(along, tr.hw + 30 - ad)));
       else if (hz.type === 'slow') haz[idx * 4 + 1] = Math.max(haz[idx * 4 + 1], cl(Math.min(along, d - hz.d0, hz.d1 + 30 - d)));
-      else if (hz.type === 'block') {
-        const intr = hz.depth * Math.max(0, Math.min(1, (sv - hz.s0) / C.TAPER, (hz.s1 - sv) / C.TAPER));
-        const edge = tr.hw - intr;
-        haz[idx * 4 + 2] = Math.max(haz[idx * 4 + 2], cl(Math.min(along + 6, hz.side > 0 ? d - edge : -d - edge)));
+      else if (hz.type === 'bank') {
+        if (d * hz.side > 0) haz[idx * 4 + 2] = Math.max(haz[idx * 4 + 2], 40 * Math.max(0, Math.min(1, (sv - hz.s0) / C.BANK_T, (hz.s1 - sv) / C.BANK_T)));
       } else haz[idx * 4 + 3] = Math.max(haz[idx * 4 + 3], cl(Math.min(along, tr.hw + 30 - ad)));
     }
   }
@@ -1711,7 +1738,7 @@ function buildMaps(tr, C) {
   };
   return { map: toHalf(map), haz: toHalf(haz) };
 }
-const MAP_C = { TS, WORLD, WALL, TAPER: BLOCK_TAPER };
+const MAP_C = { TS, WORLD, WALL, BANK_W, BANK_T };
 const slimTrack = tr => ({ N: tr.N, hw: tr.hw, period: tr.period, SX: tr.SX, SY: tr.SY, TX: tr.TX, TY: tr.TY, SL: tr.SL, SC: tr.SC, haz: tr.haz });
 
 let loadedTrack = -1;
@@ -2371,7 +2398,12 @@ function tick() {
   if (G.mode === 'online') netDelay();
   for (const e of G.ents) {
     const inp = e.in;
-    if (e.remote) { netApply(e); continue; }   // andere spelers: positie komt van het netwerk
+    if (e.remote) {   // andere spelers: positie komt van het netwerk; hoogte op een ramp rekenen we zelf uit
+      netApply(e);
+      const nr = nearest(e.x, e.y, e.hint == null ? 0 : e.hint, e.hint == null ? T.N >> 1 : 45);
+      e.hint = nr.i; e.bz = bankZ(nr.s, nr.d); e.btilt = bankTilt;
+      continue;
+    }
     if (e.ai || (e === P && e.finished)) {
       if (G.state === 'countdown') { inp.acc = inp.brk = inp.drift = inp.boost = false; inp.steer = 0; }
       else {
@@ -2692,10 +2724,10 @@ function setCamera(dt) {
     const dist = 112 + speed * 0.012;
     cam.x = P.rx - Math.cos(cam.yaw) * dist;
     cam.y = P.ry - Math.sin(cam.yaw) * dist;
-    cam.h = 56 + P.rz * 0.55 + (Math.random() - 0.5) * 7 * G.shake;
+    cam.h = 56 + P.rz * 0.55 + (P.rbz || 0) * 0.85 + (Math.random() - 0.5) * 7 * G.shake;
     const targetF = 1.12 - 0.2 * Math.min(1, speed / 1500) - (P.boosting ? 0.07 : 0);
     cam.f += (targetF - cam.f) * Math.min(1, dt * 4);
-    cam.roll = P.steer * 0.045 * Math.min(1, speed / 500) + (Math.random() - 0.5) * 0.02 * G.shake;
+    cam.roll = P.steer * 0.045 * Math.min(1, speed / 500) + (P.rbt || 0) * 0.75 + (Math.random() - 0.5) * 0.02 * G.shake;
   }
   camC = Math.cos(cam.yaw); camS = Math.sin(cam.yaw);
   rollC = Math.cos(cam.roll); rollS = Math.sin(cam.roll);
@@ -4074,6 +4106,8 @@ function dressTrack(tr) {
     return true;
   };
   const put = (sv, k, side, off) => {
+    // naast een ramp schuift de vangrail naar buiten; het decor schuift even ver mee
+    for (const hz of tr.haz) if (hz.type === 'bank' && sv > hz.s0 && sv < hz.s1 && hz.side === Math.sign(off * side)) off += Math.sign(off) * BANK_W * bankAmt(hz, sv);
     const p = posAt(sv, tr), x = p.x - p.ty * off * side, y = p.y + p.tx * off * side;
     if (!clear(x, y, p.i, base + 30)) return false;
     out.push({ x, y, k });
@@ -4401,7 +4435,7 @@ function drawWorld(ents) {
   for (const it of drawList) {
     if (it.e) {
       const e = it.e;
-      drawShip(e.rx, e.ry, e.rth, e.steer * 0.42, 7 + Math.sin(G.time * 5 + (e.rival || 0)) * 0.9 + e.rz, e.car, e.pal, 1, e.boosting ? 1.6 : (e.in.acc ? 1 : 0.25));
+      drawShip(e.rx, e.ry, e.rth, e.steer * 0.42 + (e.rbt || 0), 7 + Math.sin(G.time * 5 + (e.rival || 0)) * 0.9 + e.rz + (e.rbz || 0), e.car, e.pal, 1, e.boosting ? 1.6 : (e.in.acc ? 1 : 0.25));
       if (G.mode === 'online' && e !== G.player && it.z < 2600 && project(e.rx, e.ry, 46 + e.rz)) text(e.name, pr[0], pr[1], 13 * H / 720, e.pal[2], 'center', 800);
     } else if (it.g) {
       drawGate(it.g, it.z);
@@ -5476,6 +5510,8 @@ function frame(now) {
     if (e.px == null) { e.px = e.x; e.py = e.y; e.pth = e.th; e.pz = e.z; }
     e.rx = e.px + (e.x - e.px) * al; e.ry = e.py + (e.y - e.py) * al;
     e.rth = e.pth + (e.th - e.pth) * al; e.rz = e.pz + (e.z - e.pz) * al;
+    // hoogte en kanteling op een ramp, zacht bijgesteld
+    e.rbz = (e.rbz || 0) + ((e.bz || 0) - (e.rbz || 0)) * 0.35; e.rbt = (e.rbt || 0) + ((e.btilt || 0) - (e.rbt || 0)) * 0.35;
   }
   const P = G.player, inGame = G.state !== 'menu' && P;
   musicSync(dt);
