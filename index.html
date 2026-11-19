@@ -29,6 +29,8 @@ const BANK_W = 60, BANK_IN = 50, BANK_H = 46, BANK_T = 320, BANK_TILT = 1.2;
 // golven: een strook water van WAVE_HW breed die in WAVE_RUN seconden dwars over de weg schuift, elke WAVE_P seconden.
 // lavagat: GAP_L lang, vlak achter een schans; wie er op de grond in komt, valt en wordt GAP_BACK terug neergezet.
 const WAVE_HW = 55, WAVE_RUN = 1.6, WAVE_P = 3.6, GAP_L = 300, GAP_BACK = 520;
+// kanon: wie eroverheen rijdt, vliegt in een vaste boog (CANNON_H hoog) recht door de lucht naar CANNON_L verderop
+const CANNON_L = 2600, CANNON_H = 520, CANNON_V = 1300;
 let raceTime = 0;   // racetijd in seconden, voor alles wat met de tijd meebeweegt (golven)
 // Waar staat de golf nu? Afstand tot de middenlijn van het midden van de strook, of null als het even rustig is.
 function waveAt(hz, hw, t) {
@@ -85,7 +87,7 @@ const TRACK_DEFS = [
     pts: [[1100,4000],[1100,2200],[1900,1100],[3200,1100],[3900,2000],[3900,4000],[3900,5400],[4700,6300],[5700,5600],[5700,3800],[5700,2000],[6500,1100],[7300,1900],[7300,4000],[7300,6200],[6500,7300],[4400,7400],[2400,7400],[1300,6800],[1100,5400]] },
   { id: 's2', minR: 430, name: 'Ring Road', cup: 3, hw: 145, haz: { pads: 6, jump: 2, bumps: 1, ice: 1, bank: 1, launch: 1 }, grav: 0.55,
     pts: [[1000,4100],[1000,2300],[1500,1400],[2400,1000],[4100,1000],[5800,1000],[6700,1400],[7200,2300],[7200,4000],[6700,5200],[5600,5700],[4900,6500],[4000,7300],[2600,7300],[1500,6800],[1000,5800]] },
-  { id: 's3', minR: 430, name: 'Supernova', cup: 3, hw: 145, haz: { pads: 7, jump: 2, bumps: 2, bank: 2, chain: 1, launch: 2 }, grav: 0.55,
+  { id: 's3', minR: 430, name: 'Supernova', cup: 3, hw: 145, haz: { pads: 7, jump: 2, bumps: 2, bank: 2, chain: 1, launch: 2, cannon: 1 }, grav: 0.55,
     pts: [[1000,4600],[1000,2800],[1300,1700],[2000,1100],[2800,1100],[3300,1900],[3500,2700],[4100,3200],[4700,2700],[4900,1900],[5400,1100],[6200,1100],[6900,1700],[7200,2800],[7200,4600],[7200,5800],[6700,6900],[5600,7400],[4100,7400],[2600,7400],[1500,6900],[1000,5800]] },
   { id: 'd1', name: 'Oasis Run', cup: 4, hw: 150, minR: 430, haz: { pads: 6, bumps: 3, slow: 2 },
     pts: [[1200,4300],[1200,2600],[1900,1400],[3400,1000],[5400,1100],[6800,1800],[7300,3200],[7000,4800],[6000,5600],[5600,6600],[4600,7300],[3000,7300],[1700,6700],[1200,5600]] },
@@ -105,11 +107,11 @@ const TRACK_DEFS = [
     pts: [[1000,4200],[1000,2200],[1800,1100],[3800,1000],[6200,1000],[7300,1800],[7300,3400],[6400,4300],[6400,5600],[7200,6600],[6400,7400],[4200,7400],[2200,7400],[1100,6600],[1000,5400]] },
   { id: 'f3', name: 'Frozen Throne', cup: 6, hw: 150, minR: 430, haz: { pads: 7, ice: 3, bank: 2, bumps: 1 }, grip: 0.78,
     pts: [[1000,4000],[1000,2000],[1900,1000],[3200,1100],[3700,2200],[3700,4000],[4400,5000],[5400,4400],[5400,2400],[6000,1200],[7000,1100],[7400,2200],[7400,4400],[7400,6200],[6600,7300],[4400,7400],[2400,7400],[1200,6600],[1000,5200]] },
-  { id: 'g1', name: 'Aurora Gate', cup: 7, hw: 150, minR: 430, haz: { pads: 6, jump: 1, gap: 1, chain: 1, bank: 1, launch: 1 }, grav: 0.8,
+  { id: 'g1', name: 'Aurora Gate', cup: 7, hw: 150, minR: 430, haz: { pads: 6, jump: 1, gap: 1, chain: 1, bank: 1, launch: 1, cannon: 1 }, grav: 0.8,
     pts: [[1200,4200],[1200,2400],[2100,1200],[4000,1000],[5800,1300],[7000,2200],[7400,3800],[6900,5400],[5600,6200],[4000,6000],[3200,6800],[2200,7200],[1300,6400]] },
-  { id: 'g2', name: 'Titan Ring', cup: 7, hw: 150, minR: 430, haz: { pads: 7, wave: 2, chain: 2, bank: 2 }, grav: 0.8,
+  { id: 'g2', name: 'Titan Ring', cup: 7, hw: 150, minR: 430, haz: { pads: 7, wave: 2, chain: 2, bank: 2, cannon: 1 }, grav: 0.8,
     pts: [[1000,4100],[1300,2500],[2500,1300],[4100,1000],[5700,1300],[6900,2500],[7200,4100],[6900,5700],[5700,6900],[4100,7200],[2500,6900],[1300,5700]] },
-  { id: 'g3', name: 'Big Bang', cup: 7, hw: 150, minR: 430, haz: { pads: 7, gap: 1, wave: 1, ice: 1, chain: 2, bank: 2, bumps: 1, launch: 1 }, grav: 0.8,
+  { id: 'g3', name: 'Big Bang', cup: 7, hw: 150, minR: 430, haz: { pads: 7, gap: 1, wave: 1, ice: 1, chain: 2, bank: 2, bumps: 1, cannon: 1 }, grav: 0.8,
     pts: [[1000,4400],[1000,2400],[1700,1200],[3000,1000],[3800,1800],[4000,3200],[4800,3900],[5800,3300],[6000,1900],[6600,1100],[7300,1700],[7400,3400],[7400,5400],[6800,6800],[5400,7400],[3600,7400],[2000,7000],[1100,6000]] }
 ];
 
@@ -303,6 +305,8 @@ function placeHazards(tr, def, seed) {
     s => { for (let i = 0; i < 4; i++) haz.push({ type: 'bump', s0: s + 60 + i * 180, s1: s + 96 + i * 180 }); });
   scan(want.bank || 0, 1000, 300, (k, p) => k.mx < 1 / 430 && k.mean > [1 / 1400, 1 / 2000, 1 / 2800][p],
     (s, k) => haz.push({ type: 'bank', s0: s, s1: s + 1000, side: -k.sign }));
+  scan(want.cannon || 0, CANNON_L + 260, 300, (k, p) => p > 0 || k.mean < 1 / 1500,
+    s => haz.push({ type: 'cannon', s0: s + 60, s1: s + 120, land: s + 60 + CANNON_L }));
   // lanceerbaan: twee boostpads recht op een schans af, voor een hoge, verre sprong
   scan(want.launch || 0, 760, 300, (k, p) => k.mx < [1 / 2200, 1 / 1600, 1 / 1100][p],
     s => {
@@ -319,7 +323,7 @@ function newEntity(car, opts) {
     energy: 1, padT: 0, driftT: 0, bz: 0, btilt: 0, airT: 0, onWave: false, boosting: false, onIce: false, onSlow: false,
     skill: 1, ai: false, ref: false, lane: 0, laneS: 0, stuck: 0, hits: 0,
     in: { acc: false, brk: false, drift: false, steer: 0, boost: false },
-    ev: { hit: 0, pad: 0, jump: 0, land: 0, bump: 0, drift: 0, air: 0, fall: 0 }, trail: []
+    ev: { hit: 0, pad: 0, jump: 0, land: 0, bump: 0, drift: 0, air: 0, fall: 0, cannon: 0 }, trail: [], cannon: null
   }, opts || {});
 }
 
@@ -336,6 +340,23 @@ function placeOnGrid(e, back, lateral) {
 
 function stepEntity(e) {
   const c = e.car, k = e.skill, inp = e.in, hw = T.hw;
+  if (e.cannon) {
+    // in de lucht na een kanonschot: een vaste boog, geen besturing; bij de landing verder met vaart
+    const cn = e.cannon, t = Math.min(1, (cn.t += DT / cn.dur));
+    e.x = cn.ax + (cn.bx - cn.ax) * t; e.y = cn.ay + (cn.by - cn.ay) * t;
+    e.z = 1 + CANNON_H * 4 * t * (1 - t); e.vz = 0;
+    e.vx = (cn.bx - cn.ax) / cn.dur; e.vy = (cn.by - cn.ay) / cn.dur;
+    e.th = Math.atan2(e.vy, e.vx);
+    e.s = cn.s0 + (cn.land - cn.s0) * t; e.d = cn.d;
+    if (t >= 1) {
+      const q = posAt(cn.land);
+      e.th = Math.atan2(q.ty, q.tx); e.vx = q.tx * 950; e.vy = q.ty * 950; e.z = 0; e.padT = 0.7;
+      e.progress += cn.land - cn.s0; e.lastS = cn.land; e.s = cn.land;
+      e.hint = nearest(e.x, e.y, 0, T.N >> 1).i;
+      e.cannon = null; e.ev.land = 1;
+    }
+    return;
+  }
   e.steer += (inp.steer - e.steer) * Math.min(1, DT * 9);
   const air = e.z > 0.01;
 
@@ -472,6 +493,12 @@ function stepEntity(e) {
     for (const hz of T.haz) {
       if (hz.type === 'jump' && e.s >= hz.s0 && e.s <= hz.s1 && vf > 350) {
         e.vz = 110 + vf * 0.11; e.z = 0.02; e.ev.jump = 1;
+        break;
+      }
+      if (hz.type === 'cannon' && e.s >= hz.s0 && e.s <= hz.s1) {
+        const q = posAt(hz.land), dd = Math.max(-hw * 0.4, Math.min(hw * 0.4, e.d)), bx = q.x - q.ty * dd, by = q.y + q.tx * dd;
+        e.cannon = { t: 0, ax: e.x, ay: e.y, bx, by, dur: Math.hypot(bx - e.x, by - e.y) / CANNON_V, land: hz.land, s0: e.s, d: dd };
+        e.padT = 0; e.driftT = 0; e.ev.cannon = 1;
         break;
       }
       if (hz.type === 'bump' && e.s >= hz.s0 && e.s <= hz.s1 && vf > 300) {
@@ -2256,6 +2283,7 @@ function startRace(trackIdx, mode, quick) {
   G.ticks = 0; G.laps = []; G.lapStart = 0; G.ghostRec = [];
   itemsReset();
   roamersReset();
+  rollersReset();
   bumpersReset();
   G.shake = G.flash = 0; G.msgT = 0; G.msgQueue = null; G.wallCool = 0;
   G.newRecord = false; G.medal = 0; G.results = null; G.finishT = 0;
@@ -2622,7 +2650,38 @@ function roamersReset() {
     for (let i = 0; i < 2; i++) ROAM.push({ s: sv + i * 150, k: kind, per: 4.2 + zi * 0.7, ph: i * Math.PI + zi, x: 0, y: 0, vd: 0 });
   });
 }
+// Rollende obstakels: op sommige banen komen dingen uit het decor je over een stuk weg tegemoet, in drie rijstroken.
+// alleen smalle dingen (hoogstens 80 breed), anders nemen ze de halve weg in
+const ROLL = [], ROLL_KIND = { k2: 'crate', v2: 'barrel', d1: 'pots', d3: 'pots', f3: 'snowman' };
+const ROLL_LEN = 1100, ROLL_SPEED = 240;
+function rollersReset() {
+  ROLL.length = 0;
+  const kind = ROLL_KIND[T.id];
+  if (!kind || !SPRITES[T.index + ':' + kind]) return;
+  const busy = sv => T.haz.some(h => sv + ROLL_LEN > h.s0 - 200 && sv < h.s1 + 200) || ROAM.some(r => r.s > sv - 300 && r.s < sv + ROLL_LEN + 300)
+    || IT.boxes.some(b => { for (let k = 0; k <= ROLL_LEN; k += 200) { const q = posAt(sv + k); if (Math.hypot(b.x - q.x, b.y - q.y) < 300) return true; } return false; });
+  let sv = 0.47 * T.len;
+  for (let k = 0; k < 60 && busy(sv); k++) sv += 80;
+  if (busy(sv) || sv + ROLL_LEN > T.len - 600) return;
+  const sp = SPRITES[T.index + ':' + kind], cr = sp.c.width * sp.ws / 2 + 12;   // botsen zo breed als je ziet
+  [-0.5, 0, 0.5].forEach((o, i) => ROLL.push({ s0: sv, d: o * T.hw, k: kind, ph: i * ROLL_LEN * 0.6, cr, x: 0, y: 0 }));
+}
 function roamersTick() {
+  for (const r of ROLL) {
+    // heen en weer over het stuk (nooit verspringen, dus nooit uit het niets)
+    const f = ((raceTime * ROLL_SPEED + r.ph) / ROLL_LEN) % 2, sv = r.s0 + ROLL_LEN * (1 - Math.abs(f - 1)), q = posAt(sv);
+    r.x = q.x - q.ty * r.d; r.y = q.y + q.tx * r.d; r.s = sv;
+    for (const e of G.ents) {
+      if (e.remote || e.z > 30 || (e.bumpT || 0) > 0) continue;
+      const dx = e.x - r.x, dy = e.y - r.y, dist = Math.hypot(dx, dy);
+      if (dist > r.cr) continue;
+      e.bumpT = 0.7;
+      if (e.shieldT > 0) { e.shieldT = 0; continue; }
+      e.vx = e.vx * 0.35 + dx / (dist || 1) * 180; e.vy = e.vy * 0.35 + dy / (dist || 1) * 180; e.padT = 0; e.driftT = 0;
+      for (let i = 0; i < 8; i++) spawn(r.x, r.y, 20, (Math.random() - 0.5) * 260, (Math.random() - 0.5) * 260, 60 + Math.random() * 90, 0.45, 3.5, '255,240,200', false, 300);
+      if (e === G.player) { G.shake = Math.max(G.shake, 0.5); thud(0.45); }
+    }
+  }
   for (const r of ROAM) {
     const w = Math.PI * 2 / r.per, a = raceTime * w + r.ph, d = Math.sin(a) * T.hw * 0.78, q = posAt(r.s);
     r.x = q.x - q.ty * d; r.y = q.y + q.tx * d; r.vd = Math.cos(a);
@@ -2688,6 +2747,20 @@ function drawBumper(b, zc) {
   ctx.fillStyle = lit ? '#ffd24a' : '#ffffff'; fillDisc(tx, ty, r * 0.62);
   ctx.fillStyle = lit ? '#ffffff' : '#ffb833'; fillDisc(tx, ty, r * 0.3);
 }
+// Computerrijders kijken vooruit en sturen om figuren, rollende dingen en bumpers heen.
+function aiDodge(e) {
+  const fx = Math.cos(e.th), fy = Math.sin(e.th), sp = Math.hypot(e.vx, e.vy), look = 160 + sp * 0.45;
+  let push = 0;
+  const check = (x, y, r) => {
+    const dx = x - e.x, dy = y - e.y, a = dx * fx + dy * fy, l = -dx * fy + dy * fx;
+    if (a < 20 || a > look || Math.abs(l) > r + 40) return;
+    push += (l > 0 ? -1 : 1) * (1 - a / look) * 1.6;   // weg van het obstakel, harder naarmate het dichterbij is
+  };
+  for (const r of ROLL) check(r.x, r.y, r.cr);
+  for (const r of ROAM) check(r.x, r.y, 40);
+  for (const b of BUMPERS) check(b.x, b.y, BUMPER_R + SHIP_R);
+  if (push) e.in.steer = Math.max(-1, Math.min(1, e.in.steer + push));
+}
 // het itemvakje bovenin het scherm
 function drawItemSlot(u) {
   if (!itemsOn() || G.intro > 0) return;
@@ -2721,6 +2794,7 @@ function tick() {
           e.skill = e.baseSkill * (gap > 1600 ? CLASSES[ui.cls].lead : gap < -1600 ? CLASSES[ui.cls].chase : 1);
         }
         aiControl(e);
+        aiDodge(e);
       }
     } else {
       const ctl = racing && !G.paused;   // online loopt de race door tijdens de pauze, zonder besturing
@@ -2792,6 +2866,7 @@ function tick() {
       if (e === P) { G.flash = Math.max(G.flash, 0.18); beep(660, 0.25, 'sawtooth', 0.07); beep(990, 0.3, 'sawtooth', 0.05); }
     }
     if (ev.jump && e === P) whoosh();
+    if (ev.cannon && e === P) { showMsg('BLAST OFF!', '', '#ffd24a', 1.4); thud(0.7); beep(220, 0.5, 'sawtooth', 0.08); whoosh(); G.shake = Math.max(G.shake, 0.7); }
     if (ev.air && e === P) { showMsg('AIR BOOST!', '', '#8fe8ff', 0.9); beep(990, 0.12, 'square', 0.06); }
     if (ev.fall) {
       if (e === P) { showMsg('TOO SLOW!', 'take the ramp at full speed', '#ff8a5a', 1.6); G.shake = Math.max(G.shake, 0.6); thud(0.5); }
@@ -2803,7 +2878,7 @@ function tick() {
       if (e === P) { G.shake = Math.max(G.shake, 0.45); thud(0.3); }
     }
     if (ev.drift && e === P) beep([0, 660, 880, 1100][ev.drift], 0.16, 'square', 0.07);
-    ev.hit = ev.pad = ev.jump = ev.land = ev.bump = ev.drift = ev.air = ev.fall = 0;
+    ev.hit = ev.pad = ev.jump = ev.land = ev.bump = ev.drift = ev.air = ev.fall = ev.cannon = 0;
     // driftvonken achter het schip: wit, dan blauw, oranje en roze naarmate de drift langer duurt
     if (e.driftT > 0.25) {
       const col = ['235,235,255', '90,170,255', '255,160,40', '255,80,200'][driftLevel(e.driftT)];
@@ -3042,7 +3117,7 @@ function setCamera(dt) {
     const dist = 112 + speed * 0.012;
     cam.x = P.rx - Math.cos(cam.yaw) * dist;
     cam.y = P.ry - Math.sin(cam.yaw) * dist;
-    cam.h = 56 + P.rz * 0.55 + (P.rbz || 0) * 0.85 + (Math.random() - 0.5) * 7 * G.shake;
+    cam.h = 56 + P.rz * 0.55 + Math.max(0, P.rz - 60) * 0.6 + (P.rbz || 0) * 0.85 + (Math.random() - 0.5) * 7 * G.shake;
     const targetF = 1.12 - 0.2 * Math.min(1, speed / 1500) - (P.boosting ? 0.07 : 0);
     cam.f += (targetF - cam.f) * Math.min(1, dt * 4);
     cam.roll = P.steer * 0.045 * Math.min(1, speed / 500) + (P.rbt || 0) * 0.75 + (Math.random() - 0.5) * 0.02 * G.shake;
@@ -4753,6 +4828,12 @@ function drawGround() {
       const fl = (G.time * 0.6) % 1;
       ctx.fillStyle = lava ? '#ffb030' : '#a070ff';
       for (let k = 0; k < 3; k++) { const a = hz.s0 + 30 + ((k / 3 + fl) % 1) * (hz.s1 - hz.s0 - 70); groundStrip(a, a + 18, -hw * 0.8 + k * 40, -hw * 0.2 + k * 60, 18); }
+    } else if (hz.type === 'cannon') {
+      ctx.fillStyle = '#1a1030'; groundStrip(hz.s0 - 40, hz.s1 + 40, -hw, hw, 10);
+      ctx.fillStyle = '#ffd24a'; groundStrip(hz.s0 - 30, hz.s1 + 30, -hw + 10, hw - 10, 10);
+      const ph = (G.time * 2) % 1;
+      ctx.fillStyle = '#ff4f8a';
+      for (let k = 0; k < 3; k++) { const a = hz.s0 - 25 + ((k + ph) / 3) * (hz.s1 - hz.s0 + 50); groundStrip(a, a + 12, -hw + 20, hw - 20, 6); }
     } else if (hz.type === 'bump') {
       // hobbel: lichte voorkant, donkere achterkant, zodat je de bult ziet liggen
       const m = (hz.s0 + hz.s1) / 2;
@@ -4793,6 +4874,10 @@ function drawWorld(ents) {
   for (const g of T.gates) {
     const zc = (g.x - cam.x) * camC + (g.y - cam.y) * camS;
     if (zc > 70 && zc < 5600) drawList.push({ z: zc, g });
+  }
+  for (const r of ROLL) {
+    const zc = (r.x - cam.x) * camC + (r.y - cam.y) * camS;
+    if (zc > 110 && zc < 5600) drawList.push({ z: zc, o: { k: r.k, x: r.x, y: r.y }, ox: r.x, oy: r.y, flip: false });
   }
   for (const b of BUMPERS) {
     const zc = (b.x - cam.x) * camC + (b.y - cam.y) * camS;
@@ -4877,6 +4962,7 @@ function render(dt) {
 // Intro voor de race: zwarte balken boven en onder, naam van de cup en de baan, in een cup de rivalen op een rij.
 function trackTip(tr) {
   const n = t => tr.haz.filter(h => h.type === t).length;
+  if (n('cannon')) return 'HIT THE CANNON AND FLY';
   if (n('gap')) return 'JUMP THE GAPS - TOO SLOW AND YOU FALL IN';
   if (n('wave')) return 'WATCH OUT FOR THE WAVES';
   if (tr.grav < 1) return 'LOW GRAVITY - BIG AIR, AIR BOOSTS';
