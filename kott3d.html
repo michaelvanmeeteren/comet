@@ -31,7 +31,7 @@ let HW = 150;                          // halve wegbreedte (zoals de banen in ko
 const STEP = 16;             // afstand tussen twee punten van het lint
 const LAPS = 3, SHIP_R = 22, HOVER = 5, SHIP_SIZE = 1.2;
 const WALL_H = 26, WALL_T = 10, ROAD_T = 16;
-const LOW_H = 270;           // aantal beeldlijnen: laag, en daarna zonder vervaging vergroot
+const LOW_H = 540;           // aantal beeldlijnen (zoals FINE in komeet.html); daarna zonder vervaging vergroot
 const GROUND_Y = -40;        // grond iets onder het laagste stuk weg
 
 // ---------------------------------------------------------------- voertuigen (uit komeet.html)
@@ -728,14 +728,22 @@ function stepEnt(e) {
   }
   // vangrail
   const maxD = HW - SHIP_R;
+  if (Math.abs(e.d) <= maxD - 2) e.onWall = false;
   if (Math.abs(e.d) > maxD) {
     const sd = Math.sign(e.d);
     e.d = sd * maxD;
-    if (e.vR * sd > 0) {
-      if (e.vR * sd > 120) e.ev.wall = 1;
-      e.vR = -e.vR * 0.35; e.vT *= 0.985; e.driftT = 0;
-      e.psi -= sd * Math.min(Math.abs(e.psi), 0.04) * Math.sign(e.psi * sd || 1);
+    const vn = e.vR * sd;
+    if (vn > 0) {
+      // klap tegen de rail: snelheid kwijt alleen bij het raken zelf (of een harde klap), niet bij elke stap erlangs
+      if (vn > 120) e.ev.wall = 1;
+      if (!e.onWall) { e.vT *= 1 - Math.min(0.45, vn / 1400) / e.car.tough; e.driftT = 0; }
+      e.vR = -e.vR * 0.3;
     }
+    // de neus kan maar een klein stukje de rail in wijzen: zo schuur je erlangs en blijf je niet plakken
+    if (e.psi * sd > 0.3) e.psi = sd * 0.3;
+    e.onWall = true;
+    e.d = sd * (maxD - 0.5);
+    e.vT *= 1 - 0.6 * DT;
   }
   e.psi = Math.atan2(Math.sin(e.psi), Math.cos(e.psi));
 }
@@ -984,7 +992,8 @@ const save = (() => { try { return Object.assign({ char: 0, car: 0, cls: 1, rec:
 function store() { try { localStorage.setItem(SAVE3, JSON.stringify(save)); } catch (e) {} }
 // spelstatus buiten de race: menu of race, en welke modus
 const G3 = { state: 'menu', mode: 'free' };
-const ui = { screen: 'title', sel: 0, cup: 0, track: 1, char: save.char | 0, car: save.car | 0, cls: save.cls == null ? 1 : save.cls, back: [] };
+// mode: 0 tijdrit, 1 cup, 2 online, 3 testbaan; track = 0..2 binnen de cup; bg = de baan die op de achtergrond ligt
+const ui = { screen: 'title', mode: 0, cup: 0, track: 0, bg: 1, char: save.char | 0, car: save.car | 0, cls: save.cls == null ? 1 : save.cls, rivals: [0, 1, 2, 3, 4], reelT: 0, reelN: 0 };
 let cupRun = null;
 // portretten (f0 tot f17 in art/sprites.js) voor menu en boordradio
 const FACE_IMG = [];
@@ -999,7 +1008,7 @@ const RIVAL_PALS = [
 ];
 function newEnt(car, pal, ai, s, d, skill) {
   return { car, pal, ai, s, d, z: 0, vz: 0, air: false, airT: 0, psi: 0, vT: 0, vR: 0, speed: 0, steer: 0, energy: 1, padT: 0, driftT: 0,
-    boosting: false, progress: s > TR.len / 2 ? s - TR.len : s, finished: false, finishT: 0, skill, lane: (Math.random() - 0.5) * 60,
+    laps: [], boosting: false, progress: s > TR.len / 2 ? s - TR.len : s, finished: false, finishT: 0, skill, lane: (Math.random() - 0.5) * 60,
     in: { steer: 0, acc: false, brk: false, boost: false, drift: false }, ev: {}, load: 0, slip: false, lapT: 0, best: 0, lap: 1 };
 }
 let playerCar = 0;
@@ -1033,7 +1042,7 @@ function startRace(intro) {
   }
   S.phase = mode === 'demo' ? 'race' : intro ? 'intro' : 'count'; S.t = 0; S.raceTime = 0; S.finishOrder = [];
   S.radio = null; S.radioCool = 3; S.result = null;
-  msg = null; S.saidStart = S.saidFinal = false; S.final = false;
+  msg = null; S.saidStart = S.saidFinal = false; S.final = false; S.userPause = false; S.quoteSeed = Math.floor(Math.random() * 1000);
   itemsReset();
   camInit = false;
 }
@@ -1054,7 +1063,7 @@ addEventListener('keyup', e => { keys[e.code] = false; });
 function tick() {
   S.t += DT;
   if (S.radioCool > 0) S.radioCool -= DT;
-  if (S.radio && (S.radio.t -= DT) <= 0) S.radio = null;
+  if (S.radio) { S.radio.age = (S.radio.age || 0) + DT; if ((S.radio.t -= DT) <= 0) S.radio = null; }
   if (S.phase === 'intro') { if (S.t >= INTRO_T) { S.phase = 'count'; S.t = 0; camInit = false; } return; }
   if (S.phase === 'count' && G3.mode === 'online' && S.goAt) S.t = Math.max(0, 3 - (S.goAt - Date.now()) / 1000);
   if (S.phase === 'count') {
@@ -1079,7 +1088,7 @@ function tick() {
     e.lapT += DT;
     const lap = Math.floor(e.progress / TR.len) + 2;
     if (lap > e.lap && !e.finished) {
-      if (e.lap >= 2) { if (!e.best || e.lapT < e.best) e.best = e.lapT; e.lastLap = e.lapT; }
+      if (e.lap >= 2) { if (!e.best || e.lapT < e.best) e.best = e.lapT; e.lastLap = e.lapT; e.laps.push(e.lapT); }
       e.lapT = 0; e.lap = lap;
       if (e.progress >= LAPS * TR.len) { e.finished = true; e.finishT = S.raceTime; S.finishOrder.push(e); }
     }
@@ -1111,6 +1120,7 @@ const medalCache = {};
 function medalsFor(idx, car) {
   const key = idx + ':' + car;
   if (medalCache[key]) return medalCache[key];
+  if (save.medalT && save.medalT[TRACKS[idx].id + ':' + car]) return (medalCache[key] = save.medalT[TRACKS[idx].id + ':' + car]);
   const keepT = S.raceTime, e = newEnt(CARS[car], CARS[car].pal, true, TR.len - 70, 0, 1);
   e.item = null; e.spinT = 0; e.shieldT = 0;
   let n = 0;
@@ -1118,6 +1128,21 @@ function medalsFor(idx, car) {
   S.raceTime = keepT;
   const base = n * DT;
   return (medalCache[key] = [base * 1.1, base * 1.0, base * 0.94]);
+}
+function medalsAny(idx, car) {
+  const key = TRACKS[idx].id + ':' + car;
+  save.medalT = save.medalT || {};
+  if (save.medalT[key]) return save.medalT[key];
+  if (TR.idx === idx) return (save.medalT[key] = medalsFor(idx, car)) && (store(), save.medalT[key]);
+  const keep = Object.assign({}, TR), keepMul = S.mul;
+  buildTrack(TRACKS[idx], idx); TR.haz = []; TR.pads = []; if (TR.def.pts) placeHaz3d();
+  S.mul = 1;
+  const m = medalsFor(idx, car);
+  S.mul = keepMul;
+  for (const k in TR) delete TR[k];
+  Object.assign(TR, keep); HW = TR.def.hw;
+  save.medalT[key] = m; store();
+  return m;
 }
 function nameOf(e) { return e.isPlayer ? 'YOU' : e.netName ? e.netName : e.rival != null ? RIVALS[e.rival].name : 'GHOST'; }
 // race voorbij: uitslag, punten, record en ghost
@@ -1136,12 +1161,10 @@ function finishRace() {
     const key = recKey(), old = save.rec[key];
     res.medal = S.medals ? S.medals.reduce((m, t, i) => p.finishT <= t ? i + 1 : m, 0) : 0;
     if (!old || p.finishT < old) { save.rec[key] = p.finishT; save.ghost[key] = S.rec; store(); res.newRecord = true; }
+    save.medal = save.medal || {}; if (res.medal > (save.medal[TR.def.id] || 0)) { save.medal[TR.def.id] = res.medal; store(); }
   }
   S.result = res;
-  // de rivalen reageren op de uitslag
-  const winner = order[0];
-  if (winner.rival != null) say(winner.rival, 'win', true);
-  else { const r = order.find(e => e.rival != null); if (r) say(r.rival, 'lose', true); }
+  S.radio = null;   // de rivaal reageert in het uitslagpaneel (zoals in komeet.html)
 }
 function cupStandings() {
   const rows = [{ k: 0, name: 'YOU', face: ui.char, pts: cupRun.points[0] }];
@@ -1150,22 +1173,29 @@ function cupStandings() {
 }
 const cupTrack = (cup, race) => 1 + cup * 3 + race;
 function startCup() {
-  cupRun = { cup: ui.cup, race: 0, rivals: pickRivals(ui.char), points: [0, 0, 0, 0, 0, 0], done: false };
+  cupRun = { cup: ui.cup, race: 0, rivals: ui.rivals.slice(), points: [0, 0, 0, 0, 0, 0], done: false };
   G3.state = 'race'; G3.mode = 'cup'; loadTrack(cupTrack(ui.cup, 0), true);
 }
 function goRace(mode, track) { G3.state = 'race'; G3.mode = mode; S.freeRivals = null; loadTrack(track, true); }
-function toMenu() { G3.state = 'menu'; ui.screen = 'title'; ui.back = []; cupRun = null; S.freeRivals = null; loadTrack(ui.track); }
+function toMenu(screen) { G3.state = 'menu'; ui.screen = screen || 'title'; S.userPause = false; cupRun = null; S.freeRivals = null; loadTrack(ui.bg); }
 function raceKey(code) {
   if (S.phase === 'intro') { if (code === 'Enter' || code === 'Space' || code === 'Escape') { S.phase = 'count'; S.t = 0; camInit = false; } return; }
   if (code === 'KeyO') { optOpen(); return; }
-  if (code === 'Escape') { if (G3.mode === 'online') { NET.send({ t: 'leave' }); NET.room = null; } toMenu(); return; }
+  if (S.phase === 'done') {
+    if (code === 'Escape') { if (G3.mode === 'online') { G3.state = 'menu'; ui.screen = 'online'; loadTrack(ui.bg); } else toMenu(G3.mode === 'tt' ? 'track' : 'title'); return; }
+  } else if (code === 'Escape') { S.userPause = !S.userPause; return; }
+  if (S.userPause) {
+    if (code === 'KeyQ') { if (G3.mode === 'online') { NET.send({ t: 'leave' }); NET.room = null; S.userPause = false; G3.state = 'menu'; ui.screen = 'online'; loadTrack(ui.bg); } else toMenu(); }
+    if (code === 'KeyR' && G3.mode !== 'online') { S.userPause = false; if (G3.mode === 'cup') loadTrack(TR.idx); else startRace(); }
+    return;
+  }
   if (code === 'KeyP' && S.player) S.player.ai = !S.player.ai;
   if (S.phase === 'done' && S.t > 1 && (code === 'Enter' || code === 'Space')) {
     if (G3.mode === 'cup') {
       if (!cupRun.done) { cupRun.race++; loadTrack(cupTrack(cupRun.cup, cupRun.race), true); }
       else if (!S.final) S.final = true;
       else { S.final = false; toMenu(); }
-    } else if (G3.mode === 'online') { G3.state = 'menu'; ui.screen = 'online'; ui.back = ['mode']; loadTrack(ui.track); }
+    } else if (G3.mode === 'online') { G3.state = 'menu'; ui.screen = 'online'; loadTrack(ui.bg); }
     else startRace();
     return;
   }
@@ -1182,7 +1212,7 @@ function say(rival, key, force) {
   if (txt === S.lastLine) txt = arr[Math.floor(Math.random() * arr.length)];
   S.lastLine = txt;
   const dur = txt.length * VOICES[rival].step + 2.2;
-  S.radio = { rival, text: txt, t: dur }; S.radioCool = dur + 2.5;
+  S.radio = { rival, text: txt, t: dur, age: 0 }; S.radioCool = dur + 2.5;
   babble(rival, txt);
 }
 function radioTick() {
@@ -1239,7 +1269,7 @@ function netConnect() {
       const wasRoom = NET.room;
       NET.ws = null; NET.id = null; NET.room = null; NET.status = 'off';
       if (!NET.err) NET.err = wasRoom ? 'CONNECTION LOST' : 'SERVER IS OFFLINE OR UNREACHABLE';
-      if (G3.mode === 'online' && G3.state !== 'menu') { G3.state = 'menu'; ui.screen = 'online'; loadTrack(ui.track); }
+      if (G3.mode === 'online' && G3.state !== 'menu') { G3.state = 'menu'; ui.screen = 'online'; loadTrack(ui.bg); }
     };
   });
 }
@@ -1275,7 +1305,7 @@ function netOnMessage(m) {
       if (m.omode === 1 && (m.cupRace === 0 || !NET.cup)) NET.cup = { pts: {}, names: {}, done: false };
       if (m.omode !== 1) NET.cup = null;
       S.goAt = m.time - NET.offset + 5500;
-      G3.state = 'race'; G3.mode = 'online'; ui.track = m.track;
+      G3.state = 'race'; G3.mode = 'online'; ui.bg = m.track;
       loadTrack(m.track, false);
       break;
     case 's': {
@@ -1293,7 +1323,7 @@ function netOnMessage(m) {
       for (const e of gone) if (!e.finished) { e.finished = true; e.dnf = true; e.finishT = null; }
       break;
     }
-    case 'end': if (G3.mode === 'online' && G3.state !== 'menu') { G3.state = 'menu'; ui.screen = 'online'; loadTrack(ui.track); } break;
+    case 'end': if (G3.mode === 'online' && G3.state !== 'menu') { G3.state = 'menu'; ui.screen = 'online'; loadTrack(ui.bg); } break;
   }
 }
 // startveld online: spelers in de volgorde van de server, daarna de computerrijders (rijden bij de host)
@@ -1381,9 +1411,9 @@ function onlineKey(code) {
   const cupMode = room.omode === 1, busy = cupMode && room.cupRace > 0;
   if (NET.sel === 0 && (L || R) && !busy) { netSet({ omode: cupMode ? 0 : 1, cupRace: 0 }); NET.cup = null; }
   if (NET.sel === 1 && (L || R) && !busy) {
-    if (cupMode) { const c = ((room.cup || 0) + (R ? 1 : 7)) % 8; netSet({ cup: c }); ui.track = cupTrack(c, 0); }
-    else { ui.track = 1 + ((((room.track || 1) - 1) + (R ? 1 : 23)) % 24); netSet({ track: ui.track }); }
-    loadTrack(ui.track);
+    if (cupMode) { const c = ((room.cup || 0) + (R ? 1 : 7)) % 8; netSet({ cup: c }); ui.bg = cupTrack(c, 0); }
+    else { ui.bg = 1 + ((((room.track || 1) - 1) + (R ? 1 : 23)) % 24); netSet({ track: ui.bg }); }
+    loadTrack(ui.bg);
   }
   if (NET.sel === 2 && (L || R)) netSet({ bots: clamp((room.bots || 0) + (R ? 1 : -1), 0, Math.max(0, 6 - room.players.length)) });
   if (NET.sel === 3 && (L || R)) netSet({ cls: ((room.cls == null ? 1 : room.cls) + (R ? 1 : 2)) % 3 });
@@ -1393,257 +1423,99 @@ function onlineKey(code) {
   }
   return true;
 }
-function drawOnline() {
-  const cx = W / 2, room = NET.room;
-  if (NET.status !== 'on') {
-    panel(cx - 140, 60, 280, 60);
-    text(NET.status === 'connecting' ? 'CONNECTING...' : 'NOT CONNECTED', cx, 70, 2, '#fff', 'c');
-    if (NET.err) text(NET.err, cx, 88, 1, '#ff8a8a', 'c');
-    if (NET.status === 'off') text('ENTER: TRY AGAIN   ESC: BACK', cx, 104, 1, '#cfe', 'c');
-    return;
-  }
-  if (!room) {
-    ['CREATE A ROOM', NET.typing ? 'ROOM CODE: ' + (NET.code + '____').slice(0, 4) : 'JOIN WITH A CODE', NET.naming ? 'NAME: ' + NET.nameBuf + (Math.floor(flick * 3) % 2 ? '-' : ' ') : 'NAME: ' + netName()].forEach((t, i) => {
-      panel(cx - 120, 44 + i * 32, 240, 26); text(t, cx, 53 + i * 32, 2, NET.sel === i ? '#ffd23a' : '#fff', 'c');
-    });
-    text(NET.typing ? 'TYPE THE 4 LETTERS, THEN ENTER' : NET.naming ? 'TYPE YOUR NAME, THEN ENTER' : 'ENTER: CHOOSE   ESC: BACK', cx, 146, 1, '#cfe', 'c');
-    if (NET.err) text(NET.err, cx, 158, 1, '#ff8a8a', 'c');
-    return;
-  }
-  const isHost = room.host === NET.id;
-  panel(cx - 150, 30, 300, 170);
-  text('ROOM ' + room.code, cx, 36, 3, '#ffd23a', 'c');
-  text('GIVE THIS CODE TO YOUR FRIENDS', cx, 58, 1, '#cfe', 'c');
-  room.players.forEach((p, i) => {
-    const y = 70 + i * 13;
-    face(p.char % 18, cx - 140, y - 2, 11);
-    text(p.name + (p.id === room.host ? '  (HOST)' : '') + (p.id === NET.id ? '  - YOU' : ''), cx - 124, y, 1, p.id === NET.id ? '#ffd23a' : '#fff');
-    text(CARS[p.car % 4].name, cx + 140, y, 1, '#cfe', 'r');
-  });
-  const cupMode = room.omode === 1, tr = TRACKS[room.track || 1], y0 = 142;
-  [['MODE', cupMode ? 'CUP (3 RACES)' : 'SINGLE RACE'], cupMode ? ['CUP', CUPS[room.cup || 0].name + '  -  RACE ' + ((room.cupRace || 0) + 1) + ' OF 3'] : ['TRACK', tr.name],
-   ['BOTS', String(room.bots || 0)], ['CLASS', CLASSES[room.cls == null ? 1 : room.cls].name]].forEach(([k, v], i) => {
-    const on = isHost && NET.sel === i;
-    text(k, cx - 140, y0 + i * 10, 1, on ? '#ffd23a' : '#99a'); text(v, cx + 140, y0 + i * 10, 1, on ? '#ffd23a' : '#fff', 'r');
-  });
-  // tussenstand van een online cup
-  if (NET.cup && Object.keys(NET.cup.pts).length) {
-    const rows = Object.entries(NET.cup.pts).sort((a, b) => b[1] - a[1]);
-    panel(cx + 156, 30, Math.min(120, W - cx - 160), 14 + rows.length * 10);
-    text(NET.cup.done ? 'FINAL' : 'STANDINGS', cx + 160, 34, 1, '#ffd23a');
-    rows.forEach(([k, v], i) => text((NET.cup.names[k] || '?').slice(0, 10) + ' ' + v, cx + 160, 46 + i * 10, 1, k == NET.id ? '#ffd23a' : '#fff'));
-  }
-  text(isHost ? (room.state === 'lobby' ? (cupMode && NET.cup && NET.cup.done ? 'ENTER: NEW CUP   ESC: LEAVE' : 'ENTER: START   ARROWS: CHANGE   ESC: LEAVE') : 'RACE IN PROGRESS') : 'WAITING FOR THE HOST   ESC: LEAVE', cx, H - 24, 1, '#fff', 'c');
-}
 
 // ---------------------------------------------------------------- menu's
 // title -> mode -> (cup -> class | track) -> char -> car -> race. Pijlen kiezen, Enter bevestigt, Esc gaat terug.
 const MODES = [['CUP RACE', 'Three races against five rivals, points per race'], ['TIME TRIAL', 'Alone against the clock and your own ghost'],
   ['FREE RACE', 'Any track, five rivals, items on'], ['TEST TRACK', 'The 3D test track with bridge, bowl and water jump'], ['ONLINE', 'Race friends: make a room or join one with a code']];
-function menuGo(screen) { ui.back.push(ui.screen); ui.screen = screen; }
 function menuKey(code) {
-  if (ui.screen === 'online' && onlineKey(code)) return;
-  const sc = ui.screen, L = code === 'ArrowLeft' || code === 'KeyA', R = code === 'ArrowRight' || code === 'KeyD',
-    U = code === 'ArrowUp' || code === 'KeyW', D = code === 'ArrowDown' || code === 'KeyS', OK = code === 'Enter' || code === 'Space';
-  if (code === 'Escape') { if (ui.back.length) ui.screen = ui.back.pop(); return; }
-  if (sc === 'title') { if (OK) menuGo('mode'); return; }
-  if (sc === 'mode') {
-    if (U || D) ui.sel = (ui.sel + (D ? 1 : 4)) % 5;
-    if (OK) { G3.mode = ['cup', 'tt', 'free', 'test', 'online'][ui.sel]; menuGo(G3.mode === 'cup' ? 'cup' : G3.mode === 'test' || G3.mode === 'online' ? 'char' : 'track'); }
-  } else if (sc === 'cup') {
-    if (L || R) ui.cup = (ui.cup + (R ? 1 : 7)) % 8;
-    if (U || D) ui.cup = (ui.cup + 4) % 8;
-    if (L || R || U || D) { ui.track = cupTrack(ui.cup, 0); loadTrack(ui.track); }
-    if (OK) menuGo('class');
-  } else if (sc === 'class') {
-    if (L || R || U || D) ui.cls = (ui.cls + (R || D ? 1 : 2)) % 3;
-    if (OK) menuGo('char');
-  } else if (sc === 'track') {
-    if (L || R) { ui.track = 1 + ((ui.track - 1 + (R ? 1 : 23)) % 24); loadTrack(ui.track); }
-    if (U || D) { ui.track = 1 + ((ui.track - 1 + (D ? 3 : 21)) % 24); loadTrack(ui.track); }
-    if (OK) menuGo('char');
-  } else if (sc === 'char') {
-    if (L || R) ui.char = (ui.char + (R ? 1 : 17)) % 18;
-    if (U || D) ui.char = (ui.char + (D ? 6 : 12)) % 18;
-    if (OK) menuGo('car');
-  } else if (sc === 'car') {
-    if (L || R || U || D) ui.car = (ui.car + (R || D ? 1 : 3)) % 4;
-    if (OK) {
-      playerCar = ui.car; save.char = ui.char; save.car = ui.car; save.cls = ui.cls; store();
-      ui.back = [];
-      if (G3.mode === 'online') { menuGo('online'); netConnect(); NET.sel = 0; }
-      else if (G3.mode === 'cup') startCup();
-      else goRace(G3.mode === 'test' ? 'free' : G3.mode, G3.mode === 'test' ? 0 : ui.track);
+  if (ui.screen === 'online') { if (onlineKey(code)) return; if (code === 'Escape' || code === 'Backspace') { ui.screen = 'car'; } return; }
+  const lr = code === 'ArrowRight' || code === 'KeyD' ? 1 : code === 'ArrowLeft' || code === 'KeyA' ? -1 : 0;
+  const ud = code === 'ArrowDown' || code === 'KeyS' ? 1 : code === 'ArrowUp' || code === 'KeyW' ? -1 : 0;
+  const ok = code === 'Enter' || code === 'Space', back = code === 'Escape' || code === 'Backspace';
+  if (lr || ok) beep(lr ? 520 : 780, 0.06, 'square', 0.04);
+  const NM = 3;
+  switch (ui.screen) {
+    case 'title': if (ok) ui.screen = 'mode'; break;
+    case 'mode':
+      if (code === 'KeyT') { ui.mode = 3; ui.screen = 'char'; break; }
+      if (lr) ui.mode = ((ui.mode % 3) + lr + NM) % NM;
+      if (ok) ui.screen = ui.mode === 2 || ui.mode === 3 ? 'char' : ui.mode === 1 ? 'cls' : 'cup';
+      if (back) ui.screen = 'title';
+      break;
+    case 'cls':
+      if (lr) ui.cls = (ui.cls + lr + 3) % 3;
+      if (ok) ui.screen = 'cup';
+      if (back) ui.screen = 'mode';
+      break;
+    case 'cup':
+      if (lr) ui.cup = (ui.cup + lr + CUPS.length) % CUPS.length;
+      if (ud) { const n = ui.cup + ud * 4; if (n >= 0 && n < CUPS.length) ui.cup = n; beep(520, 0.06, 'square', 0.04); }
+      if (ok) ui.screen = ui.mode === 0 ? 'track' : 'char';
+      if (back) ui.screen = ui.mode === 1 ? 'cls' : 'mode';
+      break;
+    case 'track':
+      if (lr) ui.track = (ui.track + lr + 3) % 3;
+      if (ok) ui.screen = 'char';
+      if (back) ui.screen = 'cup';
+      break;
+    case 'char': {
+      const n = RIVALS.length, was = ui.char;
+      if (lr) ui.char = (ui.char + lr + n) % n;
+      if (ud) ui.char = (ui.char + ud * 6 + n) % n;
+      if (ui.char !== was) { if (ud) beep(520, 0.06, 'square', 0.04); babble(ui.char, RIVALS[ui.char].name); }
+      if (ok) { save.char = ui.char; store(); ui.rivals = pickRivals(ui.char); ui.screen = 'car'; }
+      if (back) ui.screen = ui.mode === 2 || ui.mode === 3 ? 'mode' : ui.mode === 0 ? 'track' : 'cup';
+      break;
     }
+    case 'car':
+      if (lr) ui.car = (ui.car + lr + 4) % 4;
+      if (back) ui.screen = 'char';
+      if (ok) {
+        playerCar = ui.car; save.car = ui.car; save.cls = ui.cls; store();
+        if (ui.mode === 2) { G3.mode = 'online'; ui.screen = 'online'; netConnect(); NET.sel = 0; }
+        else if (ui.mode === 0) goRace('tt', 1 + ui.cup * 3 + ui.track);
+        else if (ui.mode === 1) startCup();
+        else goRace('free', 0);
+      }
+      break;
+  }
+  // de baan op de achtergrond volgt de keuze (zoals ui.bgWant in komeet.html)
+  if (ui.screen !== 'title' && ui.mode !== 2) {
+    const want = ui.mode === 3 && (ui.screen === 'char' || ui.screen === 'car') ? 0 : 1 + ui.cup * 3 + (ui.screen === 'track' || ((ui.screen === 'car' || ui.screen === 'char') && ui.mode === 0) ? ui.track : 0);
+    if (want !== ui.bg) { ui.bg = want; loadTrack(ui.bg); }
   }
 }
-function panel(x, y, w, h) { hx.fillStyle = 'rgba(16,10,28,0.82)'; hx.fillRect(x, y, w, h); hx.fillStyle = '#ffd23a'; hx.fillRect(x, y, w, 1); hx.fillRect(x, y + h - 1, w, 1); }
-function face(i, x, y, sz) { const im = FACE_IMG[i]; if (im && im.complete && im.naturalWidth) hx.drawImage(im, x, y, sz, sz); else { hx.fillStyle = '#334'; hx.fillRect(x, y, sz, sz); } }
-function bar(x, y, w, v, col) { hx.fillStyle = '#14101e'; hx.fillRect(x, y, w, 4); hx.fillStyle = col; hx.fillRect(x, y, Math.round(w * clamp(v, 0, 1)), 4); }
-function drawMenu() {
-  hx.clearRect(0, 0, W, H);
-  const cx = W / 2, sc = ui.screen;
-  if (sc === 'title') {
-    text('K.O.T.T.', cx, 50, 8, '#ffd23a', 'c');
-    text('KING OF THE TRACK', cx, 100, 3, '#fff', 'c');
-    text('3D EDITION', cx, 122, 2, '#7ff', 'c');
-    if (Math.floor(flick * 2) % 2) text('PRESS ENTER', cx, H - 60, 2, '#fff', 'c');
-    text('MUSIC BY RETRO BIT   -   O: OPTIONS', cx, H - 22, 1, '#cfe', 'c');
-    return;
-  }
-  const title = { online: 'ONLINE', mode: 'CHOOSE A MODE', cup: 'CHOOSE A CUP', class: 'CHOOSE A CLASS', track: 'CHOOSE A TRACK', char: 'CHOOSE YOUR RACER', car: 'CHOOSE YOUR VEHICLE' }[sc];
-  text(title, cx, 10, 2, '#ffd23a', 'c');
-  text('ARROWS: CHOOSE   ENTER: OK   ESC: BACK', cx, H - 10, 1, '#cfe', 'c');
-  if (sc === 'mode') {
-    MODES.forEach(([n, d], i) => {
-      const y = 38 + i * 36, on = i === ui.sel;
-      panel(cx - 140, y, 280, 32);
-      text(n, cx, y + 6, 2, on ? '#ffd23a' : '#fff', 'c');
-      text(d, cx, y + 21, 1, on ? '#fff' : '#99a', 'c');
-      if (on) { hx.fillStyle = '#ffd23a'; for (let q = 0; q < 5; q++) hx.fillRect(cx - 128 + q, y + 9 + q, 1, 10 - 2 * q); }
-    });
-  } else if (sc === 'online') {
-    drawOnline();
-  } else if (sc === 'cup') {
-    for (let i = 0; i < 8; i++) {
-      const col = i % 4, row = i >> 2, w = Math.min(110, (W - 40) / 4), x = cx - 2 * w + col * w + 2, y = 34 + row * 46, on = i === ui.cup;
-      panel(x, y, w - 4, 40);
-      const c = CUPS[i];
-      text(c.name, x + (w - 4) / 2, y + 6, 1, on ? '#ffd23a' : '#fff', 'c');
-      const best = save.cups[i + '-' + ui.cls];
-      if (best) text('BEST ' + best + (['ST', 'ND', 'RD'][best - 1] || 'TH'), x + (w - 4) / 2, y + 18, 1, best <= 3 ? MEDAL_COL[4 - best] : '#99a', 'c');
-      if (on) { hx.fillStyle = '#ffd23a'; hx.fillRect(x, y + 38, w - 4, 2); }
-    }
-    const c = CUPS[ui.cup];
-    panel(cx - 150, 134, 300, 46);
-    text(c.sub, cx, 140, 1, '#cfe', 'c');
-    [0, 1, 2].forEach(r => text((r + 1) + '. ' + TRACKS[cupTrack(ui.cup, r)].name, cx, 152 + r * 9, 1, '#fff', 'c'));
-  } else if (sc === 'class') {
-    CLASSES.forEach((c, i) => {
-      const y = 50 + i * 46, on = i === ui.cls;
-      panel(cx - 130, y, 260, 40);
-      text(c.name + '  ' + c.sub.toUpperCase(), cx, y + 6, 2, on ? '#ffd23a' : '#fff', 'c');
-      text(c.info.join('  -  '), cx, y + 26, 1, on ? '#fff' : '#99a', 'c');
-    });
-  } else if (sc === 'track') {
-    const t = TRACKS[ui.track], car = ui.car;
-    panel(cx - 150, 40, 300, 70);
-    text(t.name, cx, 48, 3, '#fff', 'c');
-    text(CUPS[t.cup].name + '  -  TRACK ' + (((ui.track - 1) % 3) + 1), cx, 72, 1, '#cfe', 'c');
-    if (G3.mode === 'tt') {
-      const best = save.rec[t.id + ':' + car];
-      const md = TR.idx === ui.track ? medalsFor(ui.track, car) : null, got = best && md ? md.reduce((m, t, i) => best <= t ? i + 1 : m, 0) : 0;
-      text('RECORD ' + (best ? fmt(best) : '-:--.--') + '  (' + CARS[car].name + ')' + (got ? '  ' + MEDAL_NAME[got] : ''), cx, 84, 1, got ? MEDAL_COL[got] : '#ffd23a', 'c');
-      if (md) { panel(cx - 150, 114, 300, 14); text('GOLD ' + fmt(md[2]) + '   SILVER ' + fmt(md[1]) + '   BRONZE ' + fmt(md[0]), cx, 118, 1, '#fff', 'c'); }
-    }
-    text('- ' + ui.track + ' / 24 -', cx, 98, 1, '#fff', 'c');
-  } else if (sc === 'char') {
-    const sz = Math.min(36, Math.floor((W - 40) / 6) - 6);
-    for (let i = 0; i < 18; i++) {
-      const col = i % 6, row = Math.floor(i / 6), x = cx - 3 * (sz + 6) + col * (sz + 6) + 3, y = 32 + row * (sz + 6);
-      if (i === ui.char) { hx.fillStyle = '#ffd23a'; hx.fillRect(x - 2, y - 2, sz + 4, sz + 4); }
-      face(i, x, y, sz);
-    }
-    const r = RIVALS[ui.char], y = 32 + 3 * (sz + 6) + 6;
-    panel(cx - 150, y, 300, 40);
-    text(r.name, cx, y + 5, 2, '#ffd23a', 'c');
-    text(r.kind + '  -  ' + r.title.toUpperCase(), cx, y + 22, 1, '#fff', 'c');
-  } else if (sc === 'car') {
-    const maxT = 1300, w = Math.min(120, (W - 30) / 4);
-    CARS.forEach((c, i) => {
-      const x = cx - 2 * w + i * w + 3, y = 40, on = i === ui.car;
-      panel(x, y, w - 6, 120);
-      hx.fillStyle = c.pal[2]; hx.fillRect(x + 8, y + 8, w - 22, 10); hx.fillStyle = c.pal[0]; hx.fillRect(x + 8, y + 18, w - 22, 4);
-      text(c.name, x + (w - 6) / 2, y + 28, 2, on ? '#ffd23a' : '#fff', 'c');
-      const st = [['SPEED', c.top / maxT], ['ACCEL', c.acc / 950], ['TURN', c.turn / 2.1], ['GRIP', c.grip / 8.5], ['BOOST', c.boostTop / 1700]];
-      st.forEach(([n, v], k) => { text(n, x + 6, y + 48 + k * 13, 1, '#cfe'); bar(x + 6, y + 55 + k * 13, w - 18, v, on ? '#ffd23a' : '#7ff'); });
-    });
-    panel(cx - 150, 168, 300, 16);
-    text(CARS[ui.car].desc.toUpperCase(), cx, 173, 1, '#fff', 'c');
-  }
+// Titelscherm zoals in komeet.html: het logo-plaatje (art/obj/logo.png) met snelheidsstrepen, alle portretten,
+// en op de achtergrond vliegen de banen voorbij (elke REEL_SHOT seconden een andere, met een korte flits).
+const LOGO_IMG = new Image(); if (ART.obj.logo) LOGO_IMG.src = ART.obj.logo;
+let logoBox = null;
+const REEL_SHOT = 3.0, REEL_PER = 2;
+function titleTick(dt) {
+  if (G3.state !== 'menu' || ui.screen !== 'title') return;
+  const was = Math.floor(ui.reelT / REEL_SHOT);
+  ui.reelT += dt;
+  const now = Math.floor(ui.reelT / REEL_SHOT);
+  if (now !== was) { ui.reelN++; if (ui.reelN % REEL_PER === 0) { ui.bg = 1 + ((ui.bg - 1 + 1 + Math.floor(Math.random() * 22)) % 24); loadTrack(ui.bg); } }
 }
 // uitslag en tussenstand
-function drawResult() {
-  const R = S.result, cx = W / 2;
-  if (!R) return;
-  if (S.final && cupRun) {
-    const rows = cupStandings(), pos = rows.findIndex(r => r.k === 0) + 1;
-    panel(cx - 130, 20, 260, 200);
-    text(pos === 1 ? 'CHAMPION!' : 'FINAL STANDINGS', cx, 28, 3, pos === 1 ? '#ffd23a' : '#fff', 'c');
-    text(CUPS[cupRun.cup].name + '  ' + CLASSES[ui.cls].name, cx, 52, 1, '#cfe', 'c');
-    rows.forEach((r, i) => { const y = 66 + i * 22; face(r.face, cx - 110, y, 18); text((i + 1) + '. ' + r.name, cx - 86, y + 5, 2, r.k === 0 ? '#ffd23a' : '#fff'); text(r.pts + ' PTS', cx + 110, y + 5, 2, '#fff', 'r'); });
-    text('ENTER: BACK TO THE MENU', cx, 206, 1, '#fff', 'c');
-    return;
-  }
-  panel(cx - 140, 20, 280, 52 + R.order.length * 14 + (G3.mode === 'cup' ? 0 : 20));
-  text(G3.mode === 'tt' ? (R.newRecord ? 'NEW RECORD!' : 'FINISH!') : 'RESULTS', cx, 28, 3, '#ffd23a', 'c');
-  R.order.forEach((r, i) => {
-    const y = 54 + i * 14;
-    if (r.e.face != null) face(r.e.face, cx - 128, y - 2, 11); else if (r.e.rival != null) face(r.e.rival, cx - 128, y - 2, 11); else if (r.e.isPlayer) face(ui.char, cx - 128, y - 2, 11);
-    text((i + 1) + '. ' + r.name, cx - 112, y, 1, r.e.isPlayer ? '#ffd23a' : '#fff');
-    text(r.t != null ? fmt(r.t) : '--', cx + 60, y, 1, '#cfe', 'r');
-    if (r.pts != null) text('+' + r.pts, cx + 90, y, 1, '#7f7', 'r');
-    if (G3.mode === 'cup') { const k = r.e.isPlayer ? 0 : r.e.slot + 1; text(cupRun.points[k] + ' PTS', cx + 130, y, 1, '#fff', 'r'); }
-  });
-  const y2 = 58 + R.order.length * 14;
-  if (G3.mode === 'tt') {
-    if (R.medal) text(MEDAL_NAME[R.medal] + ' MEDAL', cx, y2, 2, MEDAL_COL[R.medal], 'c');
-    else if (S.medals) text('BRONZE AT ' + fmt(S.medals[0]), cx, y2, 1, '#99a', 'c');
-  }
-  if (S.t > 1) text(G3.mode === 'cup' ? (cupRun.done ? 'ENTER: FINAL STANDINGS' : 'ENTER: NEXT RACE') : G3.mode === 'online' ? 'ENTER: BACK TO THE ROOM' : 'ENTER: RACE AGAIN   ESC: MENU', cx, H - 24, 1, '#fff', 'c');
-}
 // intro: zwarte balken, cup en baan, en in een cup de vijf rivalen
-function drawIntro() {
-  const bh = Math.round(H * 0.13), cx = W / 2, u = S.t / INTRO_T;
-  hx.fillStyle = '#000'; hx.fillRect(0, 0, W, bh); hx.fillRect(0, H - bh, W, bh);
-  const cupName = TR.def.pts ? CUPS[TR.def.cup].name : 'TEST TRACK';
-  text(cupName + (G3.mode === 'cup' ? '  -  RACE ' + (cupRun.race + 1) + ' OF 3' : G3.mode === 'tt' ? '  -  TIME TRIAL' : ''), cx, Math.round(bh / 2) - 3, 1, '#cfe', 'c');
-  if (u > 0.08) text(TR.def.name, cx, H - bh - 30, 4, '#fff', 'c');
-  if (G3.mode === 'cup' && u > 0.3) cupRun.rivals.forEach((r, i) => {
-    const x = cx - 2.5 * 52 + i * 52 + 6, y = H - bh + 4;
-    face(r, x + 10, y, 20); text(RIVALS[r].name, x + 20, y + 22, 1, '#fff', 'c');
-  });
-  text('ENTER: SKIP', W - 8, 6, 1, '#99a', 'r');
-}
 // optiescherm (toets O): volume van effecten, muziek en stemmen, en muziek aan of uit
 const OPT = { open: false, sel: 0 };
+const OPTIONS = [['music', 'MUSIC'], ['sfx', 'EFFECTS'], ['voice', 'VOICES']];
 function optOpen() { OPT.open = !OPT.open; OPT.sel = 0; S.optPause = OPT.open; }
 function optKey(code) {
-  const rows = 4;
+  const rows = 3;
   if (code === 'KeyO' || code === 'Escape' || code === 'Enter') { optOpen(); try { localStorage.setItem(VOL_KEY, JSON.stringify(vol)); } catch (e) {} return; }
   if (code === 'ArrowUp' || code === 'KeyW') OPT.sel = (OPT.sel + rows - 1) % rows;
   if (code === 'ArrowDown' || code === 'KeyS') OPT.sel = (OPT.sel + 1) % rows;
   const d = code === 'ArrowRight' || code === 'KeyD' ? 1 : code === 'ArrowLeft' || code === 'KeyA' ? -1 : 0;
   if (!d) return;
-  if (OPT.sel < 3) { const k = ['sfx', 'music', 'voice'][OPT.sel]; vol[k] = clamp(Math.round((vol[k] + d * 0.1) * 10) / 10, 0, 1); if (k === 'sfx') beep(660, 0.08, 'square', 0.06); if (k === 'voice' && RIVALS[0]) babble(ui.char, 'Hello there!'); }
+  if (OPT.sel < 3) { const k = OPTIONS[OPT.sel][0]; vol[k] = clamp(Math.round((vol[k] + d * 0.1) * 10) / 10, 0, 1); if (k === 'sfx') beep(660, 0.08, 'square', 0.06); if (k === 'voice' && RIVALS[0]) babble(ui.char, 'Hello there!'); }
   else musicOn = !musicOn;
-}
-function drawOptions() {
-  if (!OPT.open) return;
-  const cx = W / 2, y = H / 2 - 55;
-  panel(cx - 110, y, 220, 110);
-  text('OPTIONS', cx, y + 8, 3, '#ffd23a', 'c');
-  [['EFFECTS', vol.sfx], ['MUSIC', vol.music], ['VOICES', vol.voice]].forEach(([n, v], i) => {
-    const yy = y + 34 + i * 16, on = OPT.sel === i;
-    text(n, cx - 96, yy, 2, on ? '#ffd23a' : '#fff');
-    bar(cx - 10, yy + 2, 100, v, on ? '#ffd23a' : '#7ff');
-    text(Math.round(v * 100) + '%', cx + 104, yy + 1, 1, '#cfe', 'r');
-  });
-  text('MUSIC ' + (musicOn ? 'ON' : 'OFF'), cx - 96, y + 82, 2, OPT.sel === 3 ? '#ffd23a' : '#fff');
-  text('ARROWS: CHANGE   O: CLOSE', cx, y + 100, 1, '#99a', 'c');
 }
 
 // boordradio in beeld: portret met tekst
-function drawRadio() {
-  const r = S.radio; if (!r) return;
-  const w = Math.min(300, W - 120), x = W / 2 - w / 2, y = H - 72;
-  panel(x, y, w, 30);
-  face(r.rival, x + 3, y + 3, 24);
-  text(RIVALS[r.rival].name, x + 32, y + 4, 1, '#ffd23a');
-  const words = r.text.toUpperCase().split(' '), max = Math.floor((w - 38) / 4), lines = [''];
-  for (const wd of words) { if ((lines[lines.length - 1] + ' ' + wd).trim().length > max) lines.push(wd); else lines[lines.length - 1] = (lines[lines.length - 1] + ' ' + wd).trim(); }
-  lines.slice(0, 2).forEach((l, i) => text(l, x + 32, y + 13 + i * 8, 1, '#fff'));
-}
 
 // ---------------------------------------------------------------- items
 // Rij door een itembox en je krijgt een item; wie achteraan rijdt, krijgt betere. Gebruiken met E of Ctrl.
@@ -2047,7 +1919,7 @@ if (!gl) { const m = document.getElementById('msg'); m.style.display = 'block'; 
 const hx = hud.getContext('2d');
 let W = 480, H = LOW_H;
 function resize() {
-  H = LOW_H; W = Math.round(H * innerWidth / innerHeight);
+  H = Math.max(300, Math.min(LOW_H, Math.round(innerHeight))); W = Math.round(H * innerWidth / innerHeight);
   cv.width = hud.width = W; cv.height = hud.height = H;
   hx.imageSmoothingEnabled = false;
 }
@@ -2660,7 +2532,7 @@ function updateCamera(dt) {
   const want = norm(add(scale(fr.f, 0.55), scale(fr.T, 0.45)));
   if (!camInit) { cam.f = want; cam.u = fr.u; camInit = true; }
   if (G3.state === 'menu' && !cam.free) {
-    const a = flick * 0.06, c = TR.center, r = c[2] * 0.75;
+    const a = flick * 0.06 + (ui.reelN || 0) * 2.1, c = TR.center, r = c[2] * (0.55 + 0.25 * ((ui.reelN || 0) % 2));
     cam.pos = [c[0] + Math.cos(a) * r, 1500, c[1] + Math.sin(a) * r]; cam.look = [c[0], 100, c[1]]; cam.u = [0, 1, 0];
     return;
   }
@@ -2752,7 +2624,7 @@ function render(dt) {
     gl.bindVertexArray(g.vao); gl.drawArrays(gl.TRIANGLES, 0, g.count);
   }
   gl.bindVertexArray(null);
-  drawHud();
+  KUI.frame();
 }
 
 // ---------------------------------------------------------------- bewegende dingen op de baan
@@ -2822,17 +2694,742 @@ function drawDynamic() {
   gl.bindVertexArray(dynVAO.vao); gl.drawArrays(gl.TRIANGLES, 0, Math.min(60000, out.length / 6));
 }
 
-// ---------------------------------------------------------------- HUD met een eigen pixellettertype (3x5)
-const FONT = {
-  A: '010101111101101', B: '110101110101110', C: '011100100100011', D: '110101101101110', E: '111100110100111', F: '111100110100100',
-  G: '011100101101011', H: '101101111101101', I: '111010010010111', J: '001001001101010', K: '101101110101101', L: '100100100100111',
-  M: '101111111101101', N: '110101101101101', O: '010101101101010', P: '110101110100100', Q: '010101101110011', R: '110101110101101',
-  S: '011100010001110', T: '111010010010010', U: '101101101101111', V: '101101101101010', W: '101101111111101', X: '101101010101101',
-  Y: '101101010010010', Z: '111001010100111', 0: '111101101101111', 1: '010110010010111', 2: '110001010100111', 3: '110001010001110',
-  4: '101101111001001', 5: '111100110001110', 6: '011100110101010', 7: '111001010010010', 8: '010101010101010', 9: '010101011001110',
-  ':': '000010000010000', '.': '000000000000010', '/': '001001010100100', '-': '000000111000000', '!': '010010010000010',
-  '?': '110001010000010', "'": '010010000000000', '+': '000010111010000', '%': '101001010100101', ',': '000000000010100'
-};
+// ---------------------------------------------------------------- HUD en menu's (uit komeet.html)
+// De tekenfuncties hieronder zijn letterlijk overgenomen uit komeet.html (op een paar plekken aangepast aan de 3D-baan).
+// Ze tekenen op het HUD-canvas; G, ui en T zijn per beeld opgebouwd uit de toestand van het 3D-spel.
+const OUT = { save }, TRACKS_OUTER = TRACKS;
+const KUI = (() => {
+  let W = 0, H = 0;
+  const ctx = hx;
+  const MM = 190, WORLD = 8192, CHAR_COLS = 6, SHOT_T = 1.5, INTRO_SPOTS = [];
+  const SPR_BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5].map(v => (v + 0.5) / 16);
+  const ART_OBJ = {};
+  for (const k of ['logo', 'trophy', 'e0', 'e1', 'e2', 'e3', 'e4', 'e5', 'e6', 'e7']) if (ART.obj[k]) { const im = new Image(); im.onload = () => { ART_OBJ[k] = im; }; im.src = ART.obj[k]; }
+  const TRACKS_ALL = TRACKS_OUTER, TRACKS = TRACKS_ALL.slice(1);
+  const LOOKS = TRACKS.map(t => ({ names: THEMES[CUPS[t.cup].theme].names }));
+  const roadWx = () => null;
+  const ord = n => n + (['th', 'st', 'nd', 'rd'][n > 3 ? 0 : n]);
+  function fmt(t) {
+  if (t == null) return '-:--.---';
+  const m = Math.floor(t / 60), s = t - m * 60;
+  return m + ':' + (s < 10 ? '0' : '') + s.toFixed(3);
+}
+  function lineFor(rival, key, seed) { const arr = RIVALS[rival].lines[key]; return arr[seed == null ? Math.floor(Math.random() * arr.length) : seed % arr.length]; }
+  // lettertype (pickFont/text uit komeet.html)
+  const fontCache = new Map();
+  function pickFont(size) {
+  const q = H / 360;
+  if (q === 1) return pickFont360(size);
+  const key = Math.round(size * 8) + H * 100000;
+  let best = fontCache.get(key);
+  if (best) return best;
+  const base = pickFont360(size / q), th = base.f.h * base.k * q, tw = (base.f.w + 1) * base.k * q;
+  let bd = 1e9;
+  for (const f of [FONT_SMALL, FONT_BIG]) for (let k = 1; k <= 14; k++) {
+    if ((f.w + 1) * k > tw * 1.1 && !(f === FONT_SMALL && k === 1)) continue;
+    const dd = Math.abs(f.h * k - th) + (f === base.f ? 0 : 0.4);
+    if (dd < bd) { bd = dd; best = { f, k }; }
+  }
+  fontCache.set(key, best);
+  return best;
+}
+  function pickFont360(size) {
+  const cap = size * 0.72;                       // gewenste hoofdletterhoogte in pixels
+  if (size >= 15) {                              // groot: veelvoud van het 5x7-lettertype
+    return { f: FONT_BIG, k: Math.max(2, Math.floor(cap * 1.2 / 7)) };
+  }
+  if (cap * 1.15 >= 10) return { f: FONT_SMALL, k: 2 };
+  if (cap * 1.15 >= 7) return { f: FONT_BIG, k: 1 };
+  return { f: FONT_SMALL, k: 1 };
+}
+  function text(str, x, y, size, color, align) {
+  str = String(str).toUpperCase();
+  const { f, k } = pickFont(size);
+  const wTot = str.length * (f.w + 1) * k - k;
+  let x0 = align === 'center' ? x - wTot / 2 : align === 'right' ? x - wTot : x;
+  x0 = Math.round(x0);
+  const y0 = Math.round(y) - f.h * k;
+  ctx.fillStyle = 'rgba(0,0,0,0.6)';
+  drawGlyphs(str, x0 + k, y0 + k, f, k);
+  ctx.fillStyle = color || '#fff';
+  drawGlyphs(str, x0, y0, f, k);
+}
+  function panel(x, y, w, h, alpha) {
+  x = Math.round(x); y = Math.round(y); w = Math.round(w); h = Math.round(h);
+  ctx.fillStyle = 'rgba(8,5,22,' + (alpha || 0.72) + ')';
+  ctx.fillRect(x, y, w, h);
+  ctx.fillStyle = 'rgba(255,255,255,0.28)';
+  ctx.fillRect(x, y, w, 1); ctx.fillRect(x, y + h - 1, w, 1); ctx.fillRect(x, y, 1, h); ctx.fillRect(x + w - 1, y, 1, h);
+}
+  function medalDot(x, y, r, level) {
+  r = Math.max(2, Math.round(r));
+  ctx.fillStyle = '#16101a'; fillDisc(x, y, r + 1);
+  ctx.fillStyle = MEDAL_COL[level]; fillDisc(x, y, r);
+  if (level) { ctx.fillStyle = '#ffffff'; ctx.fillRect(Math.round(x) - Math.ceil(r / 2), Math.round(y) - Math.ceil(r / 2), Math.max(1, r >> 1), 1); }
+}
+  function fillPoly(p) {
+  const cnt = p.length / 2;
+  let minY = 1e9, maxY = -1e9;
+  for (let i = 0; i < cnt; i++) { minY = Math.min(minY, p[i * 2 + 1]); maxY = Math.max(maxY, p[i * 2 + 1]); }
+  const y0 = Math.max(0, Math.round(minY)), y1 = Math.min(H - 1, Math.round(maxY) - 1);
+  for (let y = y0; y <= y1; y++) {
+    const sy = y + 0.5;
+    _xs.length = 0;
+    for (let i = 0; i < cnt; i++) {
+      const j = (i + 1) % cnt, ya = p[i * 2 + 1], yb = p[j * 2 + 1];
+      if ((ya <= sy && yb > sy) || (yb <= sy && ya > sy)) _xs.push(p[i * 2] + (sy - ya) / (yb - ya) * (p[j * 2] - p[i * 2]));
+    }
+    _xs.sort((a, b) => a - b);
+    for (let k = 0; k + 1 < _xs.length; k += 2) {
+      const xa = Math.round(_xs[k]), xb = Math.round(_xs[k + 1]);
+      if (xb > xa) ctx.fillRect(xa, y, xb - xa, 1);
+    }
+  }
+}
+  const _xs = [];
+  function fillDisc(cx, cy, r) {
+  cx = Math.round(cx); cy = Math.round(cy); r = Math.max(0, Math.round(r));
+  for (let dy = -r; dy <= r; dy++) {
+    const w = Math.floor(Math.sqrt(r * r - dy * dy + 0.4));
+    ctx.fillRect(cx - w, cy + dy, 2 * w + 1, 1);
+  }
+}
+  // portretten zoals drawFace in komeet.html: teamkleur met raster, het geschilderde portret, een rand
+  let faceCache = {};
+  function buildFace(i, ss) {
+    const N = 24, W2 = Math.round(N * ss), b = Math.max(1, Math.round(ss * 0.75)), size = W2 + 2 * b, pal = RIVALS[i].pal, pic = FACE_IMG[i];
+    const c = document.createElement('canvas'); c.width = c.height = size;
+    const k = c.getContext('2d');
+    k.fillStyle = pal[3]; k.fillRect(0, 0, size, size);
+    k.fillStyle = pal[2];
+    for (let y = 0; y < W2; y++) for (let x = 0; x < W2; x++) if (1 - (y / W2 - 0.2) / 0.5 > SPR_BAYER[(y & 3) * 4 + (x & 3)]) k.fillRect(x + b, y + b, 1, 1);
+    if (pic && pic.complete && pic.naturalWidth) {
+      const sc = Math.min(W2 / pic.width, W2 / pic.height) * 1.06, w = pic.width * sc, h = pic.height * sc;
+      k.save(); k.beginPath(); k.rect(b, b, W2, W2); k.clip();
+      k.imageSmoothingEnabled = true; k.imageSmoothingQuality = 'high';
+      k.drawImage(pic, b + (W2 - w) / 2, b + W2 - h, w, h);
+      k.restore();
+    } else c.unready = true;
+    k.fillStyle = pal[5];
+    k.fillRect(0, 0, size, b); k.fillRect(0, size - b, size, b); k.fillRect(0, 0, b, size); k.fillRect(size - b, 0, b, size);
+    return c;
+  }
+  function drawFace(i, cx, cy, sc) {
+    if (i == null || !RIVALS[i]) return;
+    const ss = Math.round((sc || 1) * H / 360 * 4) / 4, key = ss + ':' + i;
+    let c = faceCache[key];
+    if (!c || c.unready) c = faceCache[key] = buildFace(i, ss);
+    ctx.drawImage(c, Math.round(cx - c.width / 2), Math.round(cy - c.height / 2));
+  }
+  // kaartje van een baan uit de controlepunten (zelfde wereldmaat als in komeet.html)
+  function pixelTrack(c, tr, x, y, size, col, t) {
+    if (!tr._mp) { const p = tr.pts, n = p.length; tr._mp = []; for (let i = 0; i < n; i++) for (let k = 0; k < 12; k++) { const a = p[(i - 1 + n) % n], b = p[i], cc = p[(i + 1) % n], d = p[(i + 2) % n], q = k / 12; tr._mp.push([crom(a[0], b[0], cc[0], d[0], q), crom(a[1], b[1], cc[1], d[1], q)]); } }
+    const sc = size / WORLD, o = Math.floor(t / 2);
+    c.fillStyle = col;
+    for (const [px, py] of tr._mp) c.fillRect(Math.round(x + px * sc) - o, Math.round(y + py * sc) - o, t, t);
+  }
+  // minikaart van de 3D-baan in een vak van sz bij sz
+  function drawMini(mx, my, sz, P) {
+    let x0 = 1e9, x1 = -1e9, z0 = 1e9, z1 = -1e9;
+    for (let i = 0; i < TR.N; i += 4) { x0 = Math.min(x0, TR.P[i * 3]); x1 = Math.max(x1, TR.P[i * 3]); z0 = Math.min(z0, TR.P[i * 3 + 2]); z1 = Math.max(z1, TR.P[i * 3 + 2]); }
+    const k = sz / Math.max(x1 - x0, z1 - z0) * 0.92, ox = mx + (sz - (x1 - x0) * k) / 2, oy = my + (sz - (z1 - z0) * k) / 2;
+    const at2 = (x, z) => [Math.round(ox + (x - x0) * k), Math.round(oy + (z - z0) * k)];
+    for (const [col, t] of [['#16101a', 5], ['#ffffff', 3]]) { ctx.fillStyle = col; for (let i = 0; i < TR.N; i += 3) { const [x, y] = at2(TR.P[i * 3], TR.P[i * 3 + 2]); ctx.fillRect(x - (t >> 1), y - (t >> 1), t, t); } }
+    const dot = (e, big) => { const fr = entFrame(e, {}), [x, y] = at2(fr.pos[0], fr.pos[2]); if (big) { ctx.fillStyle = '#fff'; ctx.fillRect(x - 3, y - 3, 7, 7); ctx.fillStyle = e.pal[2]; ctx.fillRect(x - 2, y - 2, 5, 5); } else { ctx.fillStyle = e.pal[2]; ctx.fillRect(x - 1, y - 1, 3, 3); } };
+    if (S.ghost && S.phase === 'race') { ctx.fillStyle = '#6ff'; const fr = entFrame(S.ghost.ent, {}), [x, y] = at2(fr.pos[0], fr.pos[2]); ctx.fillRect(x - 1, y - 1, 3, 3); }
+    for (const e of S.ents) if (e !== P) dot(e, false);
+    dot(P, true);
+  }
+  const recOf = tr => { const t = OUT.save.rec[tr.id + ':' + ui.car]; return t ? { total: t, car: ui.car } : null; };
+  const record = () => recOf(T);
+  const getMedals = (tr, car) => medalsAny(TRACKS_ALL.indexOf(tr.def || tr), car);
+  const medalFor = tr => { const r = recOf(tr); if (!r) return (OUT.save.medal || {})[tr.id] || 0; const m = getMedals(tr, ui.car); return r.total <= m[2] ? 3 : r.total <= m[1] ? 2 : r.total <= m[0] ? 1 : 0; };
+  let G = {}, T = {};
+  function trackTip(tr) {
+  const n = t => tr.haz.filter(h => h.type === t).length;
+  if (n('cannon')) return 'HIT THE CANNON AND FLY';
+  if (n('gap')) return 'JUMP THE GAPS - TOO SLOW AND YOU FALL IN';
+  if (n('wave')) return 'WATCH OUT FOR THE WAVES';
+  if (tr.grav < 1) return 'LOW GRAVITY - BIG AIR, AIR BOOSTS';
+  if (TRACK_DEFS[tr.index].grip < 1) return 'SLIPPERY ICE - DRIFT EARLY';
+  if (n('bump') >= 8) return 'BUMPY DUNES AHEAD';
+  if (tr.pads.length >= 13) return 'CHAIN THE BOOST PADS';
+  return '';
+}
+function drawIntro(u) {
+  const t = INTRO_T - G.intro, tt = G.mode === 'tt';
+  const open = Math.min(1, t * 5, G.intro * 4);
+  const bar = Math.round(84 * u * open);
+  ctx.fillStyle = '#0a0612';
+  ctx.fillRect(0, 0, W, bar); ctx.fillRect(0, H - bar, W, bar);
+  ctx.fillStyle = '#ffb833';
+  ctx.fillRect(0, bar, W, Math.max(1, Math.round(2 * u))); ctx.fillRect(0, H - bar - Math.max(1, Math.round(2 * u)), W, Math.max(1, Math.round(2 * u)));
+  // korte zwarte flits op elke overgang tussen twee shots
+  const cutAt = Math.round(t / SHOT_T) * SHOT_T, cutD = Math.abs(t - cutAt);
+  if (cutAt > 0 && cutAt <= INTRO_SPOTS.length * SHOT_T + 0.01 && cutD < 0.12) {
+    ctx.globalAlpha = 1 - cutD / 0.12; ctx.fillStyle = '#0a0612'; ctx.fillRect(0, bar, W, H - 2 * bar); ctx.globalAlpha = 1;
+  }
+  if (open < 1) return;
+  const slide = Math.round(Math.max(0, 1 - (t - 0.2) * 4) * 60 * u);
+  if (!cupRun && G.mode !== 'online' && !tt) { text(T.def && T.def.pts ? CUPS[T.cup].name + ' - FREE RACE' : '3D TEST TRACK', 40 * u - slide, H - bar - 78 * u, 20 * u, '#ffb833', 'left', 800); text(T.name.toUpperCase(), 40 * u - slide, H - bar - 22 * u, 60 * u, '#fff', 'left', 900); return; }
+  text(CUPS[T.cup].name + (tt ? ' - TIME TRIAL' : G.mode === 'online' ? (NET.race && NET.race.omode === 1 ? ' - ONLINE CUP - RACE ' + (NET.race.cupRace + 1) + '/3' : ' - ONLINE ' + CLASSES[ui.cls].name) : ' - RACE ' + (cupRun.race + 1) + '/3'), 40 * u - slide, H - bar - 78 * u, 20 * u, '#ffb833', 'left', 800);
+  if (roadWx(T.index)) text(roadWx(T.index).label, W - 40 * u + slide, H - bar - 30 * u, 16 * u, '#9fd8ff', 'right', 800);
+  text(T.name.toUpperCase(), 40 * u - slide, H - bar - 22 * u, 60 * u, '#fff', 'left', 900);
+  const tip = trackTip(T);
+  if (tip) text(tip, W - 40 * u + slide, H - bar - (roadWx(T.index) ? 56 : 30) * u, 18 * u, '#ffd24a', 'right', 900);
+  if (G.mode === 'online') {
+    // alle deelnemers op een rij
+    const n = G.ents.length;
+    G.ents.forEach((e, i) => { if (t > 0.3 + i * 0.15) drawFace(e.face, W / 2 + (i - (n - 1) / 2) * 64 * u, bar / 2); });
+  } else if (!tt) {
+    drawFace(ui.char, W / 2 - 244 * u, bar / 2);
+    text('VS', W / 2 - 184 * u, bar / 2 + 6 * u, 18 * u, '#ffb833', 'center', 900);
+    cupRun.rivals.forEach((ci, i) => { if (t > 0.5 + i * 0.25) drawFace(ci, W / 2 + (-116 + i * 64) * u, bar / 2); });
+  }
+  else { const rec = record(); if (rec) text('BEST ' + fmt(rec.total), W / 2, bar / 2 + 8 * u, 22 * u, '#cfd3ff', 'center', 700); }
+  if (G.mode !== 'online' && Math.floor(G.time * 2) % 2) text('ENTER: SKIP', W - 40 * u, H - bar / 2 + 7 * u, 16 * u, '#cfd3ff', 'right', 700);
+}
+function drawHud(u, speed, runT) {
+  const pad = 22 * u, P = G.player, th = THEMES[CUPS[T.cup].theme], acc = '#ffb833';
+  const rec = record(), tt = G.mode === 'tt';
+  // linksboven
+  panel(pad, pad, 250 * u, (96 + 24 * Math.max(1, G.laps.length)) * u);
+  const lapNo = Math.min(LAPS, G.laps.length + 1);
+  text('LAP', pad + 16 * u, pad + 30 * u, 15 * u, acc, 'left', 700);
+  text(lapNo + '/' + LAPS, pad + 234 * u, pad + 34 * u, 28 * u, '#fff', 'right');
+  const total = G.state === 'finished' ? G.laps.reduce((a, b) => a + b, 0) : runT;
+  text(fmt(total), pad + 16 * u, pad + 74 * u, 34 * u, '#fff', 'left', 800);
+  if (!G.laps.length) text('lap ' + fmt(runT - G.lapStart), pad + 16 * u, pad + 102 * u, 15 * u, '#cfd3ff', 'left', 600, false);
+  G.laps.forEach((l, i) => {
+    const best = l === Math.min(...G.laps) && G.laps.length > 1;
+    text('L' + (i + 1), pad + 16 * u, pad + (102 + 24 * i) * u, 15 * u, acc, 'left', 700, false);
+    text(fmt(l), pad + 234 * u, pad + (102 + 24 * i) * u, 16 * u, best ? '#7dffb0' : '#fff', 'right', 600, false);
+  });
+  // positie (cup)
+  if (!tt) {
+    const r = placeOf(P);
+    text(String(r), pad + 8 * u, H - pad - 12 * u, 110 * u, r === 1 ? '#ffd24a' : '#fff', 'left', 900);
+    text('/ ' + G.ents.length, pad + 104 * u, H - pad - 14 * u, 30 * u, acc, 'left', 800);
+  }
+  // rechtsboven
+  const rw = 214 * u, rx0 = W - pad - rw;
+  panel(rx0, pad, rw, 76 * u + MM * u);
+  text(T.name.toUpperCase(), rx0 + 14 * u, pad + 26 * u, 15 * u, '#fff', 'left', 800);
+  if (tt) {
+    text(fmt(rec ? rec.total : null), rx0 + rw - 14 * u, pad + 27 * u, 15 * u, '#cfd3ff', 'right', 700, false);
+    const cur = rec ? medalFor(T) : 0, next = Math.min(3, cur + 1);
+    medalDot(rx0 + 22 * u, pad + 47 * u, 7 * u, next);
+    text(MEDAL_NAME[next], rx0 + 36 * u, pad + 53 * u, 13 * u, acc, 'left', 700);
+    text(fmt(getMedals(T, ui.car)[next - 1]), rx0 + rw - 14 * u, pad + 53 * u, 15 * u, '#fff', 'right', 700, false);
+  } else if (G.mode === 'online') {
+    text(NET.race && NET.race.omode === 1 ? 'race ' + (NET.race.cupRace + 1) + '/3' : 'online', rx0 + rw - 14 * u, pad + 27 * u, 15 * u, '#7dffb0', 'right', 700, false);
+    text('ROOM ' + (NET.room ? NET.room.code : '----'), rx0 + 14 * u, pad + 53 * u, 13 * u, acc, 'left', 700);
+    text(CLASSES[ui.cls].name, rx0 + rw - 14 * u, pad + 53 * u, 15 * u, '#fff', 'right', 700, false);
+  } else if (!cupRun) {
+    text('free race', rx0 + rw - 14 * u, pad + 27 * u, 15 * u, '#cfd3ff', 'right', 700, false);
+    text(T.def && T.def.pts ? CUPS[T.cup].name : '3D TEST', rx0 + 14 * u, pad + 53 * u, 13 * u, acc, 'left', 700);
+  } else {
+    text('race ' + (cupRun.race + 1) + '/3', rx0 + rw - 14 * u, pad + 27 * u, 15 * u, '#cfd3ff', 'right', 700, false);
+    text(CUPS[T.cup].name + ' ' + CLASSES[ui.cls].name, rx0 + 14 * u, pad + 53 * u, 13 * u, acc, 'left', 700);
+    text(cupRun.points[0] + ' pt', rx0 + rw - 14 * u, pad + 53 * u, 15 * u, '#fff', 'right', 700, false);
+  }
+  drawMini(rx0 + (rw - MM * u) / 2, pad + 64 * u, MM * u, P);
+
+  // rechtsonder
+  const kmh = Math.round(speed * 0.42);
+  text(String(kmh), W - pad - 62 * u, H - pad - 34 * u, 78 * u, P.boosting ? '#8ff' : '#fff', 'right', 900);
+  text('km/h', W - pad, H - pad - 34 * u, 20 * u, acc, 'right', 700);
+  const bw = 300 * u, bh = 14 * u, bx = W - pad - bw, by = H - pad - bh;
+  const segs = 20, segW = Math.max(3, Math.floor(bw / segs));
+  ctx.fillStyle = 'rgba(8,5,22,0.85)'; ctx.fillRect(Math.round(bx) - 2, Math.round(by) - 2, segW * segs + 3, Math.round(bh) + 4);
+  for (let i = 0; i < segs; i++) {
+    ctx.fillStyle = P.energy > (i + 0.5) / segs ? (i < 6 ? '#ff4f8a' : i < 13 ? '#ffb833' : '#7dffb0') : '#2a2440';
+    ctx.fillRect(Math.round(bx) + i * segW, Math.round(by), segW - 1, Math.round(bh));
+  }
+  text('BOOST', bx - 14 * u, by + 13 * u, 14 * u, P.energy > 0.02 ? '#fff' : '#ff4f8a', 'right', 700);
+  if (P.draft > 0.6 && G.state === 'race' && !G.paused) text('SLIPSTREAM', W / 2, H * 0.2, 18 * u, '#7de8ff', 'center', 800);
+  if (P.onIce && G.state === 'race') text(LOOKS[T.index].names.ice, W / 2, H - pad - 8 * u, 26 * u, '#bfefff', 'center', 900);
+  else if (P.onSlow && G.state === 'race') text(LOOKS[T.index].names.slow, W / 2, H - pad - 8 * u, 26 * u, '#ffcf8a', 'center', 900);
+
+  if (G.state === 'countdown') {
+    const c = Math.ceil(G.countdown);
+    if (c <= 3 && c >= 1) {
+      const k = 1 - (G.countdown - Math.floor(G.countdown));
+      ctx.globalAlpha = Math.max(0, 1 - k * 0.7);
+      text(String(c), W / 2, H * 0.36 + 40 * u, (150 + 60 * k) * u, acc, 'center', 900);
+      ctx.globalAlpha = 1;
+    } else text('READY?', W / 2, H * 0.36, 54 * u, '#fff', 'center', 900);
+  } else if (G.msgT > 0 && G.state === 'race') {
+    ctx.globalAlpha = Math.min(1, G.msgT * 3);
+    text(G.msg, W / 2, H * 0.3, 52 * u, G.msgColor, 'center', 900);
+    if (G.msgSub) text(G.msgSub, W / 2, H * 0.3 + 34 * u, 22 * u, '#fff', 'center', 600);
+    ctx.globalAlpha = 1;
+  }
+
+  if (G.radio && G.state === 'race') {
+    const rv = RIVALS[G.radio.rival], rwd = Math.min(540 * u, W - 40 * u), rh = 80 * u, rx = (W - rwd) / 2, ry = H - pad - rh - 26 * u - (rwd > W - 460 * u ? 90 * u : 0);   // smal scherm: boven positie en snelheid
+    ctx.globalAlpha = Math.max(0, Math.min(1, G.radio.t * 4, G.radio.age * 8));
+    const talking = G.radio.age < G.radio.text.length * VOICES[G.radio.rival].step;
+    panel(rx, ry, rwd, rh, 0.8);
+    drawFace(G.radio.rival, rx + 40 * u, ry + rh / 2 + (talking && Math.sin(G.time * 28) > 0 ? 1 : 0));
+    text(rv.name, rx + 82 * u, ry + 32 * u, 14 * u, rv.pal[2], 'left', 800);
+    text(G.radio.text.slice(0, Math.ceil(G.radio.age / VOICES[G.radio.rival].step)), rx + 82 * u, ry + 58 * u, 13 * u, '#fff', 'left', 600, false);
+    ctx.globalAlpha = 1;
+  }
+
+  if (G.mode === 'online') netDrawFeed(u);
+  if (G.state === 'finished') { if (tt) drawTTResult(u); else if (G.mode === 'cup') drawCupResult(u); else drawOnlineResult(u); }
+
+  if (G.paused) {
+    ctx.fillStyle = 'rgba(5,3,12,0.62)'; ctx.fillRect(0, 0, W, H);
+    text('PAUSED', W / 2, H * 0.42, 70 * u, '#fff', 'center', 900);
+    text(G.mode === 'online' ? 'Esc: resume      Q: leave race      (the race goes on!)' : 'Esc: resume      R: restart race      Q: quit to menu', W / 2, H * 0.42 + 46 * u, 20 * u, acc, 'center', 700, false);
+    text((G.mode === 'tt' ? 'G: ghost ' + (G.showGhost ? 'on' : 'off') + '      ' : '') + 'O: options', W / 2, H * 0.42 + 80 * u, 17 * u, '#cfd3ff', 'center', 600, false);
+  }
+}
+function drawTTResult(u) {
+  const pw = 480 * u, ph = 380 * u, px = (W - pw) / 2, py = H * 0.13;
+  panel(px, py, pw, ph, 0.86);
+  text(G.newRecord ? 'NEW RECORD!' : 'FINISH', W / 2, py + 56 * u, 42 * u, G.newRecord ? '#7dffb0' : '#ffb833', 'center', 900);
+  const tot = G.laps.reduce((a, b) => a + b, 0), rec = record();
+  text(fmt(tot), W / 2, py + 112 * u, 50 * u, '#fff', 'center', 800);
+  G.laps.forEach((l, i) => {
+    const best = l === Math.min(...G.laps);
+    text('Lap ' + (i + 1), px + 120 * u, py + (152 + 27 * i) * u, 18 * u, '#ffb833', 'left', 700, false);
+    text(fmt(l), px + pw - 120 * u, py + (152 + 27 * i) * u, 18 * u, best ? '#7dffb0' : '#fff', 'right', 600, false);
+  });
+  for (let m = 3; m >= 1; m--) {
+    const x = px + pw / 2 + (2 - m) * 140 * u, y = py + 262 * u, got = G.medal >= m;
+    ctx.globalAlpha = got ? 1 : 0.4;
+    medalDot(x - 44 * u, y - 5 * u, 9 * u, m);
+    text(fmt(getMedals(T, ui.car)[m - 1]).slice(0, -2), x - 28 * u, y, 15 * u, '#fff', 'left', 700, false);
+    ctx.globalAlpha = 1;
+  }
+  text(G.medal ? MEDAL_NAME[G.medal] + ' MEDAL' : 'No medal yet: bronze from ' + fmt(getMedals(T, ui.car)[0]).slice(0, -2), W / 2, py + 304 * u, 18 * u, G.medal ? MEDAL_COL[G.medal] : '#cfd3ff', 'center', 800, !!G.medal);
+  if (!G.newRecord && rec) text('Record ' + fmt(rec.total) + '  (+' + (tot - rec.total).toFixed(3) + ')', W / 2, py + 330 * u, 15 * u, '#cfd3ff', 'center', 600, false);
+  text('Enter: retry      Esc: other track', W / 2, py + 360 * u, 16 * u, '#fff', 'center', 700, false);
+}
+function drawCupResult(u) {
+  const fin = G.state2 === 'final';
+  const pw = 560 * u, ph = 560 * u, px = (W - pw) / 2, py = H * 0.06;
+  panel(px, py, pw, ph, 0.88);
+  let rows, quote = null;
+  if (fin) {
+    rows = G.results;
+    const tc = G.cupPos <= 3 ? MEDAL_COL[4 - G.cupPos] : '#cfd3ff';
+    text(CUPS[ui.cup].name + ' - FINAL STANDINGS', W / 2, py + 44 * u, 26 * u, '#ffb833', 'center', 900);
+    text(G.cupPos === 1 ? 'CHAMPION!' : ord(G.cupPos).toUpperCase() + ' PLACE', W / 2, py + 92 * u, 44 * u, tc, 'center', 900);
+    if (G.cupPos === 1 && ART_OBJ.trophy) { const tro = ART_OBJ.trophy; ctx.drawImage(tro, Math.round(px + 30 * u), Math.round(py + 30 * u)); ctx.drawImage(tro, Math.round(px + pw - 30 * u - tro.width), Math.round(py + 30 * u)); }
+    const top = rows[0].player ? rows[1] : rows[0];
+    quote = { rival: top.rival, text: lineFor(top.rival, rows[0].player ? 'lose' : 'win', G.quoteSeed + 1) };
+  } else {
+    const order = liveOrder();
+    rows = order.map((e, i) => ({ e, name: e.name, pal: e.pal, player: !!e.isPlayer, rival: e.rival, pts: POINTS[i],
+      total: cupRun.points[e.isPlayer ? 0 : e.slot + 1] + (G.committed ? 0 : POINTS[i]) }));
+    const pos = rows.findIndex(r => r.player) + 1;
+    text(T.name.toUpperCase() + ' - RACE ' + (cupRun.race + 1) + '/3', W / 2, py + 44 * u, 22 * u, '#ffb833', 'center', 900);
+    text(ord(pos).toUpperCase() + ' PLACE', W / 2, py + 92 * u, 44 * u, pos === 1 ? '#ffd24a' : '#fff', 'center', 900);
+    const first = order[0];
+    if (first.finished) {
+      if (first.isPlayer) { if (order[1].finished) quote = { rival: order[1].rival, text: lineFor(order[1].rival, 'lose', G.quoteSeed) }; }
+      else quote = { rival: first.rival, text: lineFor(first.rival, 'win', G.quoteSeed) };
+    }
+  }
+  const winT = !fin && rows[0].e.finished ? rows[0].e.finishTime : null;
+  rows.forEach((r, i) => {
+    const y = py + (150 + 54 * i) * u, e = r.e, done = fin || e.finished;
+    const fresh = !fin && e.finished && e.arrive ? Math.max(0, 1 - (G.time - e.arrive) / 1.2) : 0;
+    if (r.player) { ctx.fillStyle = 'rgba(255,255,255,0.12)'; ctx.fillRect(px + 26 * u, y - 37 * u, pw - 52 * u, 52 * u); }
+    if (fresh > 0) { ctx.fillStyle = 'rgba(125,255,176,' + (fresh * 0.45).toFixed(3) + ')'; ctx.fillRect(px + 26 * u, y - 37 * u, pw - 52 * u, 52 * u); }
+    ctx.globalAlpha = done ? 1 : 0.6;
+    text(String(i + 1), px + 54 * u, y, 19 * u, '#ffb833', 'right', 800, false);
+    drawFace(r.player ? ui.char : r.rival, px + 98 * u, y - 11 * u);
+    text(r.name, px + 136 * u, y, 19 * u, '#fff', 'left', 700, false);
+    if (!fin) {
+      if (e.finished) {
+        text(fmt(e.finishTime), px + pw - 232 * u, y, 16 * u, '#fff', 'right', 600, false);
+        if (winT != null && i > 0) text('+' + (e.finishTime - winT).toFixed(2), px + pw - 158 * u, y, 14 * u, '#cfd3ff', 'right', 600, false);
+      } else {
+        const dots = '.'.repeat(1 + Math.floor(G.time * 2.5) % 3);
+        text('lap ' + Math.min(LAPS, Math.max(1, e.lap - 1)) + '/' + LAPS + ' ' + dots, px + pw - 232 * u, y, 14 * u, '#cfd3ff', 'right', 600);
+      }
+      text('+' + r.pts, px + pw - 110 * u, y, 17 * u, '#7dffb0', 'right', 700, false);
+    }
+    text(r.total + ' pt', px + pw - 40 * u, y, 19 * u, '#fff', 'right', 800, false);
+    ctx.globalAlpha = 1;
+  });
+  if (quote) {
+    const qy = py + 478 * u, qkey = quote.rival + quote.text + fin;
+    if (G.quoteKey !== qkey) { G.quoteKey = qkey; G.quoteAt = G.time; babble(quote.rival, quote.text); }
+    const qn = Math.ceil((G.time - G.quoteAt) / VOICES[quote.rival].step), qTalk = qn < quote.text.length;
+    quote.text = quote.text.slice(0, qn);
+    drawFace(quote.rival, px + 70 * u, qy + 10 * u + (qTalk && Math.sin(G.time * 28) > 0 ? 1 : 0));
+    text(RIVALS[quote.rival].name + ' THE ' + RIVALS[quote.rival].kind + '  -  ' + RIVALS[quote.rival].title, px + 112 * u, qy, 13 * u, RIVALS[quote.rival].pal[2], 'left', 800);
+    text('"' + quote.text + (qTalk ? '' : '"'), px + 112 * u, qy + 24 * u, 13 * u, '#fff', 'left', 600);
+  }
+  if (G.finishT > 1.2) {
+    const waiting = !fin && G.ents.some(e => !e.finished);
+    const label = fin ? 'Enter: back to menu' : (waiting ? 'Enter: skip waiting, ' : 'Enter: ') + (cupRun.race >= 2 ? 'final standings' : 'next race') + '     Esc: quit cup';
+    text(label, W / 2, py + ph - 20 * u, 16 * u, '#fff', 'center', 700, false);
+  }
+}
+function card(x, y, w, h, sel, color) {
+  x = Math.round(x); y = Math.round(y); w = Math.round(w); h = Math.round(h);
+  ctx.fillStyle = sel ? 'rgba(20,14,48,0.92)' : 'rgba(8,5,22,0.72)';
+  ctx.fillRect(x, y, w, h);
+  const t = sel ? 2 : 1;
+  ctx.fillStyle = sel ? (color || '#ffb833') : 'rgba(255,255,255,0.22)';
+  ctx.fillRect(x, y, w, t); ctx.fillRect(x, y + h - t, w, t); ctx.fillRect(x, y, t, h); ctx.fillRect(x + w - t, y, t, h);
+}
+function header(u, title, hint) {
+  ctx.fillStyle = 'rgba(5,3,12,0.45)'; ctx.fillRect(0, 0, W, H);
+  text(title, W / 2, 86 * u, 46 * u, '#fff', 'center', 900);
+  text(hint, W / 2, H - 34 * u, 16 * u, '#cfd3ff', 'center', 600, false);
+}
+function drawCarTop(cx, cy, scale, car, pal) {
+  const M = MODELS[car.id], V = M.v;
+  const order = M.f.map((f, i) => {
+    let z = 0;
+    for (const k of f[0]) z += V[k][2];
+    return [i, z / f[0].length + (f[2] ? 1e5 : 0)];
+  }).sort((a, b) => a[1] - b[1]);
+  const p = [];
+  for (const [fi] of order) {
+    const f = M.f[fi];
+    p.length = 0;
+    for (const k of f[0]) p.push(cx + V[k][0] * scale, cy - V[k][1] * scale);
+    ctx.fillStyle = pal[f[1]] || '#d8f2ff';
+    fillPoly(p);
+  }
+}
+let cupScroll = 0;
+function drawCupGrid(u, sel, mode) {
+  const cols = 4, gap = 18 * u, cw = Math.min(250 * u, (W - 80 * u - gap * (cols - 1)) / cols), ch = 300 * u;
+  const x0 = W / 2 - (cw * cols + gap * (cols - 1)) / 2, y0 = 150 * u, areaH = Math.min(H - y0 - 70 * u, ch * 1.5 + gap);
+  const rows = Math.ceil(CUPS.length / cols), maxS = Math.max(0, rows * (ch + gap) - gap - areaH);
+  const target = Math.max(0, Math.min(maxS, Math.floor(sel / cols) * (ch + gap)));
+  cupScroll += (target - cupScroll) * 0.2;
+  if (Math.abs(target - cupScroll) < 0.5) cupScroll = target;
+  const sc = Math.round(cupScroll);
+  ctx.save();
+  ctx.beginPath(); ctx.rect(0, Math.round(y0 - 8 * u), W, Math.round(areaH + 16 * u)); ctx.clip();
+  CUPS.forEach((c, i) => {
+    const x = x0 + (i % cols) * (cw + gap), y = Math.round(y0 + Math.floor(i / cols) * (ch + gap)) - sc;
+    if (y > y0 + areaH + 8 * u || y + ch < y0 - 8 * u) return;
+    const t2 = THEMES[c.theme], isSel = sel === i;
+    card(x, y, cw, ch, isSel, t2.ui);
+    ctx.fillStyle = t2.ui; ctx.fillRect(Math.round(x + 18 * u), Math.round(y + 18 * u), Math.round(cw - 36 * u), Math.round(6 * u));
+    text(c.name, x + cw / 2, y + 58 * u, 24 * u, isSel ? t2.accent : '#fff', 'center', 900);
+    for (let k = 0; k < 3; k++) {
+      const tr = TRACKS[i * 3 + k], yy = y + (94 + 28 * k) * u;
+      text(tr.name, x + 20 * u, yy, 13 * u, '#fff', 'left', 600, false);
+      if (mode === 0) medalDot(x + cw - 28 * u, yy - 6 * u, 7 * u, medalFor(tr));
+    }
+    if (mode === 1) {
+      const best = OUT.save.cups[i + '-' + ui.cls];
+      text(best ? 'Best: ' + ord(best) + ' place' : 'Not raced yet', x + cw / 2, y + 184 * u, 15 * u, best && best <= 3 ? MEDAL_COL[4 - best] : '#cfd3ff', 'center', 700, false);
+    }
+    const words = c.sub.split(' '), half = Math.ceil(words.length / 2);
+    text(words.slice(0, half).join(' '), x + cw / 2, y + 208 * u, 12 * u, '#cfd3ff', 'center', 500, false);
+    text(words.slice(half).join(' '), x + cw / 2, y + 224 * u, 12 * u, '#cfd3ff', 'center', 500, false);
+    const em = ART_OBJ['e' + i];
+    if (em) { const es = Math.round(56 * u); ctx.drawImage(em, Math.round(x + cw / 2 - es / 2), Math.round(y + ch - es - 8 * u + (isSel ? Math.sin(G.time * 4) * 2 * u : 0)), es, es); }
+  });
+  ctx.restore();
+  if (sc < maxS - 1) text('- MORE CUPS BELOW -', W / 2, y0 + areaH + 30 * u, 13 * u, '#cfd3ff', 'center', 700);
+  if (sc > 1) text('- MORE CUPS ABOVE -', W / 2, y0 - 16 * u, 13 * u, '#cfd3ff', 'center', 700);
+}
+let logoBox = null;
+function drawLogo(u) {
+  const im = ART_OBJ.logo;
+  if (!im) return;
+  if (!logoBox) {
+    // de lege rand om het logo heen niet meetellen
+    const c = document.createElement('canvas'); c.width = im.width; c.height = im.height;
+    const g = c.getContext('2d'); g.drawImage(im, 0, 0);
+    const d = g.getImageData(0, 0, c.width, c.height).data;
+    let x0 = c.width, y0 = c.height, x1 = 0, y1 = 0;
+    for (let j = 0; j < c.height; j++) for (let i = 0; i < c.width; i++) if (d[(j * c.width + i) * 4 + 3] > 20) { x0 = Math.min(x0, i); y0 = Math.min(y0, j); x1 = Math.max(x1, i); y1 = Math.max(y1, j); }
+    logoBox = { x: x0, y: y0, w: x1 - x0 + 1, h: y1 - y0 + 1 };
+  }
+  // snelheidsstrepen erachter
+  for (let i = 0; i < 9; i++) {
+    const len = Math.round((80 + (i * 53) % 140) * u), sp = 420 + (i * 97) % 300;
+    const sx = Math.round(((i * 211 - G.time * sp) % (W + len) + W + len) % (W + len) - len);
+    ctx.fillStyle = i % 3 === 0 ? 'rgba(255,79,138,0.85)' : 'rgba(207,211,255,0.6)';
+    ctx.fillRect(sx, Math.round(H * 0.4 - (110 - i * 13) * u), len, Math.max(2, Math.round(5 * u)));
+  }
+  const b = logoBox, hh = Math.round(Math.min(270 * u, H * 0.4 + 60 * u)), ww = Math.round(b.w * hh / b.h);
+  const bob = Math.round(Math.sin(G.time * 2) * 2 * u);
+  ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(im, b.x, b.y, b.w, b.h, Math.round(W / 2 - ww / 2), Math.round(H * 0.4 + 100 * u - hh) + bob, ww, hh);
+}
+function drawMenu(u) {
+  if (songTitle) text('MUSIC: ' + songTitle + ' - RETRO BIT', 10, H - 8, 13 * u, '#7dffb0', 'left');
+  const th = THEMES[CUPS[ui.cup].theme];
+  if (ui.screen === 'title') {
+    // de banen vliegen voorbij als in de intro van een race: zwarte balken, een korte flits bij elke wissel, de baannaam linksonder
+    const st = (ui.reelT || 0) % REEL_SHOT, bar = Math.round(40 * u);
+    if ((ui.reelN || 0) > 0 && st < 0.14) { ctx.globalAlpha = 1 - st / 0.14; ctx.fillStyle = '#0a0612'; ctx.fillRect(0, 0, W, H); ctx.globalAlpha = 1; }
+    ctx.fillStyle = 'rgba(5,3,12,0.25)'; ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = '#0a0612'; ctx.fillRect(0, 0, W, bar); ctx.fillRect(0, H - bar, W, bar);
+    text(T.name.toUpperCase() + '  -  ' + CUPS[T.cup].name, 16 * u, H - bar - 12 * u, 14 * u, '#cfd3ff', 'left', 700);
+    if (songTitle) text('MUSIC: ' + songTitle + ' - RETRO BIT', 16 * u, bar - 13 * u, 13 * u, '#7dffb0', 'left');
+    drawLogo(u);
+    const per = Math.ceil(RIVALS.length / 2);
+    RIVALS.forEach((r, i) => drawFace(i, W / 2 + (i % per - (per - 1) / 2) * 62 * u, H * 0.4 + (132 + 58 * Math.floor(i / per)) * u + Math.sin(G.time * 2.4 + i * 1.3) * 3 * u));
+    if (Math.sin(G.time * 5) > -0.3) text('PRESS ENTER', W / 2, H * 0.78, 34 * u, '#fff', 'center', 900);
+    text('O: options', W / 2, H - 14 * u, 15 * u, '#cfd3ff', 'center', 600, false);
+    return;
+  }
+  const hint = 'arrows: select      Enter: continue      Esc: back';
+  if (ui.screen === 'mode') {
+    header(u, 'CHOOSE A MODE', hint + '      T: 3D test track');
+    const gap = 30 * u, cw = Math.min(330 * u, (W - 60 * u - 2 * gap) / 3), ch = 300 * u, x0 = W / 2 - (cw * 3 + gap * 2) / 2, y0 = H * 0.26;
+    const items = [
+      ['TIME TRIAL', 'Just you against the clock.', ['3 laps on any track', 'Race your own ghost', 'Bronze, silver or gold']],
+      ['CUP', 'Three races, five rivals.', ['Points: 10-7-5-3-2-1', 'You start at the back', 'Win the trophy']],
+      ['ONLINE', 'Race your friends.', ['Up to 6 players', 'Share a room code', 'Add computer racers']]
+    ];
+    items.forEach((it, i) => {
+      const x = x0 + i * (cw + gap);
+      card(x, y0, cw, ch, ui.mode === i);
+      text(it[0], x + cw / 2, y0 + 70 * u, 40 * u, ui.mode === i ? '#ffb833' : '#fff', 'center', 900);
+      text(it[1], x + cw / 2, y0 + 110 * u, 14 * u, '#fff', 'center', 600, false);
+      it[2].forEach((l, k) => text(l, x + cw / 2, y0 + (164 + 32 * k) * u, 13 * u, '#cfd3ff', 'center', 500, false));
+    });
+    return;
+  }
+  if (ui.screen === 'online') { drawOnlineMenu(u); return; }
+  if (ui.screen === 'cls') {
+    header(u, 'CHOOSE A CLASS', hint);
+    const cw = Math.min(280 * u, (W - 80 * u) / 3 - 20 * u), ch = 300 * u, gap = 20 * u, x0 = W / 2 - (cw * 3 + gap * 2) / 2, y0 = H * 0.26;
+    const cols = ['#7dffb0', '#ffb833', '#ff4f8a'];
+    CLASSES.forEach((cl, i) => {
+      const x = x0 + i * (cw + gap), sel = ui.cls === i;
+      card(x, y0, cw, ch, sel, cols[i]);
+      text(cl.name, x + cw / 2, y0 + 76 * u, 46 * u, sel ? cols[i] : '#fff', 'center', 900);
+      text(cl.sub, x + cw / 2, y0 + 114 * u, 15 * u, '#fff', 'center', 700, false);
+      cl.info.forEach((l, k) => text(l, x + cw / 2, y0 + (168 + 30 * k) * u, 12 * u, '#cfd3ff', 'center', 500, false));
+      for (let k = 0; k <= i; k++) { ctx.fillStyle = cols[i]; ctx.fillRect(Math.round(x + cw / 2 + (k - i / 2) * 22 * u - 7 * u), Math.round(y0 + 262 * u), Math.round(14 * u), Math.round(14 * u)); }
+    });
+    return;
+  }
+  if (ui.screen === 'cup') {
+    header(u, ui.mode === 0 ? 'TIME TRIAL - CHOOSE A CUP' : 'CHOOSE A CUP', hint);
+    if (ui.mode === 1) text(CLASSES[ui.cls].name, W / 2, 124 * u, 18 * u, '#ffb833', 'center', 800);
+    drawCupGrid(u, ui.cup, ui.mode);
+    return;
+  }
+  if (ui.screen === 'track') {
+    header(u, CUPS[ui.cup].name + ' - CHOOSE A TRACK', hint);
+    const gap = 22 * u, cw = Math.min(290 * u, (W - 40 * u - gap * 2) / 3), ch = 400 * u, x0 = W / 2 - (cw * 3 + gap * 2) / 2, y0 = H * 0.2;
+    for (let k = 0; k < 3; k++) {
+      const tr = TRACKS[ui.cup * 3 + k], x = x0 + k * (cw + gap), sel = ui.track === k, rec = recOf(tr);
+      card(x, y0, cw, ch, sel, th.ui);
+      text(tr.name.toUpperCase(), x + cw / 2, y0 + 46 * u, 26 * u, sel ? th.accent : '#fff', 'center', 900);
+      const sz = 190 * u;
+      pixelTrack(ctx, tr, x + (cw - sz) / 2, y0 + 60 * u, sz, '#16101a', 5);
+      pixelTrack(ctx, tr, x + (cw - sz) / 2, y0 + 60 * u, sz, sel ? th.ui : '#b8b4d0', 3);
+      text('Record', x + 22 * u, y0 + 310 * u, 15 * u, '#ffb833', 'left', 700, false);
+      text(fmt(rec ? rec.total : null), x + cw - 22 * u, y0 + 310 * u, 16 * u, '#fff', 'right', 700, false);
+      const got = medalFor(tr);
+      for (let m = 1; m <= 3; m++) {
+        const mx = x + 22 * u + (m - 1) * (cw - 44 * u) / 3;
+        ctx.globalAlpha = got >= m ? 1 : 0.45;
+        medalDot(mx + 8 * u, y0 + 348 * u, 8 * u, m);
+        text(fmt(getMedals(tr, ui.car)[m - 1]).slice(0, -2), mx + 22 * u, y0 + 353 * u, 13 * u, '#fff', 'left', 600, false);
+        ctx.globalAlpha = 1;
+      }
+      text('times for ' + CARS[ui.car].name, x + cw / 2, y0 + 384 * u, 12 * u, '#cfd3ff', 'center', 500, false);
+    }
+    return;
+  }
+  if (ui.screen === 'char') {
+    header(u, 'CHOOSE YOUR RACER', hint);
+    const cols = CHAR_COLS, cw = Math.min(128 * u, (W - 40 * u) / cols), chh = 134 * u, x0 = W / 2 - cw * cols / 2, y0 = H * 0.165;
+    RIVALS.forEach((r, i) => {
+      const x = x0 + (i % cols) * cw, y = y0 + Math.floor(i / cols) * chh, sel = ui.char === i;
+      card(x + 4 * u, y + 4 * u, cw - 8 * u, chh - 8 * u, sel, r.pal[2]);
+      drawFace(i, x + cw / 2, y + 58 * u + (sel ? Math.round(Math.sin(G.time * 5) * 2 * u) : 0), 2);
+      text(r.name, x + cw / 2, y + chh - 8 * u, 13 * u, sel ? r.pal[2] : '#fff', 'center', 800);
+    });
+    const me = RIVALS[ui.char], py = y0 + chh * Math.ceil(RIVALS.length / cols) + 8 * u, pw = Math.min(700 * u, W - 40 * u);
+    panel(W / 2 - pw / 2, py, pw, 96 * u, 0.8);
+    text(me.name, W / 2, py + 34 * u, 26 * u, me.pal[2], 'center', 900);
+    text(me.kind + ' - ' + me.title, W / 2, py + 58 * u, 14 * u, '#fff', 'center', 700, false);
+    text('"' + me.lines.start[0] + '"', W / 2, py + 82 * u, 13 * u, '#cfd3ff', 'center', 500, false);
+    return;
+  }
+  if (ui.screen === 'car') {
+    header(u, 'CHOOSE YOUR CRAFT', 'arrows: select      Enter: start      Esc: back');
+    const cw = Math.min(250 * u, (W - 100 * u) / 4 - 16 * u), ch = 400 * u, gap = 16 * u;
+    const x0 = W / 2 - (cw * 4 + gap * 3) / 2, y0 = H * 0.2;
+    CARS.forEach((c, i) => {
+      const x = x0 + i * (cw + gap), sel = ui.car === i;
+      card(x, y0, cw, ch, sel, c.pal[2]);
+      text(c.name, x + cw / 2, y0 + 44 * u, 26 * u, sel ? c.pal[2] : '#fff', 'center', 900);
+      drawCarTop(x + cw / 2, y0 + 130 * u + (sel ? Math.sin(G.time * 4) * 3 * u : 0), 2.3 * u, c, RIVALS[ui.char].pal);
+      const stats = [
+        ['Top speed', (c.top - 1050) / 200], ['Acceleration', (c.acc - 520) / 420],
+        ['Grip', (c.grip - 4.2) / 4.4], ['Boost', (0.36 - c.drain) / 0.17], ['Weight', (c.mass - 0.7) / 1.3]
+      ];
+      stats.forEach((s, k) => {
+        const yy = y0 + (232 + 24 * k) * u, bw = cw - 150 * u;
+        text(s[0], x + 20 * u, yy, 13 * u, '#cfd3ff', 'left', 600, false);
+        ctx.fillStyle = 'rgba(255,255,255,0.14)'; ctx.fillRect(x + 122 * u, yy - 10 * u, bw, 9 * u);
+        ctx.fillStyle = c.pal[2]; ctx.fillRect(x + 122 * u, yy - 10 * u, bw * Math.max(0.08, Math.min(1, s[1])), 9 * u);
+      });
+      const words = c.desc.split(' '), half = Math.ceil(words.length / 2);
+      text(words.slice(0, half).join(' '), x + cw / 2, y0 + 366 * u, 13 * u, '#fff', 'center', 500, false);
+      text(words.slice(half).join(' '), x + cw / 2, y0 + 384 * u, 13 * u, '#fff', 'center', 500, false);
+    });
+    text('Drive: arrows or WASD     Boost: space     Drift: shift     Item: E     Pause: Esc', W / 2, y0 + ch + 30 * u, 15 * u, '#ffb833', 'center', 700, false);
+    if (ui.mode === 1) {
+      const sp = Math.min(190 * u, (W - 60 * u) / 5), rx0 = W / 2 - sp * 2.5, ry = y0 + ch + 74 * u;
+      ui.rivals.forEach((ci, i) => {
+        const r = RIVALS[ci], x = rx0 + sp * i + 26 * u;
+        drawFace(ci, x - 4 * u, ry);
+        text(r.name, x + 30 * u, ry + 5 * u, 14 * u, r.pal[2], 'left', 800);
+
+      });
+    }
+  }
+}
+function drawOptions(u) {
+  ctx.fillStyle = 'rgba(5,3,12,0.7)'; ctx.fillRect(0, 0, W, H);
+  const pw = 520 * u, ph = 330 * u, px = (W - pw) / 2, py = H * 0.24;
+  panel(px, py, pw, ph, 0.94);
+  text('OPTIONS', W / 2, py + 54 * u, 40 * u, '#fff', 'center');
+  OPTIONS.forEach((o, i) => {
+    const y = py + (120 + 58 * i) * u, sel = OPT.sel === i, v = Math.round(vol[o[0]] * 10);
+    if (sel) { ctx.fillStyle = 'rgba(255,255,255,0.1)'; ctx.fillRect(Math.round(px + 20 * u), Math.round(y - 30 * u), Math.round(pw - 40 * u), Math.round(44 * u)); }
+    text(o[1], px + 40 * u, y, 19 * u, sel ? '#ffb833' : '#fff', 'left');
+    const bx = Math.round(px + 200 * u), segW = Math.max(4, Math.floor(210 * u / 10)), bh = Math.round(18 * u), by = Math.round(y - 20 * u);
+    for (let k = 0; k < 10; k++) {
+      ctx.fillStyle = k < v ? (sel ? '#ffb833' : '#7dffb0') : '#2a2440';
+      ctx.fillRect(bx + k * segW, by, segW - 1, bh);
+    }
+    text(v * 10 + '%', px + pw - 36 * u, y, 19 * u, '#fff', 'right');
+  });
+  text('up/down: select     left/right: change     Esc: close', W / 2, py + ph - 24 * u, 13 * u, '#cfd3ff', 'center');
+}
+function drawItemSlot(u) {
+  if (G.mode === 'tt' || G.intro > 0) return;
+  const P = G.player, bw = 150 * u, bh = 54 * u, x = W / 2 - bw / 2, y = 22 * u;
+  panel(x, y, bw, bh, 0.8);
+  let label = '', col = '#5a5880';
+  if (P.rollT > 0) { const keysI = Object.keys(ITEMS); const k = keysI[Math.floor(G.time * 14) % keysI.length]; label = ITEMS[k].name; col = '#cfd3ff'; }
+  else if (P.item) { label = ITEMS[P.item].name + (P.itemN > 1 ? ' X' + P.itemN : ''); col = ITEMS[P.item].col; }
+  else label = 'NO ITEM';
+  text(label, W / 2, y + bh / 2 + 4 * u, (label.length > 10 ? 15 : 19) * u, col, 'center', 900);
+  if (P.item && !(P.rollT > 0)) text('E: USE', W / 2, y + bh - 6 * u, 10 * u, '#cfd3ff', 'center', 700);
+  if (P.shieldT > 0) text('SHIELD ' + Math.ceil(P.shieldT), W / 2, y + bh + 16 * u, 13 * u, '#7dffb0', 'center', 800);
+}
+  // online-scherm in de stijl van komeet.html: verbinden, kamer maken of meedoen, en de kamer
+  function drawOnlineMenu(u) {
+    const room = NET.room, hint = room ? (room.host === NET.id ? 'arrows: change      Enter: start      Esc: leave room' : 'waiting for the host      Esc: leave room') : 'up/down: select      Enter: continue      Esc: back';
+    header(u, room ? 'ROOM ' + room.code : 'ONLINE', hint);
+    const pw = Math.min(760 * u, W - 40 * u), px = W / 2 - pw / 2, y0 = H * 0.2;
+    if (NET.status !== 'on') {
+      card(px, y0, pw, 150 * u, false);
+      text(NET.status === 'connecting' ? 'CONNECTING...' : 'NOT CONNECTED', W / 2, y0 + 64 * u, 34 * u, '#fff', 'center', 900);
+      if (NET.err) text(NET.err, W / 2, y0 + 100 * u, 16 * u, '#ff8a8a', 'center', 700);
+      if (NET.status === 'off') text('Enter: try again', W / 2, y0 + 130 * u, 15 * u, '#cfd3ff', 'center', 600, false);
+      return;
+    }
+    if (!room) {
+      const rows = ['CREATE A ROOM', NET.typing ? 'ROOM CODE: ' + (NET.code + '____').slice(0, 4) : 'JOIN WITH A CODE', 'NAME: ' + (NET.naming ? NET.nameBuf + (Math.floor(G.time * 3) % 2 ? '_' : ' ') : netName())];
+      rows.forEach((t, i) => { const y = y0 + i * 92 * u; card(px + pw * 0.15, y, pw * 0.7, 76 * u, NET.sel === i); text(t, W / 2, y + 50 * u, 28 * u, NET.sel === i ? '#ffb833' : '#fff', 'center', 900); });
+      text(NET.typing ? 'type the 4 letters, then Enter' : NET.naming ? 'type your name, then Enter' : 'playing as ' + RIVALS[ui.char].name + ' in the ' + CARS[ui.car].name, W / 2, y0 + 300 * u, 15 * u, '#cfd3ff', 'center', 600, false);
+      if (NET.err) text(NET.err, W / 2, y0 + 326 * u, 16 * u, '#ff8a8a', 'center', 700);
+      return;
+    }
+    const isHost = room.host === NET.id, cupMode = room.omode === 1;
+    card(px, y0, pw * 0.58, 330 * u, false);
+    text('PLAYERS', px + 22 * u, y0 + 34 * u, 15 * u, '#ffb833', 'left', 800);
+    room.players.forEach((p, i) => {
+      const y = y0 + (74 + 40 * i) * u;
+      drawFace(p.char % 18, px + 40 * u, y - 6 * u);
+      text(p.name + (p.id === room.host ? '  (host)' : ''), px + 70 * u, y, 17 * u, p.id === NET.id ? '#ffb833' : '#fff', 'left', 800, false);
+      text(CARS[p.car % 4].name, px + pw * 0.58 - 20 * u, y, 14 * u, '#cfd3ff', 'right', 700);
+    });
+    const sx = px + pw * 0.6, sw = pw * 0.4;
+    card(sx, y0, sw, 330 * u, false);
+    const rowsS = [['MODE', cupMode ? 'CUP' : 'RACE'], cupMode ? ['CUP', CUPS[room.cup || 0].name] : ['TRACK', TRACKS_ALL[room.track || 1].name], ['BOTS', String(room.bots || 0)], ['CLASS', CLASSES[room.cls == null ? 1 : room.cls].name]];
+    rowsS.forEach(([k, v], i) => {
+      const y = y0 + (40 + 34 * i) * u, on = isHost && NET.sel === i;
+      if (on) { ctx.fillStyle = 'rgba(255,255,255,0.1)'; ctx.fillRect(Math.round(sx + 8 * u), Math.round(y - 22 * u), Math.round(sw - 16 * u), Math.round(30 * u)); }
+      text(k, sx + 18 * u, y, 13 * u, on ? '#ffb833' : '#cfd3ff', 'left', 700);
+      text(v, sx + sw - 18 * u, y, 15 * u, '#fff', 'right', 800, false);
+    });
+    if (cupMode) text('race ' + ((room.cupRace || 0) + 1) + '/3', sx + sw / 2, y0 + 190 * u, 15 * u, '#7dffb0', 'center', 700, false);
+    if (NET.cup && Object.keys(NET.cup.pts).length) {
+      const rowsP = Object.entries(NET.cup.pts).sort((a, b) => b[1] - a[1]);
+      text(NET.cup.done ? 'FINAL STANDINGS' : 'STANDINGS', sx + sw / 2, y0 + 220 * u, 14 * u, '#ffb833', 'center', 800);
+      rowsP.slice(0, 6).forEach(([k, v], i) => { text((NET.cup.names[k] || '?'), sx + 18 * u, y0 + (244 + 16 * i) * u, 12 * u, k == NET.id ? '#ffb833' : '#fff', 'left', 600, false); text(v + ' pt', sx + sw - 18 * u, y0 + (244 + 16 * i) * u, 12 * u, '#fff', 'right', 600, false); });
+    }
+    text(room.state === 'race' ? 'race in progress...' : isHost ? (cupMode && NET.cup && NET.cup.done ? 'Enter: new cup' : 'Enter: start the race') : 'waiting for the host...', W / 2, y0 + 360 * u, 18 * u, '#ffb833', 'center', 800, false);
+  }
+  function netDrawFeed(u) {
+    const now = performance.now(); NET.feed = (NET.feed || []).filter(f => f.until > now);
+    NET.feed.forEach((f, i) => text(f.text, W - 22 * u, H * 0.32 + i * 22 * u, 16 * u, '#7dffb0', 'right', 800));
+    if (G.state === 'countdown') text('1-4: GG!  NICE!  WOW!  OOPS!', W / 2, H * 0.36 + 120 * u, 15 * u, '#7dffb0', 'center', 700);
+  }
+  // uitslag van een vrije of online race: plaats, portret, naam en tijd (in de stijl van drawCupResult)
+  function drawOnlineResult(u) {
+    const pw = 560 * u, px = (W - pw) / 2, py = H * 0.08, order = liveOrder(), ph = (190 + 54 * order.length) * u;
+    panel(px, py, pw, ph, 0.88);
+    const pos = order.indexOf(G.player) + 1;
+    text(T.name.toUpperCase() + (G.mode === 'online' ? ' - ONLINE' : ''), W / 2, py + 44 * u, 22 * u, '#ffb833', 'center', 900);
+    text(ord(pos).toUpperCase() + ' PLACE', W / 2, py + 92 * u, 44 * u, pos === 1 ? '#ffd24a' : '#fff', 'center', 900);
+    const winT = order[0].finished && !order[0].dnf ? order[0].finishT : null;
+    order.forEach((e, i) => {
+      const y = py + (150 + 54 * i) * u;
+      if (e.isPlayer) { ctx.fillStyle = 'rgba(255,255,255,0.12)'; ctx.fillRect(px + 26 * u, y - 37 * u, pw - 52 * u, 52 * u); }
+      ctx.globalAlpha = e.finished ? 1 : 0.6;
+      text(String(i + 1), px + 54 * u, y, 19 * u, '#ffb833', 'right', 800, false);
+      drawFace(e.isPlayer ? ui.char : e.face != null ? e.face : e.rival, px + 98 * u, y - 11 * u);
+      text(nameOf(e), px + 136 * u, y, 19 * u, '#fff', 'left', 700, false);
+      if (e.dnf) text('DNF', px + pw - 40 * u, y, 16 * u, '#ff8a8a', 'right', 700, false);
+      else if (e.finished) { text(fmt(e.finishT), px + pw - 40 * u, y, 16 * u, '#fff', 'right', 600, false); if (winT != null && i > 0) text('+' + (e.finishT - winT).toFixed(2), px + pw - 170 * u, y, 14 * u, '#cfd3ff', 'right', 600, false); }
+      else text('lap ' + Math.min(LAPS, Math.max(1, e.lap - 1)) + '/' + LAPS + ' ' + '.'.repeat(1 + Math.floor(G.time * 2.5) % 3), px + pw - 40 * u, y, 14 * u, '#cfd3ff', 'right', 600);
+      ctx.globalAlpha = 1;
+    });
+    if (G.finishT > 1.2) text(G.mode === 'online' ? 'Enter: back to the room' : 'Enter: race again      Esc: menu', W / 2, py + ph - 20 * u, 16 * u, '#fff', 'center', 700, false);
+  }
+  // per beeld: de toestand van het 3D-spel omzetten naar wat de komeet-code verwacht, en tekenen
+  function frame() {
+    W = hud.width; H = hud.height;
+    const u = H / 720, P = S.player;   // zoals render() in komeet.html
+    ctx.imageSmoothingEnabled = false;
+    ctx.clearRect(0, 0, W, H);
+    for (const e of S.ents) { e.name = nameOf(e); e.finishTime = e.finishT; if (e.isPlayer) e.face = ui.char; }
+    const phase = S.phase;
+    T = { name: TR.def.name, cup: TR.def.cup, index: Math.max(0, TR.idx - 1), id: TR.def.id, haz: TR.haz || [], pads: TR.pads || [], grav: 1, def: TR.def };
+    const fin = !!(S.final && cupRun);
+    G = { time: flick, mode: G3.mode, state: phase === 'intro' ? 'intro' : phase === 'count' ? 'countdown' : phase === 'race' ? 'race' : 'finished',
+      player: P, ents: S.ents, laps: P ? P.laps : [], lapStart: P ? S.raceTime - P.lapT : 0,
+      countdown: G3.mode === 'online' && S.goAt ? (S.goAt - Date.now()) / 1000 : 3 - S.t,
+      intro: phase === 'intro' ? INTRO_T - S.t : 0, paused: !!S.userPause, showGhost: true,
+      msg: msg ? msg.t : '', msgSub: '', msgT: msg ? msg.until - S.raceTime : 0, msgColor: msg ? msg.col : '#fff',
+      radio: S.radio && S.radio.text ? S.radio : null, finishT: phase === 'done' ? S.t : 0, committed: true, quoteSeed: S.quoteSeed || 0,
+      newRecord: S.result && S.result.newRecord, medal: S.result ? S.result.medal || 0 : 0, state2: fin ? 'final' : '',
+      cupPos: fin ? cupStandings().findIndex(r => r.k === 0) + 1 : 0,
+      results: fin ? cupStandings().map(r => ({ name: r.name, pal: r.k === 0 ? CARS[playerCar].pal : RIVALS[r.face].pal, player: r.k === 0, rival: r.k === 0 ? null : r.face, total: r.pts })) : null,
+      quoteKey: OUT.quoteKey, quoteAt: OUT.quoteAt };
+    try {
+      if (G3.state === 'menu') drawMenu(u);
+      else if (phase === 'intro') drawIntro(u);
+      else { drawHud(u, P.speed, S.raceTime); drawItemSlot(u); }
+    } catch (err) { if (!frame.warned) { frame.warned = true; console.error(err); } }
+    OUT.quoteKey = G.quoteKey; OUT.quoteAt = G.quoteAt;
+    if (OPT.open) drawOptions(u);
+  }
+  return { frame };
+})();
+
+// ---------------------------------------------------------------- oude HUD-hulpjes (niet meer gebruikt)
 // de pixellettertypes van komeet.html
 function makeFont(w, src) {
   const g = {};
@@ -2896,88 +3493,8 @@ function drawGlyphs(str, x, y, f, k) {
 }
 
 // tekst met de linkerbovenhoek op (x, y); sc 1 = klein (3x5), 2 = gewoon (5x7), groter = het 5x7-lettertype vergroot
-function text(str, x, y, sc, col, align) {
-  str = String(str).toUpperCase();
-  const f = sc <= 1 ? FONT_SMALL : FONT_BIG, k = sc <= 2 ? 1 : Math.max(2, Math.round(sc * 5 / 7));
-  const w = str.length * (f.w + 1) * k - k;
-  if (align === 'c') x -= w / 2; else if (align === 'r') x -= w;
-  x = Math.round(x); y = Math.round(y);
-  hx.fillStyle = 'rgba(0,0,0,0.6)'; drawGlyphs(str, x + k, y + k, f, k);
-  hx.fillStyle = col || '#fff'; drawGlyphs(str, x, y, f, k);
-}
 const fmt = t => { const m = Math.floor(t / 60), s = t - m * 60; return m + ':' + (s < 10 ? '0' : '') + s.toFixed(2); };
 let mapPts = null;
-function drawHud() {
-  if (G3.state === 'menu') { drawMenu(); drawOptions(); return; }
-  hx.clearRect(0, 0, W, H);
-  if (S.phase === 'intro') { drawIntro(); drawOptions(); return; }
-  const p = S.player, place = placeOf(p);
-  text('LAP ' + Math.min(LAPS, Math.max(1, p.lap - 1)) + '/' + LAPS, 8, 8, 2, '#fff');
-  text(fmt(S.raceTime), 8, 22, 2, '#ffd23a');
-  if (p.best && S.ents.length < 2) text('BEST ' + fmt(p.best), 8, 36, 1, '#cfe');
-  if (S.ents.length > 1) { text(place + (['ST', 'ND', 'RD'][place - 1] || 'TH'), W - 8, 8, 3, place === 1 ? '#ffd23a' : '#fff', 'r'); text('/' + S.ents.length, W - 8, 28, 1, '#cfe', 'r'); }
-  // klassement: wie waar rijdt
-  if (S.ents.length > 1 && S.phase !== 'done') liveOrder().forEach((e, i) => {
-    const y = 50 + i * 10, col = e.isPlayer ? '#ffd23a' : '#fff';
-    const f = e.isPlayer ? ui.char : e.face != null ? e.face : e.rival;
-    if (f != null) face(f, 8, y - 1, 8);
-    text((i + 1) + ' ' + nameOf(e), 19, y, 1, e.dnf ? '#776' : col);
-  });
-  // snelheid en boost
-  text(Math.round(p.speed * 0.2) + ' KM/H', 8, H - 26, 2, '#fff');
-  hx.fillStyle = '#14101e'; hx.fillRect(8, H - 11, 82, 6);
-  hx.fillStyle = p.boosting ? '#7ff' : '#3af'; hx.fillRect(9, H - 10, Math.round(80 * p.energy), 4);
-  const lv = driftLevel(p.driftT);
-  if (p.driftT > 0) text('DRIFT' + '!!!'.slice(0, lv), 100, H - 12, 1, ['#fff', '#7ff', '#ff7', '#f8a'][lv]);
-  if (p.slip && Math.abs(TR.bank[at(p.s, Q2).i]) > 40) text('TOO SLOW - SLIDING!', W / 2, H - 40, 1, '#f86', 'c');
-  if (p.splashT > 0) text('SPLASH! TOO SLOW FOR THE JUMP', W / 2, H / 2 - 20, 2, '#7ef', 'c');
-  // itemvak bovenaan in het midden
-  if (S.phase !== 'count' && G3.mode !== 'tt') {
-    hx.fillStyle = '#14101e'; hx.fillRect(W / 2 - 40, 18, 80, 16);
-    let name = '', col = '#556';
-    if (p.rollT > 0) { const ks = Object.keys(ITEMS); const k = ks[Math.floor(flick * 14) % ks.length]; name = ITEMS[k].name; col = '#889'; }
-    else if (p.item) { name = ITEMS[p.item].name + (p.itemN > 1 ? ' X' + p.itemN : ''); col = ITEMS[p.item].col; }
-    text(name || 'NO ITEM', W / 2, 23, 1, name ? col : '#445', 'c');
-    if (p.item && !p.rollT) text('E: USE', W / 2, 37, 1, '#cfe', 'c');
-  }
-  if (msg && S.raceTime < msg.until) text(msg.t, W / 2, H / 2 - 60, 2, msg.col, 'c');
-  if (p.ev && p.ev.fall) showMsg('BURNED! TOO SLOW FOR THE JUMP', '#ff8a4a', 1.4);
-  if (p.ai) text('AUTOPILOT (P)', W / 2, 8, 1, '#7ff', 'c');
-  // kaartje
-  if (!mapPts) {
-    let x0 = 1e9, x1 = -1e9, z0 = 1e9, z1 = -1e9;
-    for (let i = 0; i < TR.N; i++) { x0 = Math.min(x0, TR.P[i * 3]); x1 = Math.max(x1, TR.P[i * 3]); z0 = Math.min(z0, TR.P[i * 3 + 2]); z1 = Math.max(z1, TR.P[i * 3 + 2]); }
-    mapPts = { x0, z0, k: 64 / Math.max(x1 - x0, z1 - z0), w: (x1 - x0), h: (z1 - z0) };
-  }
-  const mk = mapPts.k, mx = W - 8 - mapPts.w * mk, my = H - 8 - mapPts.h * mk;
-  const mp = (x, z) => [Math.round(mx + (x - mapPts.x0) * mk), Math.round(my + (z - mapPts.z0) * mk)];
-  hx.fillStyle = '#14101e';
-  for (let i = 0; i < TR.N; i += 3) { const [x, y] = mp(TR.P[i * 3], TR.P[i * 3 + 2]); hx.fillRect(x - 1, y - 1, 3, 3); }
-  for (let i = 0; i < TR.N; i += 3) { const [x, y] = mp(TR.P[i * 3], TR.P[i * 3 + 2]); hx.fillStyle = TR.P[i * 3 + 1] > 150 ? '#fff' : '#b8b0c8'; hx.fillRect(x, y, 1, 1); }
-  for (const e of S.ents) {
-    const fr = entFrame(e, {}), [x, y] = mp(fr.pos[0], fr.pos[2]);
-    hx.fillStyle = e === p ? '#ffd23a' : e.pal[2]; hx.fillRect(x - 1, y - 1, 3, 3);
-  }
-  // aftellen en uitslag
-  if (S.phase === 'count') {
-    const n = 3 - Math.floor(S.t);
-    text(n, W / 2, H / 2 - 30, 6, '#ffd23a', 'c');
-    text('ARROWS / WASD: DRIVE   SPACE: BOOST   SHIFT: DRIFT   O: OPTIONS', W / 2, H - 50, 1, '#fff', 'c');
-    text(G3.mode === 'free' ? 'E: ITEM   N / B: TRACK   R: RESTART   M: MUSIC   ESC: MENU' : G3.mode === 'tt' ? 'R: RESTART   M: MUSIC   ESC: MENU' : 'E: ITEM   M: MUSIC   ESC: MENU', W / 2, H - 42, 1, '#cfe', 'c');
-    if (G3.mode === 'cup') text('RACE ' + (cupRun.race + 1) + ' OF 3  -  ' + CLASSES[ui.cls].name, W / 2, H / 2 + 44, 1, '#cfe', 'c');
-    text(TR.def.name, W / 2, H / 2 + 24, 2, '#fff', 'c');
-  } else if (S.phase === 'race' && S.t < 1) text('GO!', W / 2, H / 2 - 30, 6, '#7f7', 'c');
-  if (S.phase === 'race' && p.lastLap && p.lapT < 2.5) text('LAP ' + fmt(p.lastLap), W / 2, 40, 2, '#fff', 'c');
-  drawRadio();
-  if (G3.mode === 'online') {
-    const now = performance.now(); NET.feed = (NET.feed || []).filter(f => f.until > now);
-    NET.feed.forEach((f, i) => text(f.text, W - 8, 40 + i * 10, 1, '#7ff', 'r'));
-    if (S.phase === 'count') text('1-4: GG!  NICE!  WOW!  OOPS!', W / 2, H - 58, 1, '#7ff', 'c');
-  }
-  if (S.phase === 'done') drawResult();
-  drawOptions();
-  if (G3.mode === 'tt' && S.medals && S.phase !== 'done') { const rk = save.rec[recKey()]; text('GOLD ' + fmt(S.medals[2]) + (rk ? '  RECORD ' + fmt(rk) : ''), 8, 48, 1, '#ffd24a'); if (p.best) text('BEST LAP ' + fmt(p.best), 8, 58, 1, '#cfe'); }
-}
 
 // ---------------------------------------------------------------- start
 // een baan laden: lint, decor en lucht opnieuw opbouwen
@@ -2999,12 +3516,13 @@ function loadTrack(idx, intro) {
 }
 ground = groundMesh();
 resize();
-loadTrack(ui.track);
+loadTrack(ui.bg);
 let last = performance.now(), accT = 0;
 function frame(now) {
   const dt = Math.min(0.1, (now - last) / 1000); last = now;
   accT += dt;
-  while (accT >= DT) { if (!S.paused && !(S.optPause && G3.state !== 'menu')) tick(); accT -= DT; }
+  while (accT >= DT) { if (!S.paused && !((S.optPause || S.userPause) && G3.state !== 'menu' && G3.mode !== 'online')) tick(); accT -= DT; }
+  titleTick(dt);
   render(dt);
   musicSync(dt);
   engineSync(S.player.speed, S.player.in.acc ? 1 : 0, S.player.boosting, S.phase !== 'done' && G3.state !== 'menu');
