@@ -67,7 +67,7 @@ const TRACK_DEFS = [
     pts: [[1500,4200],[1500,2300],[2600,1300],[4400,1200],[6200,1500],[7000,2800],[6600,4200],[5200,4700],[4800,5800],[5600,6800],[4600,7300],[2800,7000],[1700,6000]] },
   { id: 'k2', name: 'Night Harbour', cup: 0, hw: 150, haz: { pads: 7, wave: 2, slow: 1, bank: 1, bumps: 1 },
     pts: [[1200,5200],[1200,3000],[1500,1500],[2800,1000],[4000,1500],[4300,2700],[3400,3500],[3800,4500],[5200,4300],[5800,3000],[5600,1600],[6600,1000],[7300,1900],[7200,4200],[6900,6000],[5800,7000],[4200,6600],[3200,7200],[1900,6900]] },
-  { id: 'k3', name: 'Funfair Pier', cup: 0, hw: 150, haz: { pads: 7, wave: 1, slow: 1, chain: 2, bank: 2, bumps: 1 },
+  { id: 'k3', name: 'Funfair Pier', cup: 0, hw: 150, haz: { pads: 7, wave: 1, slow: 1, chain: 2, bank: 2, bumps: 1, launch: 1 },
     pts: [[1000,6800],[1000,1600],[1800,900],[2700,1500],[2700,4600],[3500,5400],[4400,4700],[4400,1800],[5300,900],[6500,1100],[7200,2200],[7000,4000],[6000,5000],[6300,6300],[5500,7200],[3000,7300],[1700,7400]] },
   { id: 'p1', minR: 430, name: 'Blossom Lane', cup: 1, hw: 150, haz: { pads: 6, ice: 2, chain: 2, bank: 1 },
     pts: [[1200,4400],[1200,2400],[2200,1200],[4200,1000],[6200,1200],[7300,2200],[7300,3800],[6400,4800],[6600,6200],[5600,7200],[3600,7200],[2000,6800],[1200,5800]] },
@@ -77,23 +77,23 @@ const TRACK_DEFS = [
     pts: [[1200,2600],[1800,1300],[3400,1000],[6000,1000],[7100,1500],[7400,2400],[7100,3300],[6000,3800],[4200,3800],[3000,3900],[2500,4600],[3000,5300],[4200,5400],[6000,5400],[6900,5600],[7400,6400],[6900,7200],[6000,7400],[4000,7400],[1900,7300],[1100,6400],[1100,4400]] },
   { id: 'v1', minR: 430, name: 'Lava Moat', cup: 2, hw: 150, haz: { pads: 6, gap: 2, slow: 1, bank: 1 },
     pts: [[1200,3200],[1700,1700],[3200,1000],[5400,1000],[6900,1600],[7400,3000],[6800,4300],[5400,4700],[4600,5600],[4700,6700],[3800,7400],[2400,7200],[1300,6200],[1100,4600]] },
-  { id: 'v2', name: 'Dungeon Run', cup: 2, hw: 145, haz: { pads: 7, gap: 1, jump: 1, bumps: 2, bank: 1 },
+  { id: 'v2', name: 'Dungeon Run', cup: 2, hw: 145, haz: { pads: 7, gap: 1, jump: 1, bumps: 2, bank: 1, launch: 1 },
     pts: [[1000,1800],[2200,1000],[6000,1000],[7200,1800],[7000,3200],[5600,3400],[2800,3000],[1900,3900],[2700,4900],[5600,4800],[7100,5300],[7200,6700],[6000,7300],[2400,7300],[1200,6600],[900,4600]] },
   { id: 'v3', minR: 430, name: 'Tyrant Keep', cup: 2, hw: 145, haz: { pads: 6, gap: 2, slow: 1, bank: 2, chain: 1 },
     pts: [[1000,4200],[1000,2200],[1900,1100],[3600,1000],[6000,1000],[7200,1900],[7300,3600],[7300,5600],[6600,7000],[5200,7300],[4300,6500],[4300,4800],[4300,3400],[3600,2800],[2900,3400],[2900,5200],[2900,6600],[2000,7300],[1200,6600],[1000,5400]] },
-  { id: 's1', minR: 430, name: 'Meteor Field', cup: 3, hw: 150, haz: { pads: 6, jump: 2, bumps: 2, bank: 1 }, grav: 0.55,
+  { id: 's1', minR: 430, name: 'Meteor Field', cup: 3, hw: 150, haz: { pads: 6, jump: 2, bumps: 2, bank: 1, launch: 1 }, grav: 0.55,
     pts: [[1100,4000],[1100,2200],[1900,1100],[3200,1100],[3900,2000],[3900,4000],[3900,5400],[4700,6300],[5700,5600],[5700,3800],[5700,2000],[6500,1100],[7300,1900],[7300,4000],[7300,6200],[6500,7300],[4400,7400],[2400,7400],[1300,6800],[1100,5400]] },
-  { id: 's2', minR: 430, name: 'Ring Road', cup: 3, hw: 145, haz: { pads: 6, jump: 2, bumps: 1, ice: 1, bank: 1 }, grav: 0.55,
+  { id: 's2', minR: 430, name: 'Ring Road', cup: 3, hw: 145, haz: { pads: 6, jump: 2, bumps: 1, ice: 1, bank: 1, launch: 1 }, grav: 0.55,
     pts: [[1000,4100],[1000,2300],[1500,1400],[2400,1000],[4100,1000],[5800,1000],[6700,1400],[7200,2300],[7200,4000],[6700,5200],[5600,5700],[4900,6500],[4000,7300],[2600,7300],[1500,6800],[1000,5800]] },
-  { id: 's3', minR: 430, name: 'Supernova', cup: 3, hw: 145, haz: { pads: 7, jump: 2, bumps: 2, bank: 2, chain: 1 }, grav: 0.55,
+  { id: 's3', minR: 430, name: 'Supernova', cup: 3, hw: 145, haz: { pads: 7, jump: 2, bumps: 2, bank: 2, chain: 1, launch: 2 }, grav: 0.55,
     pts: [[1000,4600],[1000,2800],[1300,1700],[2000,1100],[2800,1100],[3300,1900],[3500,2700],[4100,3200],[4700,2700],[4900,1900],[5400,1100],[6200,1100],[6900,1700],[7200,2800],[7200,4600],[7200,5800],[6700,6900],[5600,7400],[4100,7400],[2600,7400],[1500,6900],[1000,5800]] },
   { id: 'd1', name: 'Oasis Run', cup: 4, hw: 150, minR: 430, haz: { pads: 6, bumps: 3, slow: 2 },
     pts: [[1200,4300],[1200,2600],[1900,1400],[3400,1000],[5400,1100],[6800,1800],[7300,3200],[7000,4800],[6000,5600],[5600,6600],[4600,7300],[3000,7300],[1700,6700],[1200,5600]] },
   { id: 'd2', name: 'Caravan Bazaar', cup: 4, hw: 150, minR: 430, haz: { pads: 7, bumps: 2, slow: 2, chain: 1, bank: 1 },
     pts: [[1100,4000],[1100,2200],[1900,1100],[3600,1000],[5600,1000],[6900,1500],[7400,2700],[6900,3900],[5600,4300],[4800,5000],[4900,6200],[4200,7200],[2800,7400],[1600,6800],[1100,5600]] },
-  { id: 'd3', name: 'Canyon Port', cup: 4, hw: 150, minR: 430, haz: { pads: 7, bumps: 2, jump: 1, slow: 1, bank: 2 },
+  { id: 'd3', name: 'Canyon Port', cup: 4, hw: 150, minR: 430, haz: { pads: 7, bumps: 2, jump: 1, slow: 1, bank: 2, launch: 1 },
     pts: [[1000,3000],[1500,1600],[2900,1000],[4400,1500],[5200,2800],[6200,3400],[7200,2800],[7400,4200],[7000,5800],[6000,7000],[4400,7400],[2600,7200],[1400,6400],[1000,4800]] },
-  { id: 'l1', name: 'Marigold Road', cup: 5, hw: 150, minR: 430, haz: { pads: 8, chain: 2, bank: 1 },
+  { id: 'l1', name: 'Marigold Road', cup: 5, hw: 150, minR: 430, haz: { pads: 8, chain: 2, bank: 1, launch: 1 },
     pts: [[1300,4000],[1300,2400],[2200,1300],[3800,1000],[5200,1400],[5800,2600],[6800,3000],[7400,4200],[7200,5800],[6200,7000],[4600,7400],[3000,7000],[2400,5800],[1500,5200]] },
   { id: 'l2', name: 'Monsoon Jungle', cup: 5, hw: 150, minR: 430, haz: { pads: 7, chain: 2, ice: 2, bank: 1 },
     pts: [[1100,2800],[1900,1400],[3600,1000],[5400,1300],[6200,2400],[6000,3800],[6800,4800],[7400,6000],[6600,7200],[5000,7400],[3600,6800],[3000,5600],[1900,5200],[1100,4200]] },
@@ -105,11 +105,11 @@ const TRACK_DEFS = [
     pts: [[1000,4200],[1000,2200],[1800,1100],[3800,1000],[6200,1000],[7300,1800],[7300,3400],[6400,4300],[6400,5600],[7200,6600],[6400,7400],[4200,7400],[2200,7400],[1100,6600],[1000,5400]] },
   { id: 'f3', name: 'Frozen Throne', cup: 6, hw: 150, minR: 430, haz: { pads: 7, ice: 3, bank: 2, bumps: 1 }, grip: 0.78,
     pts: [[1000,4000],[1000,2000],[1900,1000],[3200,1100],[3700,2200],[3700,4000],[4400,5000],[5400,4400],[5400,2400],[6000,1200],[7000,1100],[7400,2200],[7400,4400],[7400,6200],[6600,7300],[4400,7400],[2400,7400],[1200,6600],[1000,5200]] },
-  { id: 'g1', name: 'Aurora Gate', cup: 7, hw: 150, minR: 430, haz: { pads: 6, jump: 1, gap: 1, chain: 1, bank: 1 }, grav: 0.8,
+  { id: 'g1', name: 'Aurora Gate', cup: 7, hw: 150, minR: 430, haz: { pads: 6, jump: 1, gap: 1, chain: 1, bank: 1, launch: 1 }, grav: 0.8,
     pts: [[1200,4200],[1200,2400],[2100,1200],[4000,1000],[5800,1300],[7000,2200],[7400,3800],[6900,5400],[5600,6200],[4000,6000],[3200,6800],[2200,7200],[1300,6400]] },
   { id: 'g2', name: 'Titan Ring', cup: 7, hw: 150, minR: 430, haz: { pads: 7, wave: 2, chain: 2, bank: 2 }, grav: 0.8,
     pts: [[1000,4100],[1300,2500],[2500,1300],[4100,1000],[5700,1300],[6900,2500],[7200,4100],[6900,5700],[5700,6900],[4100,7200],[2500,6900],[1300,5700]] },
-  { id: 'g3', name: 'Big Bang', cup: 7, hw: 150, minR: 430, haz: { pads: 7, gap: 1, wave: 1, ice: 1, chain: 2, bank: 2, bumps: 1 }, grav: 0.8,
+  { id: 'g3', name: 'Big Bang', cup: 7, hw: 150, minR: 430, haz: { pads: 7, gap: 1, wave: 1, ice: 1, chain: 2, bank: 2, bumps: 1, launch: 1 }, grav: 0.8,
     pts: [[1000,4400],[1000,2400],[1700,1200],[3000,1000],[3800,1800],[4000,3200],[4800,3900],[5800,3300],[6000,1900],[6600,1100],[7300,1700],[7400,3400],[7400,5400],[6800,6800],[5400,7400],[3600,7400],[2000,7000],[1100,6000]] }
 ];
 
@@ -303,6 +303,12 @@ function placeHazards(tr, def, seed) {
     s => { for (let i = 0; i < 4; i++) haz.push({ type: 'bump', s0: s + 60 + i * 180, s1: s + 96 + i * 180 }); });
   scan(want.bank || 0, 1000, 300, (k, p) => k.mx < 1 / 430 && k.mean > [1 / 1400, 1 / 2000, 1 / 2800][p],
     (s, k) => haz.push({ type: 'bank', s0: s, s1: s + 1000, side: -k.sign }));
+  // lanceerbaan: twee boostpads recht op een schans af, voor een hoge, verre sprong
+  scan(want.launch || 0, 760, 300, (k, p) => k.mx < [1 / 2200, 1 / 1600, 1 / 1100][p],
+    s => {
+      for (const o of [60, 320]) { const q = posAt(s + o, tr); pads.push({ x: q.x, y: q.y, dx: q.tx, dy: q.ty }); }
+      haz.push({ type: 'jump', s0: s + 560, s1: s + 600, launch: true });
+    });
   tr.haz = haz; tr.pads = pads;
 }
 
@@ -2250,6 +2256,7 @@ function startRace(trackIdx, mode, quick) {
   G.ticks = 0; G.laps = []; G.lapStart = 0; G.ghostRec = [];
   itemsReset();
   roamersReset();
+  bumpersReset();
   G.shake = G.flash = 0; G.msgT = 0; G.msgQueue = null; G.wallCool = 0;
   G.newRecord = false; G.medal = 0; G.results = null; G.finishT = 0;
   G.raceId = (G.raceId || 0) + 1;
@@ -2444,7 +2451,7 @@ function updateParts(dt) {
 // Gebruiken met E of Ctrl. Online alleen items die anderen niet raken (TURBO, TRIPLE TURBO, SHIELD), zodat het gelijk blijft.
 const ITEMS = {
   turbo: { name: 'TURBO', col: '#8fe8ff' }, triple: { name: 'TRIPLE TURBO', col: '#8fe8ff' }, shield: { name: 'SHIELD', col: '#7dffb0' },
-  slick: { name: 'SLICK', col: '#c070ff' }, zap: { name: 'ZAP', col: '#ffd24a' }
+  slick: { name: 'SLICK', col: '#c070ff' }, zap: { name: 'ZAP', col: '#ffd24a' }, storm: { name: 'STORM', col: '#ffe680' }
 };
 const IT = { boxes: [], slicks: [], zaps: [] };
 const itemsOn = () => G.mode === 'cup' || G.mode === 'online';
@@ -2469,8 +2476,9 @@ function rollItem(e) {
   const order = liveOrder(), n = order.length, f = n > 1 ? order.indexOf(e) / (n - 1) : 0;
   let pool = f < 0.25 ? [['slick', 4], ['shield', 3], ['turbo', 3], ['zap', 1]]
     : f < 0.7 ? [['turbo', 3], ['zap', 3], ['slick', 2], ['shield', 2], ['triple', 1]]
-    : [['triple', 4], ['turbo', 2], ['zap', 3], ['shield', 1]];
+    : [['triple', 4], ['turbo', 2], ['zap', 3], ['shield', 1], ['storm', f > 0.85 ? 1 : 0]];
   if (G.mode === 'online') pool = pool.filter(p => p[0] === 'turbo' || p[0] === 'triple' || p[0] === 'shield');
+  pool = pool.filter(p => p[1] > 0);
   let r = Math.random() * pool.reduce((a, p) => a + p[1], 0);
   for (const [k, w] of pool) if ((r -= w) < 0) return k;
   return pool[0][0];
@@ -2500,6 +2508,12 @@ function useItem(e) {
     if (tgt) IT.zaps.push({ x: e.x + fx * 30, y: e.y + fy * 30, tgt, t: 3, owner: e });
     if (e === G.player) beep(1400, 0.15, 'square', 0.06);
   }
+  else if (k === 'storm') {
+    // iedereen die voor je rijdt, tolt (een schild vangt het op)
+    for (const o of G.ents) if (o !== e && !o.finished && o.progress > e.progress) hitEntity(o, e);
+    G.flash = Math.max(G.flash || 0, 0.6); thud(0.6);
+    if (e !== G.player) showMsg('STORM!', 'from behind', '#ffe680', 1.2);
+  }
   if (--e.itemN <= 0) e.item = null;
 }
 function aiWantsItem(e) {
@@ -2507,6 +2521,7 @@ function aiWantsItem(e) {
   if (k === 'turbo' || k === 'triple') return Math.hypot(e.vx, e.vy) > 400 && Math.abs(e.in.steer) < 0.4;
   if (k === 'shield') return true;
   if (k === 'zap') return !!zapTarget(e);
+  if (k === 'storm') return true;
   if (k === 'slick') return e.aiItemT < -6 || G.ents.some(o => o !== e && e.progress - o.progress > 60 && e.progress - o.progress < 600);
   return false;
 }
@@ -2624,6 +2639,55 @@ function roamersTick() {
   }
   for (const e of G.ents) if (e.bumpT > 0) e.bumpT -= DT;
 }
+// ---------------------------------------------------------------- flipperkastbumpers
+// Op de kermis-, neon-, bazaar- en festivalbaan staan op twee plekken drie ronde bumpers in een driehoek op de weg.
+// Wie er een raakt, kaatst er hard vanaf.
+const BUMPERS = [], BUMPER_TRACKS = ['k3', 'p3', 'd2', 'l3'], BUMPER_R = 30;
+function bumpersReset() {
+  BUMPERS.length = 0;
+  if (!BUMPER_TRACKS.includes(T.id)) return;
+  const busy = sv => T.haz.some(h => sv > h.s0 - 250 && sv < h.s1 + 250) || IT.boxes.some(b => { const q = posAt(sv); return Math.hypot(b.x - q.x, b.y - q.y) < 450; })
+    || ROAM.some(r => Math.abs(r.s - sv) < 400);
+  for (const f of [0.34, 0.72]) {
+    let sv = f * T.len;
+    for (let k = 0; k < 40 && busy(sv); k++) sv += 70;
+    if (busy(sv) || sv > T.len - 600) continue;
+    for (const [ds, dd] of [[0, 0], [170, -0.5], [170, 0.5]]) {
+      const q = posAt(sv + ds), d = dd * T.hw;
+      BUMPERS.push({ x: q.x - q.ty * d, y: q.y + q.tx * d, flash: 0 });
+    }
+  }
+}
+function bumpersTick() {
+  for (const b of BUMPERS) {
+    if (b.flash > 0) b.flash -= DT;
+    for (const e of G.ents) {
+      if (e.remote || e.z > 25) continue;
+      const dx = e.x - b.x, dy = e.y - b.y, dist = Math.hypot(dx, dy), r = BUMPER_R + SHIP_R;
+      if (dist > r || dist < 0.01) continue;
+      const nx = dx / dist, ny = dy / dist, vn = e.vx * nx + e.vy * ny;
+      e.x = b.x + nx * r; e.y = b.y + ny * r;
+      if (vn < 0) { e.vx -= 2.1 * vn * nx; e.vy -= 2.1 * vn * ny; }
+      e.vx += nx * 120; e.vy += ny * 120; e.driftT = 0;
+      if (b.flash <= 0) {
+        b.flash = 0.25;
+        if (e === G.player) { beep(520, 0.1, 'sine', 0.09); beep(780, 0.12, 'sine', 0.06); G.shake = Math.max(G.shake, 0.3); }
+      }
+    }
+  }
+}
+function drawBumper(b, zc) {
+  if (!project(b.x, b.y, 0) || pr[2] < 60) return;
+  const bx = pr[0], by = pr[1], sc = cam.f / pr[2] * H / 2, r = Math.max(2, BUMPER_R * sc * 1.05);
+  if (!project(b.x, b.y, 24)) return;
+  const tx = pr[0], ty = pr[1], lit = b.flash > 0;
+  ctx.fillStyle = 'rgba(0,0,0,0.4)'; fillDisc(bx + r * 0.2, by + r * 0.15, r * 1.05);
+  ctx.fillStyle = '#7a1048'; fillDisc(bx, by, r);
+  ctx.fillRect(Math.round(bx - r), Math.round(Math.min(ty, by)), Math.round(r * 2), Math.round(Math.abs(by - ty)));
+  ctx.fillStyle = lit ? '#ffffff' : '#ff4f8a'; fillDisc(tx, ty, r);
+  ctx.fillStyle = lit ? '#ffd24a' : '#ffffff'; fillDisc(tx, ty, r * 0.62);
+  ctx.fillStyle = lit ? '#ffffff' : '#ffb833'; fillDisc(tx, ty, r * 0.3);
+}
 // het itemvakje bovenin het scherm
 function drawItemSlot(u) {
   if (!itemsOn() || G.intro > 0) return;
@@ -2670,7 +2734,7 @@ function tick() {
     stepEntity(e);
   }
   if (racing) itemsTick();
-  if (live) roamersTick();
+  if (live) { roamersTick(); bumpersTick(); }
   // slipstream: wie even vlak achter een ander rijdt, wordt meegezogen en laadt wat boost bij
   if (racing) for (const e of G.ents) {
     const fx = Math.cos(e.th), fy = Math.sin(e.th);
@@ -4730,6 +4794,10 @@ function drawWorld(ents) {
     const zc = (g.x - cam.x) * camC + (g.y - cam.y) * camS;
     if (zc > 70 && zc < 5600) drawList.push({ z: zc, g });
   }
+  for (const b of BUMPERS) {
+    const zc = (b.x - cam.x) * camC + (b.y - cam.y) * camS;
+    if (zc > 90 && zc < 5000) drawList.push({ z: zc, bm: b });
+  }
   for (const r of ROAM) {
     const zc = (r.x - cam.x) * camC + (r.y - cam.y) * camS;
     // kijkrichting: in beeld naar links of naar rechts, afhankelijk van waar hij heen loopt
@@ -4744,6 +4812,8 @@ function drawWorld(ents) {
       if (G.mode === 'online' && e !== G.player && it.z < 2600 && project(e.rx, e.ry, 46 + e.rz)) text(e.name, pr[0], pr[1], 13 * H / 720, e.pal[2], 'center', 800);
     } else if (it.g) {
       drawGate(it.g, it.z);
+    } else if (it.bm) {
+      drawBumper(it.bm, it.z);
     } else {
       const o = it.o, sp = SPRITES[T.index + ':' + o.k];
       if (!project(it.ox, it.oy, 0)) continue;
