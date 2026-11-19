@@ -1920,7 +1920,10 @@ const hx = hud.getContext('2d');
 let W = 480, H = LOW_H;
 function resize() {
   H = Math.max(300, Math.min(LOW_H, Math.round(innerHeight))); W = Math.round(H * innerWidth / innerHeight);
-  cv.width = hud.width = W; cv.height = hud.height = H;
+  cv.width = W; cv.height = H;
+  // menu's en HUD op de echte schermresolutie: portretten en plaatjes houden hun details (het 3D-beeld blijft grof)
+  hud.height = Math.min(1440, Math.round(innerHeight * (devicePixelRatio || 1)));
+  hud.width = Math.round(hud.height * innerWidth / innerHeight);
   hx.imageSmoothingEnabled = false;
 }
 addEventListener('resize', resize);
@@ -3129,9 +3132,6 @@ function drawCupGrid(u, sel, mode) {
       const best = OUT.save.cups[i + '-' + ui.cls];
       text(best ? 'Best: ' + ord(best) + ' place' : 'Not raced yet', x + cw / 2, y + 184 * u, 15 * u, best && best <= 3 ? MEDAL_COL[4 - best] : '#cfd3ff', 'center', 700, false);
     }
-    const words = c.sub.split(' '), half = Math.ceil(words.length / 2);
-    text(words.slice(0, half).join(' '), x + cw / 2, y + 208 * u, 12 * u, '#cfd3ff', 'center', 500, false);
-    text(words.slice(half).join(' '), x + cw / 2, y + 224 * u, 12 * u, '#cfd3ff', 'center', 500, false);
     const em = ART_OBJ['e' + i];
     if (em) { const es = Math.round(56 * u); ctx.drawImage(em, Math.round(x + cw / 2 - es / 2), Math.round(y + ch - es - 8 * u + (isSel ? Math.sin(G.time * 4) * 2 * u : 0)), es, es); }
   });
