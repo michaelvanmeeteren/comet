@@ -169,6 +169,254 @@ const TRACK_DEFS = [
   { id: 'g3', name: 'Big Bang', cup: 7, hw: 150, minR: 430, haz: { pads: 7, gap: 1, wave: 1, ice: 1, chain: 2, bank: 2, bumps: 1, cannon: 1 }, grav: 0.8,
     pts: [[1000,4400],[1000,2400],[1700,1200],[3000,1000],[3800,1800],[4000,3200],[4800,3900],[5800,3300],[6000,1900],[6600,1100],[7300,1700],[7400,3400],[7400,5400],[6800,6800],[5400,7400],[3600,7400],[2000,7000],[1100,6000]] }
 ];
+// gevaren (zelfde maten als in komeet.html)
+const PAD_HW = 55, PAD_HL = 80, WAVE_HW = 55, WAVE_RUN = 1.6, WAVE_P = 3.6, GAP_L = 300, GAP_BACK = 1200;   // terugzetten na een val: ver genoeg om weer vaart te maken (heuvels!)
+function waveAt(hz, hw, t) {
+  const f = (((t + hz.ph) % WAVE_P) + WAVE_P) % WAVE_P / WAVE_RUN;
+  if (f >= 1) return null;
+  return hz.dir * (-(hw + WAVE_HW) + f * 2 * (hw + WAVE_HW));
+}
+// hoogte in de wereld per object (uit SPR_DEF in komeet.html)
+const OBJ_H = {"palm":240,"lamp":180,"sign":160,"cherry":220,"lantern":100,"torii":200,"brazier":140,"tower":270,"banner":250,"spikes":95,"parasol":140,"hut":160,"container":95,"crate":62,"tent":160,"balloons":210,"bamboo":310,"vending":125,"neonsign":250,"pillar":340,"barrel":78,"icerock":110,"lighthouse":540,"ferris":500,"pagoda":540,"tvtower":720,"gatehouse":420,"bigcrystal":460,"shrine":200,"surf":175,"lifeguard":240,"chevR":95,"chevL":95,"crystal":210,"pylon":250,"beacon":130,"cactus":150,"pavilion":230,"snowpine":230,"obelisk":250,"dpalm":240,"dtent":170,"rockarch":200,"pots":70,"dlamp":150,"sandtower":280,"cart":110,"camel":170,"ltree":230,"elephant":150,"banyan":260,"llamp":130,"stall":150,"fountain":110,"flags":200,"bell":170,"igloo":120,"icespire":240,"icetower":280,"snowman":90,"icelamp":160,"icewall":140,"icestatue":150,"snowrock":110,"floatrock":220,"gstatue":230,"portal":220,"comet":150,"starpillar":240,"column":200,"drone":90,"hourglass":220,"carousel":180,"foodcart":110,"gpine":200,"plantern":120,"bridge":90,"gargoyle":150,"cage":170,"dish":150,"rocket":180,"aplant":140,"holosign":150,"bar":170,"icecream":110,"flamingo":120,"pierlamp":170,"boat":140,"oilbarrels":90,"harbourcrane":300,"sandcastle":80,"towels":110,"biglantern":140,"maple":220,"koipond":60,"ramen":150,"weeping":240,"belltower":260,"luckycat":90,"lanternpole":180,"bonsai":80,"dragon":200,"catapult":170,"deadtree":230,"candelabra":150,"armour":120,"well":110,"chest":70,"tombstone":80,"torch":150,"dome":200,"fueltank":230,"radar":220,"hovertruck":120,"energy":90,"robotarm":200,"solar":120,"teleporter":150,"spire":280,"carpets":150,"spices":80,"minaret":320,"camelrest":110,"wellpalm":160,"lampstall":150,"lionstatue":170,"buggy":90,"boulders":90,"chariot":200,"peacock":110,"gopuram":320,"oillamps":100,"paintedele":190,"mango":220,"drum":90,"flowerpot":80,"fireworks":160,"polarbear":130,"icefall":260,"sled":80,"icethrone":260,"bluelamp":160,"penguins":80,"dragonskull":120,"cabin":170,"icefountain":140,"titanhead":260,"orrery":200,"harp":200,"wingedgate":280,"startree":230,"crystaldragon":220,"sundial":130,"ruinchunk":200,"nebulapillar":260,"coaster":300,"teacup":150,"balloon":320,"droptower":340,"bouncy":160,"lifeboat":170,"turbine":360,"strongman":220,"hammock":200,"ruinwall":200,"troll":220,"wizardtower":340,"portcullis":220,"cauldron":110,"watchplat":220,"lavaspire":300,"chainpost":160,"throne":160,"guardlion":160,"redgate":260,"goldstatue":260,"neonboard":300,"noodlebar":200,"taiko":130,"shrinerock":220,"bambootower":300,"dragonlantern":200,"starship":220,"mushroom":220,"gantry":360,"meteor":200,"buoy":160,"monolith":260,"totem":240,"globe":220,"mech":280,"ziggurat":320,"stonehead":220,"caravan":150,"palacegate":280,"hoodoo":300,"windpump":280,"bigtent":200,"fossil":200,"oasispool":80,"mausoleum":320,"swingtree":260,"stepwell":160,"victorypillar":320,"garlandarch":240,"elegate":260,"stonechariot":200,"lotuspond":70,"balcony":200,"icepalace":360,"mammoth":220,"mtnhut":200,"icearch":260,"icecliff":280,"icequeen":260,"xmastree":260,"swan":150,"sleigh":120,"armillary":240,"handplanet":300,"crystaltemple":280,"stargate":300,"guardian":340,"cometmon":260,"lighttree":280,"galaxy":220,"moonshard":200,"robot":74,"yukata":76,"happi":76,"kiteboy":76,"monk":76,"jester":76,"lady":76,"cyber":76,"courier":76,"cadet":76,"surfer":76,"redsuit":76,"lifeguardguy":76,"clown":76,"candy":76,"dadkid":76,"cheer":76,"marshal":76,"foamfan":76,"pirate":76,"squire":76,"witch":76,"viking":76,"mummy":76,"samurai":76,"hoodalien":76,"cosmo":76,"butler":76,"crab":30,"sealion":50,"whitecrane":70,"deer":80,"crow":60,"camelcalf":70,"monkey":50,"arcticfox":40,"jelly":[50,40],"fgull":[50,130],"fflamingo":[50,155],"fkite":[50,180],"fdragon":[50,205],"fbat":[50,130],"fdove":[50,155],"fufo":[50,180],"fwisp":[50,205],"fowl":[50,130],"merchant":76,"robed":76,"flagboy":76,"dancer":76,"drummer":76,"powder":76,"parka":76,"skier":76,"wizard":76,"yeti":92,"fanA":74,"fanB":74,"fanC":74,"beachA":74,"beachB":74,"worker":74,"raver":74,"juggler":74,"kimono":74,"skeleton":74,"knight":74,"astro":74,"volley":150,"ghost":[72,16],"alien":60,"frog":30,"gull":92,"chevR0":95,"chevL0":95,"chevR1":95,"chevL1":95,"chevR2":95,"chevL2":95,"chevR3":95,"chevL3":95,"chevR4":95,"chevL4":95,"chevR5":95,"chevL5":95,"chevR6":95,"chevL6":95,"chevR7":95,"chevL7":95,"chevR8":95,"chevL8":95};
+// indeling van het decor per baan (letterlijk uit komeet.html; plekken zijn een deel van de ronde)
+const DRESS = [
+  // 0 Palm Beach: palmenlaan, strandtent-strook, reddingspost, surfbocht, vlaggetjes naar de finish
+  [['gate', 0.0006, 'start'], ['row', 0.02, 0.22, 'palm', 250, 'both', 60], ['row', 0.25, 0.45, 'parasol', 170, 'R', 85], ['row', 0.25, 0.45, 'hut', 420, 'L', 105],
+   ['mark', 0.5, 'lifeguard', 'out', 90], ['row', 0.54, 0.76, 'palm', 210, 'out', 70], ['row', 0.54, 0.76, 'surf', 170, 'in', 55],
+   ['gates', 0.8, 0.92, 340, 'bunting'], ['row', 0.8, 0.98, 'palm', 300, 'both', 110]],
+  // 1 Night Harbour: lantaarns langs de hele kade, onder de kranen door, containerstraat, vuurtoren, tweede kranenrij
+  [['gate', 0.0006, 'start'], ['row', 0.02, 0.98, 'lamp', 430, 'both', 42], ['gates', 0.1, 0.28, 520, 'crane'],
+   ['row', 0.32, 0.52, 'container', 150, 'R', 90], ['row', 0.32, 0.52, 'container', 150, 'R', 175], ['row', 0.32, 0.52, 'crate', 120, 'L', 80],
+   ['mark', 0.57, 'lighthouse', 'out', 150], ['row', 0.62, 0.8, 'container', 150, 'L', 90], ['row', 0.62, 0.8, 'crate', 130, 'R', 80], ['gates', 0.84, 0.96, 480, 'crane']],
+  // 2 Funfair Pier: lichtjesboog met tenten, het reuzenrad, ballonnenlaan, promenade met borden, terug onder de lichtjes
+  [['gate', 0.0006, 'start'], ['gates', 0.03, 0.2, 290, 'lights'], ['row', 0.03, 0.2, 'tent', 360, 'both', 115],
+   ['mark', 0.29, 'ferris', 'out', 230], ['row', 0.24, 0.44, 'balloons', 210, 'both', 55],
+   ['row', 0.48, 0.7, 'lamp', 290, 'both', 45], ['row', 0.48, 0.7, 'sign', 420, 'out', 120],
+   ['row', 0.73, 0.88, 'tent', 300, 'R', 110], ['row', 0.73, 0.88, 'balloons', 240, 'L', 60], ['gates', 0.9, 0.985, 260, 'lights']],
+  // 3 Blossom Lane: kersenlaan, tunnel van torii, lantaarnpad, de pagode, bloesembocht, grote poort naar de finish
+  [['gate', 0.0006, 'start'], ['row', 0.02, 0.2, 'cherry', 230, 'both', 70], ['gates', 0.24, 0.4, 150, 'torii'],
+   ['row', 0.43, 0.6, 'lantern', 190, 'both', 45], ['mark', 0.66, 'pagoda', 'out', 210],
+   ['row', 0.69, 0.86, 'cherry', 200, 'out', 70], ['row', 0.69, 0.86, 'lantern', 260, 'in', 45], ['gate', 0.9, 'torii'], ['row', 0.91, 0.98, 'cherry', 240, 'both', 80]],
+  // 4 Bamboo Rain: dichte bamboewand, poortjes, lantaarnpad, het schrijntje, weer het bos in
+  [['gate', 0.0006, 'start'], ['row', 0.02, 0.3, 'bamboo', 125, 'both', 50], ['row', 0.03, 0.3, 'bamboo', 150, 'both', 125],
+   ['gates', 0.33, 0.43, 190, 'torii'], ['row', 0.45, 0.6, 'lantern', 170, 'both', 45], ['mark', 0.64, 'shrine', 'out', 120],
+   ['row', 0.67, 0.98, 'bamboo', 140, 'both', 50], ['row', 0.68, 0.98, 'bamboo', 170, 'out', 130]],
+  // 5 Neon Crossing: straat vol neonborden, verkeersborden boven de weg, automatenstraat, de zendmast, neonbocht, laatste portalen
+  [['gate', 0.0006, 'start'], ['row', 0.02, 0.25, 'neonsign', 190, 'both', 48], ['gates', 0.28, 0.4, 400, 'neon'],
+   ['row', 0.42, 0.56, 'vending', 130, 'R', 60], ['row', 0.42, 0.56, 'lamp', 300, 'L', 45], ['mark', 0.61, 'tvtower', 'out', 240],
+   ['row', 0.64, 0.82, 'neonsign', 160, 'out', 48], ['row', 0.64, 0.82, 'vending', 200, 'in', 60], ['gates', 0.86, 0.975, 300, 'neon']],
+  // 6 Lava Moat: vuurschalen naar de brug, stenen bogen, banierenlaan, het poortgebouw, wachttorens, vuurschalen naar de finish
+  [['gate', 0.0006, 'start'], ['row', 0.02, 0.2, 'brazier', 210, 'both', 48], ['gates', 0.22, 0.31, 380, 'stone'],
+   ['row', 0.33, 0.5, 'banner', 175, 'both', 45], ['mark', 0.56, 'gatehouse', 'out', 190],
+   ['row', 0.6, 0.8, 'tower', 380, 'out', 95], ['row', 0.6, 0.8, 'spikes', 150, 'in', 50], ['row', 0.83, 0.98, 'brazier', 230, 'both', 48]],
+  // 7 Dungeon Run: zuilengang rondom, gewelfbogen, voorraadkelder, tweede gewelf, de spijkergang
+  [['gate', 0.0006, 'start'], ['row', 0.02, 0.98, 'pillar', 300, 'both', 48], ['gates', 0.1, 0.3, 250, 'stone'],
+   ['row', 0.33, 0.5, 'barrel', 105, 'R', 95], ['row', 0.33, 0.5, 'brazier', 210, 'L', 90], ['gates', 0.55, 0.74, 250, 'stone'],
+   ['row', 0.78, 0.92, 'spikes', 100, 'both', 100]],
+  // 8 Tyrant Keep: banieren op de muur, stenen bogen, torens aan weerszijden, het poortgebouw, spijkers naar de finish
+  [['gate', 0.0006, 'start'], ['row', 0.02, 0.3, 'banner', 165, 'both', 42], ['gates', 0.33, 0.45, 340, 'stone'],
+   ['row', 0.48, 0.7, 'tower', 400, 'both', 85], ['mark', 0.75, 'gatehouse', 'out', 170],
+   ['row', 0.79, 0.98, 'spikes', 125, 'in', 50], ['row', 0.79, 0.98, 'banner', 200, 'out', 42]],
+  // 9 Meteor Field: bakenrij, door de ringen, kristalveld, het reuzenkristal, kristallen aan beide kanten, laatste ringen
+  [['gate', 0.0006, 'start'], ['row', 0.02, 0.25, 'pylon', 290, 'both', 45], ['gates', 0.28, 0.4, 380, 'ring'],
+   ['row', 0.43, 0.6, 'crystal', 165, 'out', 60], ['row', 0.43, 0.6, 'beacon', 320, 'in', 70], ['mark', 0.66, 'bigcrystal', 'out', 150],
+   ['row', 0.69, 0.85, 'crystal', 190, 'both', 60], ['gates', 0.88, 0.975, 300, 'ring']],
+  // 10 Ring Road: ijsblokken langs de ring, door de ringen, bakenlaan, ijsveld met masten
+  [['gate', 0.0006, 'start'], ['row', 0.02, 0.3, 'icerock', 185, 'both', 65], ['gates', 0.33, 0.46, 430, 'ring'],
+   ['row', 0.49, 0.65, 'beacon', 250, 'both', 60], ['row', 0.68, 0.98, 'icerock', 150, 'out', 65], ['row', 0.68, 0.98, 'pylon', 340, 'in', 45]],
+  // 11 Supernova: ringentunnel vanaf de start, kristalgang, mastenrij, het reuzenkristal, ijsbocht, ringen naar de finish
+  [['gate', 0.0006, 'start'], ['gates', 0.03, 0.15, 290, 'ring'], ['row', 0.17, 0.4, 'crystal', 150, 'both', 58],
+   ['row', 0.43, 0.6, 'pylon', 250, 'both', 45], ['mark', 0.66, 'bigcrystal', 'out', 150],
+   ['row', 0.69, 0.86, 'icerock', 160, 'out', 65], ['gates', 0.89, 0.98, 280, 'ring']]
+];
+
+// Aankleding van de twaalf banen van de tweede vier cups, met hun eigen objecten.
+DRESS.push(
+  // 12 Oasis Run: dadelpalmen, cactusveld met potten, de rotsboog bij de bron, tentenkamp, vlaggetjes naar de finish
+  [['gate', 0.0006, 'start'], ['row', 0.02, 0.25, 'dpalm', 240, 'both', 60], ['row', 0.28, 0.5, 'cactus', 170, 'out', 70], ['row', 0.28, 0.5, 'pots', 260, 'in', 50],
+   ['mark', 0.56, 'rockarch', 'out', 170], ['row', 0.6, 0.8, 'dtent', 330, 'out', 110], ['row', 0.6, 0.8, 'dpalm', 230, 'in', 70],
+   ['gates', 0.84, 0.94, 340, 'bunting'], ['row', 0.84, 0.98, 'cactus', 260, 'both', 110]],
+  // 13 Caravan Bazaar: lichtjes en markttenten, de wachttoren, lampenstraat, karren en potten, kamelenbeelden, weer onder de lichtjes
+  [['gate', 0.0006, 'start'], ['gates', 0.03, 0.2, 290, 'lights'], ['row', 0.03, 0.2, 'dtent', 330, 'both', 115], ['mark', 0.29, 'sandtower', 'out', 190],
+   ['row', 0.24, 0.44, 'dlamp', 260, 'both', 45], ['row', 0.48, 0.7, 'cart', 260, 'out', 80], ['row', 0.48, 0.7, 'pots', 200, 'in', 55],
+   ['row', 0.73, 0.88, 'camel', 320, 'R', 100], ['row', 0.73, 0.88, 'dtent', 330, 'L', 115], ['gates', 0.9, 0.985, 260, 'lights']],
+  // 14 Canyon Port: lampen, rotsbogen langs de kloof, karren op de kade, de wachttoren, cactussen, kranen naar de finish
+  [['gate', 0.0006, 'start'], ['row', 0.02, 0.98, 'dlamp', 430, 'both', 42], ['row', 0.08, 0.28, 'rockarch', 480, 'both', 170], ['row', 0.32, 0.5, 'cart', 220, 'R', 85],
+   ['row', 0.32, 0.5, 'cactus', 180, 'L', 80], ['mark', 0.57, 'sandtower', 'out', 170], ['row', 0.62, 0.8, 'pots', 190, 'both', 55], ['gates', 0.84, 0.96, 480, 'crane']],
+  // 15 Marigold Road: bloesemlaan, vlaggenmasten, lantaarnpad, het paviljoen, olifantenbeelden, bloemenstalletjes naar de finish
+  [['gate', 0.0006, 'start'], ['row', 0.02, 0.2, 'ltree', 230, 'both', 75], ['row', 0.24, 0.4, 'flags', 260, 'both', 60], ['row', 0.43, 0.6, 'llamp', 190, 'both', 45],
+   ['mark', 0.66, 'pavilion', 'out', 200], ['row', 0.69, 0.86, 'elephant', 300, 'out', 85], ['row', 0.69, 0.86, 'ltree', 240, 'in', 75],
+   ['gate', 0.9, 'lights'], ['row', 0.91, 0.98, 'stall', 260, 'both', 95]],
+  // 16 Monsoon Jungle: bamboe met banyans erachter, vlaggenmasten, lantaarnpad, de fontein, banyanwoud met olifanten
+  [['gate', 0.0006, 'start'], ['row', 0.02, 0.3, 'bamboo', 125, 'both', 50], ['row', 0.03, 0.3, 'banyan', 330, 'both', 150], ['row', 0.33, 0.43, 'flags', 250, 'both', 60],
+   ['row', 0.45, 0.6, 'llamp', 170, 'both', 45], ['mark', 0.64, 'fountain', 'out', 110], ['row', 0.67, 0.98, 'banyan', 300, 'both', 140], ['row', 0.7, 0.96, 'elephant', 520, 'out', 80]],
+  // 17 Festival of Lights: lichtjestunnel met lantaarns, stalletjes, klokkenschrijnen, het paviljoen, vlaggen en fonteinen, laatste lichtjes
+  [['gate', 0.0006, 'start'], ['gates', 0.02, 0.25, 240, 'lights'], ['row', 0.02, 0.25, 'llamp', 190, 'both', 48], ['row', 0.28, 0.4, 'stall', 250, 'both', 95],
+   ['row', 0.42, 0.56, 'bell', 280, 'R', 80], ['row', 0.42, 0.56, 'flags', 260, 'L', 60], ['mark', 0.61, 'pavilion', 'out', 220],
+   ['row', 0.64, 0.82, 'fountain', 300, 'out', 90], ['row', 0.64, 0.82, 'llamp', 200, 'in', 50], ['gates', 0.86, 0.975, 260, 'lights']],
+  // 18 Glacier Moat: sneeuwrotsen, ijslantaarns, iglodorp, de ijstoren, ijspieken tegenover dennen, dennen naar de finish
+  [['gate', 0.0006, 'start'], ['row', 0.02, 0.2, 'snowrock', 230, 'both', 70], ['row', 0.22, 0.32, 'icelamp', 200, 'both', 45], ['row', 0.33, 0.5, 'igloo', 300, 'both', 95],
+   ['mark', 0.56, 'icetower', 'out', 170], ['row', 0.6, 0.8, 'icespire', 260, 'out', 80], ['row', 0.6, 0.8, 'snowpine', 190, 'in', 65], ['row', 0.83, 0.98, 'snowpine', 230, 'both', 65]],
+  // 19 Crystal Crypt: ijslantaarns rondom, ijspieken, bevroren beelden, ijsmuren, kristalgang
+  [['gate', 0.0006, 'start'], ['row', 0.02, 0.98, 'icelamp', 330, 'both', 45], ['row', 0.08, 0.3, 'icespire', 230, 'both', 95], ['row', 0.33, 0.5, 'icestatue', 220, 'R', 80],
+   ['row', 0.33, 0.5, 'snowrock', 240, 'L', 85], ['row', 0.55, 0.74, 'icewall', 210, 'both', 90], ['row', 0.78, 0.92, 'icespire', 170, 'both', 95]],
+  // 20 Frozen Throne: ijsmuren voor een dennenbos, sneeuwpoppen, ijstorens, de grote toren, beelden en dennen naar de finish
+  [['gate', 0.0006, 'start'], ['row', 0.02, 0.3, 'icewall', 220, 'both', 60], ['row', 0.03, 0.3, 'snowpine', 260, 'both', 140], ['row', 0.33, 0.45, 'snowman', 180, 'both', 45],
+   ['row', 0.48, 0.7, 'icetower', 420, 'both', 100], ['mark', 0.75, 'icetower', 'out', 150], ['row', 0.79, 0.98, 'icestatue', 230, 'in', 60], ['row', 0.79, 0.98, 'snowpine', 220, 'out', 70]],
+  // 21 Aurora Gate: sterzuilen, ringen, komeetscherven tegenover obelisken, de poort, zwevende rotsen, laatste ringen
+  [['gate', 0.0006, 'start'], ['row', 0.02, 0.25, 'starpillar', 270, 'both', 50], ['gates', 0.28, 0.4, 380, 'ring'], ['row', 0.43, 0.6, 'comet', 230, 'out', 75],
+   ['row', 0.43, 0.6, 'obelisk', 300, 'in', 65], ['mark', 0.66, 'portal', 'out', 160], ['row', 0.69, 0.85, 'floatrock', 280, 'both', 110], ['gates', 0.88, 0.975, 300, 'ring']],
+  // 22 Titan Ring: obelisken rond de ring, ringen, gouden beelden, zuilenveld met drones
+  [['gate', 0.0006, 'start'], ['row', 0.02, 0.3, 'obelisk', 260, 'both', 60], ['gates', 0.33, 0.46, 430, 'ring'], ['row', 0.49, 0.65, 'gstatue', 320, 'both', 95],
+   ['row', 0.68, 0.98, 'column', 190, 'out', 60], ['row', 0.68, 0.98, 'drone', 300, 'in', 55]],
+  // 23 Big Bang: ringentunnel, zuilengang, sterzuilen, de zandloper, komeetbocht met zwevende rotsen, ringen naar de finish
+  [['gate', 0.0006, 'start'], ['gates', 0.03, 0.15, 290, 'ring'], ['row', 0.17, 0.4, 'column', 190, 'both', 58], ['row', 0.43, 0.6, 'starpillar', 240, 'both', 50],
+   ['mark', 0.66, 'hourglass', 'out', 160], ['row', 0.69, 0.86, 'comet', 220, 'out', 75], ['row', 0.69, 0.86, 'floatrock', 320, 'in', 110], ['gates', 0.89, 0.98, 280, 'ring']]
+);
+// Extra objecten op de eerste twaalf banen.
+[[2, ['row', 0.5, 0.68, 'carousel', 520, 'in', 150], ['row', 0.26, 0.42, 'foodcart', 330, 'both', 150]],
+ [3, ['row', 0.44, 0.6, 'gpine', 330, 'both', 120], ['row', 0.7, 0.85, 'plantern', 230, 'out', 120]],
+ [4, ['row', 0.46, 0.6, 'plantern', 240, 'both', 90], ['mark', 0.36, 'bridge', 'in', 90]],
+ [5, ['row', 0.44, 0.56, 'foodcart', 260, 'L', 100]],
+ [6, ['row', 0.34, 0.5, 'gargoyle', 320, 'both', 95], ['row', 0.84, 0.97, 'cage', 300, 'both', 100]],
+ [7, ['row', 0.56, 0.74, 'cage', 330, 'both', 100], ['row', 0.34, 0.5, 'gargoyle', 360, 'L', 150]],
+ [8, ['row', 0.05, 0.3, 'gargoyle', 400, 'both', 95]],
+ [9, ['row', 0.03, 0.25, 'aplant', 250, 'both', 95], ['row', 0.7, 0.85, 'dish', 380, 'both', 120]],
+ [10, ['row', 0.5, 0.65, 'rocket', 420, 'both', 120], ['row', 0.7, 0.96, 'holosign', 420, 'out', 120]],
+ [11, ['row', 0.18, 0.4, 'aplant', 260, 'both', 110], ['row', 0.44, 0.6, 'rocket', 460, 'out', 110]]
+].forEach(e => DRESS[e[0]].push(...e.slice(1)));
+// Derde ronde: grote herkenningspunten per baan.
+[[0, ['mark', 0.4, 'hammock', 'in', 140], ['mark', 0.7, 'turbine', 'out', 300]],
+ [1, ['mark', 0.55, 'lifeboat', 'in', 140], ['mark', 0.88, 'turbine', 'out', 320]],
+ [2, ['mark', 0.12, 'coaster', 'out', 260], ['mark', 0.45, 'droptower', 'in', 230], ['row', 0.55, 0.7, 'teacup', 600, 'out', 200], ['mark', 0.8, 'balloon', 'in', 250], ['mark', 0.65, 'strongman', 'in', 150], ['mark', 0.92, 'bouncy', 'out', 180]],
+ [3, ['mark', 0.3, 'guardlion', 'out', 120], ['mark', 0.62, 'redgate', 'in', 200], ['mark', 0.8, 'goldstatue', 'out', 230]],
+ [4, ['mark', 0.25, 'shrinerock', 'out', 180], ['mark', 0.65, 'bambootower', 'in', 200], ['row', 0.4, 0.5, 'taiko', 500, 'both', 140]],
+ [5, ['mark', 0.25, 'neonboard', 'out', 200], ['row', 0.45, 0.6, 'noodlebar', 600, 'R', 150], ['mark', 0.85, 'dragonlantern', 'in', 160]],
+ [6, ['mark', 0.25, 'lavaspire', 'out', 230], ['mark', 0.7, 'troll', 'in', 200], ['mark', 0.92, 'chainpost', 'in', 120]],
+ [7, ['row', 0.3, 0.45, 'cauldron', 500, 'R', 150], ['mark', 0.8, 'portcullis', 'out', 150], ['mark', 0.6, 'throne', 'in', 150]],
+ [8, ['mark', 0.2, 'wizardtower', 'out', 230], ['row', 0.55, 0.7, 'ruinwall', 500, 'out', 180], ['mark', 0.9, 'watchplat', 'in', 180]],
+ [9, ['mark', 0.3, 'starship', 'out', 230], ['mark', 0.6, 'meteor', 'in', 200], ['row', 0.75, 0.9, 'mushroom', 500, 'out', 200]],
+ [10, ['mark', 0.2, 'gantry', 'in', 230], ['mark', 0.55, 'monolith', 'out', 200], ['row', 0.7, 0.9, 'buoy', 450, 'both', 160]],
+ [11, ['mark', 0.35, 'mech', 'out', 220], ['mark', 0.55, 'totem', 'in', 180], ['mark', 0.85, 'globe', 'out', 200]],
+ [12, ['mark', 0.3, 'oasispool', 'in', 150], ['mark', 0.7, 'hoodoo', 'out', 230], ['mark', 0.9, 'windpump', 'in', 200]],
+ [13, ['mark', 0.6, 'palacegate', 'in', 220], ['mark', 0.15, 'bigtent', 'out', 200], ['row', 0.8, 0.9, 'caravan', 600, 'out', 200]],
+ [14, ['mark', 0.15, 'ziggurat', 'out', 260], ['mark', 0.5, 'stonehead', 'in', 220], ['mark', 0.75, 'fossil', 'out', 200]],
+ [15, ['mark', 0.15, 'mausoleum', 'out', 280], ['mark', 0.55, 'victorypillar', 'in', 200], ['mark', 0.88, 'garlandarch', 'in', 150]],
+ [16, ['mark', 0.2, 'swingtree', 'out', 220], ['mark', 0.5, 'lotuspond', 'in', 150], ['mark', 0.9, 'stepwell', 'out', 200]],
+ [17, ['mark', 0.2, 'elegate', 'out', 220], ['mark', 0.5, 'stonechariot', 'in', 200], ['mark', 0.75, 'balcony', 'out', 200]],
+ [18, ['mark', 0.25, 'icecliff', 'out', 240], ['mark', 0.7, 'mammoth', 'in', 200], ['row', 0.85, 0.95, 'swan', 500, 'out', 160]],
+ [19, ['mark', 0.3, 'icearch', 'in', 200], ['mark', 0.65, 'icequeen', 'out', 200]],
+ [20, ['mark', 0.15, 'icepalace', 'out', 280], ['mark', 0.4, 'mtnhut', 'in', 200], ['row', 0.6, 0.75, 'xmastree', 450, 'both', 160], ['mark', 0.92, 'sleigh', 'in', 140]],
+ [21, ['mark', 0.25, 'stargate', 'out', 230], ['mark', 0.6, 'lighttree', 'in', 200], ['mark', 0.88, 'armillary', 'out', 200]],
+ [22, ['mark', 0.4, 'guardian', 'in', 230], ['mark', 0.8, 'galaxy', 'out', 200], ['mark', 0.95, 'moonshard', 'in', 220]],
+ [23, ['mark', 0.15, 'handplanet', 'out', 250], ['mark', 0.5, 'crystaltemple', 'in', 240], ['mark', 0.75, 'cometmon', 'out', 230]]
+].forEach(e => DRESS[e[0]].push(...e.slice(1)));
+// pijlborden per cup: zonder plaatje tekent het spel het gewone bord
+// (de pijlborden per cup staan in OBJ_H)
+// Tweede ronde objecten: per baan een paar herkenningspunten en rijen verder van de rail.
+[[0, ['row', 0.06, 0.2, 'bar', 900, 'R', 150], ['row', 0.58, 0.75, 'sandcastle', 420, 'out', 150], ['row', 0.8, 0.95, 'towels', 500, 'L', 150], ['row', 0.3, 0.44, 'icecream', 600, 'L', 170], ['mark', 0.88, 'flamingo', 'in', 90]],
+ [1, ['row', 0.05, 0.3, 'oilbarrels', 360, 'R', 150], ['row', 0.65, 0.8, 'boat', 500, 'R', 170], ['row', 0.4, 0.5, 'pierlamp', 300, 'L', 140], ['mark', 0.3, 'harbourcrane', 'out', 220]],
+ [2, ['row', 0.73, 0.88, 'icecream', 450, 'L', 150], ['mark', 0.6, 'flamingo', 'in', 120]],
+ [3, ['row', 0.05, 0.2, 'maple', 480, 'both', 160], ['mark', 0.47, 'koipond', 'out', 110], ['row', 0.7, 0.85, 'weeping', 500, 'in', 140], ['mark', 0.55, 'belltower', 'in', 150]],
+ [4, ['row', 0.47, 0.6, 'biglantern', 400, 'out', 110], ['row', 0.7, 0.9, 'bonsai', 500, 'in', 120]],
+ [5, ['row', 0.3, 0.4, 'ramen', 400, 'both', 120], ['row', 0.66, 0.8, 'luckycat', 420, 'in', 120], ['row', 0.05, 0.22, 'lanternpole', 380, 'both', 110]],
+ [6, ['row', 0.05, 0.2, 'torch', 380, 'both', 120], ['mark', 0.4, 'dragon', 'out', 170], ['row', 0.62, 0.78, 'catapult', 520, 'in', 140]],
+ [7, ['row', 0.35, 0.5, 'chest', 360, 'L', 150], ['row', 0.12, 0.28, 'candelabra', 330, 'both', 120], ['row', 0.58, 0.72, 'armour', 380, 'both', 130]],
+ [8, ['row', 0.5, 0.68, 'deadtree', 450, 'in', 160], ['row', 0.8, 0.96, 'tombstone', 300, 'both', 130], ['mark', 0.4, 'dragon', 'out', 170], ['row', 0.1, 0.28, 'well', 700, 'R', 150]],
+ [9, ['row', 0.05, 0.22, 'solar', 420, 'both', 130], ['mark', 0.46, 'dome', 'out', 200], ['row', 0.7, 0.84, 'radar', 520, 'in', 150]],
+ [10, ['row', 0.05, 0.28, 'fueltank', 520, 'out', 170], ['row', 0.5, 0.64, 'hovertruck', 420, 'both', 140], ['mark', 0.75, 'spire', 'in', 160]],
+ [11, ['row', 0.44, 0.6, 'energy', 380, 'both', 120], ['row', 0.7, 0.86, 'robotarm', 500, 'in', 150], ['mark', 0.2, 'teleporter', 'out', 150]],
+ [12, ['row', 0.3, 0.48, 'boulders', 400, 'in', 140], ['mark', 0.45, 'wellpalm', 'out', 150], ['row', 0.62, 0.78, 'camelrest', 480, 'in', 140], ['row', 0.05, 0.22, 'buggy', 700, 'R', 170]],
+ [13, ['row', 0.05, 0.2, 'carpets', 450, 'both', 170], ['mark', 0.42, 'minaret', 'out', 230], ['row', 0.48, 0.7, 'spices', 380, 'out', 140], ['row', 0.73, 0.88, 'lampstall', 420, 'L', 150]],
+ [14, ['mark', 0.25, 'lionstatue', 'out', 190], ['row', 0.62, 0.8, 'boulders', 360, 'both', 150], ['mark', 0.85, 'minaret', 'in', 230], ['row', 0.4, 0.5, 'buggy', 500, 'L', 160]],
+ [15, ['row', 0.05, 0.2, 'mango', 500, 'both', 160], ['mark', 0.35, 'gopuram', 'out', 230], ['row', 0.43, 0.6, 'peacock', 450, 'in', 120], ['row', 0.7, 0.85, 'flowerpot', 350, 'both', 130]],
+ [16, ['row', 0.33, 0.43, 'mango', 420, 'both', 170], ['mark', 0.8, 'paintedele', 'in', 150], ['row', 0.45, 0.6, 'drum', 500, 'out', 130]],
+ [17, ['row', 0.05, 0.25, 'oillamps', 360, 'both', 120], ['mark', 0.35, 'chariot', 'out', 180], ['row', 0.64, 0.82, 'fireworks', 420, 'in', 140], ['mark', 0.9, 'gopuram', 'out', 240]],
+ [18, ['row', 0.05, 0.2, 'penguins', 380, 'both', 150], ['mark', 0.45, 'icefall', 'out', 200], ['row', 0.62, 0.78, 'polarbear', 500, 'out', 170], ['row', 0.85, 0.97, 'sled', 450, 'in', 140]],
+ [19, ['row', 0.12, 0.28, 'bluelamp', 360, 'both', 130], ['mark', 0.52, 'dragonskull', 'out', 150], ['mark', 0.76, 'icethrone', 'in', 180]],
+ [20, ['mark', 0.3, 'icethrone', 'out', 200], ['row', 0.48, 0.7, 'cabin', 600, 'out', 220], ['row', 0.79, 0.98, 'icefountain', 500, 'in', 150]],
+ [21, ['row', 0.05, 0.22, 'harp', 500, 'both', 140], ['mark', 0.5, 'startree', 'out', 170], ['row', 0.7, 0.84, 'sundial', 450, 'in', 160]],
+ [22, ['mark', 0.15, 'titanhead', 'out', 230], ['row', 0.33, 0.46, 'nebulapillar', 450, 'both', 150], ['row', 0.7, 0.95, 'ruinchunk', 600, 'out', 200], ['mark', 0.6, 'orrery', 'in', 170]],
+ [23, ['mark', 0.3, 'wingedgate', 'out', 200], ['row', 0.45, 0.6, 'crystaldragon', 600, 'out', 200], ['row', 0.7, 0.86, 'nebulapillar', 420, 'in', 150], ['mark', 0.9, 'titanhead', 'in', 230]]
+].forEach(e => DRESS[e[0]].push(...e.slice(1)));
+
+// Leven langs de baan, per baan. ['crowd', van, tot, [figuren], afstand, kant, uit de rail] zet afwisselende figuren neer.
+const LIFE = [
+  [['crowd', 0.003, 0.03, ['beachA', 'fanA', 'beachB', 'fanC'], 60, 'both', 34], ['crowd', 0.972, 0.998, ['beachB', 'beachA', 'fanB'], 60, 'both', 34],
+   ['row', 0.15, 0.22, 'volley', 700, 'R', 120], ['row', 0.46, 0.56, 'volley', 700, 'in', 60], ['crowd', 0.58, 0.72, ['beachA', 'beachB'], 150, 'in', 110], ['row', 0.25, 0.45, 'gull', 420, 'L', 40]],
+  [['crowd', 0.003, 0.03, ['worker', 'fanB', 'worker', 'fanA'], 70, 'both', 34], ['crowd', 0.972, 0.998, ['worker', 'fanC'], 70, 'both', 34],
+   ['row', 0.33, 0.52, 'gull', 300, 'L', 36], ['crowd', 0.62, 0.8, ['worker'], 260, 'R', 45], ['row', 0.84, 0.96, 'gull', 380, 'R', 36]],
+  [['crowd', 0.003, 0.03, ['fanA', 'fanB', 'juggler', 'fanC'], 55, 'both', 34], ['crowd', 0.972, 0.998, ['fanC', 'fanA', 'fanB'], 55, 'both', 34],
+   ['crowd', 0.24, 0.44, ['fanA', 'juggler', 'fanC', 'fanB'], 130, 'both', 100], ['crowd', 0.73, 0.88, ['fanB', 'juggler', 'fanA'], 140, 'L', 105]],
+  [['crowd', 0.003, 0.03, ['kimono', 'fanC', 'kimono', 'fanA'], 65, 'both', 34], ['crowd', 0.972, 0.998, ['kimono', 'fanB'], 65, 'both', 34],
+   ['crowd', 0.43, 0.6, ['kimono'], 250, 'both', 85], ['crowd', 0.69, 0.86, ['fanC', 'kimono'], 220, 'in', 90]],
+  [['crowd', 0.003, 0.03, ['kimono', 'fanB'], 80, 'both', 34], ['row', 0.3, 0.44, 'frog', 120, 'both', 26],
+   ['row', 0.45, 0.6, 'frog', 150, 'both', 80], ['crowd', 0.62, 0.66, ['kimono'], 110, 'out', 60], ['row', 0.7, 0.96, 'frog', 260, 'in', 26]],
+  [['crowd', 0.003, 0.03, ['raver', 'fanC', 'raver', 'fanA'], 55, 'both', 34], ['crowd', 0.972, 0.998, ['raver', 'fanB'], 55, 'both', 34],
+   ['crowd', 0.42, 0.56, ['raver', 'raver', 'fanC'], 110, 'L', 85], ['crowd', 0.64, 0.82, ['raver'], 170, 'in', 100]],
+  [['crowd', 0.003, 0.03, ['skeleton', 'knight', 'skeleton'], 75, 'both', 34], ['crowd', 0.972, 0.998, ['knight', 'skeleton'], 75, 'both', 34],
+   ['crowd', 0.33, 0.5, ['skeleton'], 240, 'both', 85], ['crowd', 0.6, 0.8, ['knight'], 380, 'out', 45], ['row', 0.84, 0.97, 'ghost', 330, 'both', 95]],
+  [['crowd', 0.003, 0.03, ['skeleton', 'skeleton', 'knight'], 70, 'both', 34], ['row', 0.33, 0.5, 'ghost', 250, 'L', 135],
+   ['row', 0.55, 0.74, 'ghost', 420, 'both', 95], ['crowd', 0.78, 0.92, ['skeleton'], 210, 'both', 60], ['crowd', 0.972, 0.998, ['skeleton', 'knight'], 70, 'both', 34]],
+  [['crowd', 0.003, 0.03, ['knight', 'knight', 'skeleton'], 75, 'both', 34], ['crowd', 0.972, 0.998, ['knight'], 75, 'both', 34],
+   ['row', 0.48, 0.7, 'ghost', 340, 'both', 45], ['crowd', 0.79, 0.98, ['skeleton'], 230, 'out', 85], ['crowd', 0.05, 0.3, ['knight'], 500, 'both', 80]],
+  [['crowd', 0.003, 0.03, ['alien', 'astro', 'alien'], 70, 'both', 34], ['crowd', 0.972, 0.998, ['astro', 'alien'], 70, 'both', 34],
+   ['crowd', 0.43, 0.6, ['alien'], 180, 'in', 40], ['crowd', 0.69, 0.85, ['astro'], 380, 'both', 105]],
+  [['crowd', 0.003, 0.03, ['astro', 'alien', 'alien'], 70, 'both', 34], ['crowd', 0.972, 0.998, ['alien', 'astro'], 70, 'both', 34],
+   ['crowd', 0.49, 0.65, ['alien'], 210, 'both', 100], ['crowd', 0.7, 0.96, ['astro'], 520, 'in', 85]],
+  [['crowd', 0.003, 0.03, ['alien', 'astro', 'alien'], 70, 'both', 34], ['crowd', 0.972, 0.998, ['alien', 'astro'], 70, 'both', 34],
+   ['crowd', 0.43, 0.6, ['astro'], 330, 'both', 85], ['crowd', 0.69, 0.86, ['alien'], 170, 'in', 45]]
+];
+const lifeEnds = (a, b) => [['crowd', 0.003, 0.03, a, 65, 'both', 34], ['crowd', 0.972, 0.998, b, 65, 'both', 34]];
+LIFE.push(
+  [...lifeEnds(['beachB', 'fanA', 'fanC', 'fanB'], ['fanA', 'beachB']), ['row', 0.3, 0.48, 'gull', 420, 'in', 40]],
+  [...lifeEnds(['fanA', 'juggler', 'fanB', 'fanC'], ['fanC', 'juggler']), ['crowd', 0.24, 0.44, ['juggler', 'fanB', 'fanA'], 150, 'both', 100]],
+  [...lifeEnds(['worker', 'fanB', 'worker'], ['worker', 'fanC']), ['row', 0.33, 0.5, 'gull', 300, 'R', 36], ['crowd', 0.62, 0.8, ['worker'], 260, 'in', 45]],
+  [...lifeEnds(['kimono', 'fanC', 'fanA'], ['kimono', 'fanB']), ['crowd', 0.43, 0.6, ['kimono', 'fanC'], 240, 'both', 85]],
+  [...lifeEnds(['kimono', 'fanB'], ['fanB', 'kimono']), ['row', 0.3, 0.44, 'frog', 120, 'both', 26], ['row', 0.7, 0.96, 'frog', 240, 'in', 26]],
+  [...lifeEnds(['raver', 'fanA', 'juggler', 'fanC'], ['raver', 'fanB']), ['crowd', 0.42, 0.56, ['raver', 'juggler'], 120, 'L', 85], ['crowd', 0.64, 0.82, ['raver'], 180, 'in', 100]],
+  [...lifeEnds(['yeti', 'knight', 'yeti'], ['yeti', 'knight']), ['crowd', 0.33, 0.5, ['yeti'], 260, 'both', 60], ['row', 0.84, 0.97, 'ghost', 330, 'both', 110]],
+  [...lifeEnds(['skeleton', 'skeleton', 'knight'], ['skeleton']), ['row', 0.33, 0.5, 'ghost', 250, 'L', 135], ['row', 0.55, 0.74, 'ghost', 420, 'both', 95]],
+  [...lifeEnds(['knight', 'yeti', 'skeleton'], ['yeti', 'knight']), ['row', 0.48, 0.7, 'ghost', 340, 'both', 45], ['crowd', 0.33, 0.45, ['yeti'], 200, 'both', 80]],
+  [...lifeEnds(['alien', 'astro', 'robot'], ['astro', 'robot']), ['crowd', 0.69, 0.85, ['alien', 'robot'], 200, 'both', 40]],
+  [...lifeEnds(['astro', 'robot', 'alien'], ['robot', 'astro']), ['crowd', 0.49, 0.65, ['astro'], 330, 'both', 50]],
+  [...lifeEnds(['alien', 'astro', 'robot'], ['alien', 'astro']), ['crowd', 0.43, 0.6, ['robot', 'astro'], 330, 'both', 95], ['crowd', 0.69, 0.86, ['alien'], 170, 'in', 45]]
+);
+// derde ronde: extra publiek, dieren langs de baan en vliegers in de lucht, plus een baancommissaris bij elke start
+const flyRow = (k, a, b) => ['row', a, b, k, 520, 'both', 140];
+[[0, ['crowd', 0.6, 0.75, ['surfer', 'redsuit', 'lifeguardguy'], 170, 'out', 110], ['row', 0.2, 0.3, 'crab', 300, 'in', 30], flyRow('fgull', 0.1, 0.5)],
+ [1, ['row', 0.5, 0.6, 'sealion', 350, 'R', 40], flyRow('fgull', 0.3, 0.8)],
+ [2, ['crowd', 0.5, 0.7, ['clown', 'candy', 'dadkid', 'cheer', 'foamfan'], 140, 'both', 90], flyRow('fkite', 0.2, 0.6)],
+ [3, ['crowd', 0.2, 0.3, ['yukata', 'happi', 'kiteboy'], 160, 'both', 80], ['row', 0.85, 0.95, 'deer', 400, 'out', 120], flyRow('fdove', 0.4, 0.8)],
+ [4, ['row', 0.5, 0.6, 'whitecrane', 400, 'both', 60], ['row', 0.7, 0.85, 'monkey', 450, 'in', 60], flyRow('fkite', 0.1, 0.4)],
+ [5, ['crowd', 0.3, 0.42, ['cyber', 'courier', 'cyber'], 140, 'both', 70], flyRow('fufo', 0.4, 0.9)],
+ [6, ['crowd', 0.6, 0.75, ['jester', 'lady', 'monk', 'squire'], 170, 'both', 70], ['row', 0.2, 0.3, 'crow', 400, 'both', 60], flyRow('fbat', 0.3, 0.9)],
+ [7, ['crowd', 0.12, 0.28, ['monk', 'mummy'], 220, 'both', 80], flyRow('fbat', 0.1, 0.9)],
+ [8, ['crowd', 0.3, 0.45, ['squire', 'viking', 'witch'], 180, 'both', 70], ['row', 0.6, 0.75, 'crow', 400, 'in', 60], flyRow('fdragon', 0.2, 0.8)],
+ [9, ['crowd', 0.3, 0.42, ['cadet', 'hoodalien', 'cosmo'], 170, 'both', 70], ['row', 0.6, 0.7, 'jelly', 350, 'both', 70], flyRow('fufo', 0.1, 0.6)],
+ [10, ['crowd', 0.35, 0.47, ['butler', 'cadet'], 180, 'both', 70], ['row', 0.7, 0.8, 'jelly', 350, 'both', 70], flyRow('fufo', 0.5, 0.95)],
+ [11, ['crowd', 0.6, 0.68, ['hoodalien', 'cosmo'], 170, 'both', 70], ['row', 0.3, 0.4, 'jelly', 350, 'both', 70], flyRow('fwisp', 0.2, 0.9)],
+ [12, ['row', 0.4, 0.5, 'camelcalf', 400, 'out', 120], flyRow('fgull', 0.2, 0.7)],
+ [13, ['row', 0.6, 0.7, 'camelcalf', 400, 'in', 90], ['crowd', 0.4, 0.46, ['pirate', 'merchant'], 160, 'both', 70], flyRow('fkite', 0.1, 0.5)],
+ [14, ['row', 0.3, 0.4, 'camelcalf', 400, 'out', 120], flyRow('fgull', 0.4, 0.9)],
+ [15, ['row', 0.25, 0.35, 'monkey', 400, 'both', 70], flyRow('fdove', 0.2, 0.8)],
+ [16, ['row', 0.6, 0.7, 'monkey', 350, 'both', 70], ['row', 0.4, 0.5, 'whitecrane', 450, 'out', 90], flyRow('fflamingo', 0.1, 0.6)],
+ [17, ['crowd', 0.45, 0.55, ['candy', 'dadkid', 'cheer'], 160, 'both', 80], flyRow('fkite', 0.3, 0.9)],
+ [18, ['row', 0.3, 0.4, 'arcticfox', 400, 'both', 60], flyRow('fowl', 0.2, 0.8)],
+ [19, ['row', 0.6, 0.7, 'arcticfox', 400, 'in', 70], flyRow('fwisp', 0.1, 0.9)],
+ [20, ['crowd', 0.2, 0.3, ['viking', 'parka'], 180, 'both', 70], ['row', 0.6, 0.7, 'arcticfox', 400, 'out', 80], flyRow('fowl', 0.4, 0.95)],
+ [21, ['crowd', 0.3, 0.4, ['cosmo', 'wizard'], 200, 'both', 70], flyRow('fwisp', 0.1, 0.5), flyRow('fdragon', 0.6, 0.9)],
+ [22, ['crowd', 0.2, 0.3, ['butler', 'wizard'], 200, 'both', 70], flyRow('fufo', 0.3, 0.9)],
+ [23, ['crowd', 0.6, 0.7, ['cosmo', 'hoodalien'], 180, 'both', 70], flyRow('fwisp', 0.2, 0.95)]
+].forEach(e => LIFE[e[0]].push(...e.slice(1)));
+LIFE.forEach(l => l.push(['row', 0.005, 0.012, 'marshal', 300, 'R', 18]));
+// het publiek van de tweede vier cups krijgt eigen figuren
+[[[12, 13, 14], { fanA: 'merchant', fanB: 'robed', fanC: 'flagboy', beachB: 'merchant' }],
+ [[15, 16, 17], { fanA: 'dancer', fanB: 'drummer', fanC: 'powder', kimono: 'dancer', juggler: 'powder', raver: 'drummer' }],
+ [[18, 20], { knight: 'parka', skeleton: 'skier' }],
+ [[21, 23], { astro: 'wizard' }]
+].forEach(([tracks, map]) => tracks.forEach(i => LIFE[i].forEach(op => { if (op[0] === 'crowd') op[3] = op[3].map(k => map[k] || k); })));
+DRESS.forEach((d, i) => d.push(...LIFE[i]));
 const TRACKS = [{ id: 't0', name: 'Test Track', cup: 0, hw: 150, cp: CP, jump: true }].concat(TRACK_DEFS);
 
 const TR = {};
@@ -266,7 +514,49 @@ function buildTrack(def, idx) {
   // schans en gat (alleen op de testbaan): het lintpunt het dichtst bij JUMP_AT en LAND_AT
   const near = (x, z) => { let b = 0, bd = 1e18; for (let i = 0; i < N * 0.45; i++) { const d = (P[i * 3] - x) ** 2 + (P[i * 3 + 2] - z) ** 2; if (d < bd) { bd = d; b = i; } } return b; };
   const lipI = def.jump ? near(JUMP_AT[0], JUMP_AT[1]) : -1, landI = def.jump ? near(LAND_AT[0], LAND_AT[1]) : -1;
-  Object.assign(TR, { def, idx, lipI, landI, lipS: def.jump ? lipI * step : NaN, gapL: def.jump ? (landI - lipI) * step : 0, N, len, step, P, T, R, U, kg: smooth(kg0, 4), kn: smooth(kn0, 4), bank: Array.from(bankMag, (m, i) => m * sgn[i]) });
+  const kh = smooth(curv.map(c => c / (2 * step)), 6);
+  Object.assign(TR, { kh, def, idx, lipI, landI, lipS: def.jump ? lipI * step : NaN, gapL: def.jump ? (landI - lipI) * step : 0, N, len, step, P, T, R, U, kg: smooth(kg0, 4), kn: smooth(kn0, 4), bank: Array.from(bankMag, (m, i) => m * sgn[i]) });
+}
+
+// Gevaren en boostpads op passende plekken, vast per baan (zelfde regels als placeHazards in komeet.html).
+// Alles in baancoordinaten: s langs de baan, d opzij. Kanteling (bank) en kanon zijn hier vervangen door de echte 3D-weg.
+function mulberry32(a) { return function () { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+function placeHaz3d() {
+  const def = TR.def, rnd = mulberry32(1337 + (TR.idx - 1) * 7919), L = TR.len, hw = HW, haz = [], pads = [], occ = [];
+  const want = def.haz || {};
+  const kAt = sv => TR.kh[Math.floor((((sv % L) + L) % L) / TR.step) % TR.N];
+  const kStat = (a, b) => { let mx = 0, sum = 0, sg = 0, cnt = 0; for (let sv = a; sv <= b; sv += 20) { const k = kAt(sv); mx = Math.max(mx, Math.abs(k)); sum += Math.abs(k); sg += k; cnt++; } return { mx, mean: sum / cnt, sign: sg >= 0 ? 1 : -1 }; };
+  const free = (a, b, m) => a >= 500 && b <= L - 700 && !occ.some(o => a < o[1] + m && b > o[0] - m);
+  const scan = (count, len, gap, ok, make) => {
+    let placed = 0;
+    for (let pass = 0; pass < 3 && placed < count; pass++) {
+      for (let sv = 500 + rnd() * 500; sv < L - 700 - len && placed < count; sv += 70) {
+        if (!free(sv, sv + len, gap)) continue;
+        const ks = kStat(sv, sv + len);
+        if (!ok(ks, pass)) continue;
+        occ.push([sv, sv + len]); make(sv, ks); placed++;
+        sv += Math.max(len + gap, L / (count + 1) * 0.75);
+      }
+    }
+  };
+  scan(want.jump || 0, 950, 200, (k, p) => k.mx < [1 / 1900, 1 / 1300, 1 / 900][p], sv => haz.push({ type: 'jump', s0: sv + 60, s1: sv + 100 }));
+  scan(want.ice || 0, 560, 260, (k, p) => k.mx < 1 / 430 && (p > 0 || k.mean > 1 / 4000), sv => haz.push({ type: 'ice', s0: sv, s1: sv + 560 }));
+  scan(want.slow || 0, 320, 220, (k, p) => k.mx < 1 / 470 && (p > 0 || k.mean > 1 / 1900),
+    (sv, k) => haz.push({ type: 'slow', s0: sv, s1: sv + 320, d0: k.sign > 0 ? -0.05 * hw : -hw, d1: k.sign > 0 ? hw : 0.05 * hw }));
+  scan(Math.min(8, want.pads || 0), 170, 200, (k, p) => k.mx < [1 / 900, 1 / 600, 1 / 400][p], sv => pads.push({ s: sv + 85, d: [-0.4, 0, 0.4][Math.floor(rnd() * 3)] * hw }));
+  scan(want.chain || 0, 760, 260, (k, p) => k.mx < [1 / 2200, 1 / 1500, 1 / 1000][p], sv => {
+    const off = [-0.42, 0, 0.42][Math.floor(rnd() * 3)] * hw;
+    for (let i = 0; i < 3; i++) pads.push({ s: sv + 90 + i * 260, d: off });
+  });
+  scan(want.gap || 0, 760, 400, (k, p) => k.mx < [1 / 2000, 1 / 1400, 1 / 1000][p],
+    sv => { haz.push({ type: 'jump', s0: sv + 60, s1: sv + 100, gap: true }); haz.push({ type: 'gap', s0: sv + 150, s1: sv + 150 + GAP_L }); });
+  scan(want.wave || 0, 700, 300, (k, p) => k.mx < [1 / 900, 1 / 600, 1 / 430][p], sv => haz.push({ type: 'wave', s0: sv, s1: sv + 700, ph: rnd() * WAVE_P, dir: rnd() < 0.5 ? -1 : 1 }));
+  scan(want.bumps || 0, 720, 260, (k, p) => k.mx < [1 / 1300, 1 / 900, 1 / 600][p], sv => { for (let i = 0; i < 4; i++) haz.push({ type: 'bump', s0: sv + 60 + i * 180, s1: sv + 96 + i * 180 }); });
+  scan(want.launch || 0, 760, 300, (k, p) => k.mx < [1 / 2200, 1 / 1600, 1 / 1100][p], sv => {
+    for (const o of [60, 320]) pads.push({ s: sv + o, d: 0 });
+    haz.push({ type: 'jump', s0: sv + 560, s1: sv + 600, launch: true });
+  });
+  TR.haz = haz; TR.pads = pads;
 }
 
 // punt op de baan op afstand s (lineair tussen twee lintpunten)
@@ -342,7 +632,18 @@ function stepEnt(e) {
   const gl = -gT * sn + gR * cs;
   const N = GRAV * Q.uy + e.vT * e.vT * Q.kn + ADH;   // druk op de weg (als versnelling)
   e.load = N;
+  // ondergrond: ijs en modder (vorige positie)
+  const sm = ((e.s % TR.len) + TR.len) % TR.len;
+  let onIce = false, onSlow = false;
+  if (!air) for (const hz of TR.haz) {
+    if (sm < hz.s0 || sm > hz.s1) continue;
+    if (hz.type === 'ice') onIce = true;
+    else if (hz.type === 'slow' && e.d >= hz.d0 && e.d <= hz.d1) onSlow = true;
+  }
+  e.onIce = onIce;
+  if (onSlow && vf > 420) vf -= (vf - 420) * 2.4 * DT;
   let grip = inp.drift ? 2.0 : c.grip;
+  if (onIce) grip = Math.min(grip, 0.9);
   let F;
   if (air) F = -vl * 0.15;
   else {
@@ -380,7 +681,7 @@ function stepEnt(e) {
     if (e.gapFly) {
       e.flyVy -= GRAV * DT; e.flyY += e.flyVy * DT;
       at(e.s, Q3); e.z = (e.flyY - Q3.py) / Math.max(0.5, Q3.uy);
-    } else { e.vz -= (N - ADH * 0.7) * DT; e.z += e.vz * DT; }   // in de lucht trekt de magneet minder
+    } else { e.vz -= (N - ADH) * 0.95 * DT; e.z += e.vz * DT; }   // in de lucht: de zwaartekracht van komeet.html (760), de magneet telt niet
     e.airT += DT;
     if (e.z <= 0 && g1 > 0 && g1 < TR.gapL) {
       // in het water: terug voor de schans, met weinig vaart
@@ -389,6 +690,40 @@ function stepEnt(e) {
     } else if (e.z <= 0) {
       e.z = 0; e.vz = 0; e.air = false; e.gapFly = false; e.ev.land = 1;
       if (e.airT > 0.6) { e.padT = Math.max(e.padT, 0.5); e.vT += 120; }
+    }
+  }
+  // gevaren onder het schip
+  const sh = ((e.s % TR.len) + TR.len) % TR.len;
+  if (e.z < 1) for (const hz of TR.haz) {
+    if (sh < hz.s0 || sh > hz.s1) continue;
+    if (hz.type === 'wave') {
+      const cw = waveAt(hz, HW, S.raceTime);
+      if (cw !== null && Math.abs(e.d - cw) < WAVE_HW) {
+        if (e.speed > 360) { const k2 = 1 - (1 - 360 / e.speed) * 2.8 * DT; e.vT *= k2; e.vR *= k2; }
+        e.vR += hz.dir * 320 * DT; e.ev.wave = 1;
+      }
+    } else if (hz.type === 'gap' && !e.air) {
+      const back = sh - (hz.s0 - GAP_BACK);
+      e.s -= back; e.progress -= back; e.d = clamp(e.d, -HW * 0.5, HW * 0.5);
+      e.vT = 450; e.vR = 0; e.psi = 0; e.vz = 0; e.z = 0; e.padT = 0; e.driftT = 0; e.energy = Math.max(e.energy, 0.5); e.ev.fall = 1;
+      return;
+    }
+  }
+  // schans: ook als je net los bent van een heuveltopje (anders mis je hem op hoge snelheid)
+  if (e.z < 15 && !e.gapFly) for (const hz of TR.haz) {
+    if (hz.type === 'jump' && sh >= hz.s0 && sh <= hz.s1 && e.vT > 350) { const vz = hz.gap ? 150 + e.vT * 0.13 : 110 + e.vT * 0.11; if (!e.air || e.vz < vz) { e.air = true; e.vz = vz; e.z = Math.max(e.z, 0.02); e.airT = 0; e.ev.jump = 1; } }
+  }
+  if (!e.air) {
+    for (const hz of TR.haz) {
+      if (sh < hz.s0 || sh > hz.s1) continue;
+      if (hz.type === 'jump' && e.vT > 350) { e.air = true; e.vz = hz.gap ? 150 + e.vT * 0.13 : 110 + e.vT * 0.11; e.z = 0.02; e.airT = 0; e.ev.jump = 1; break; }
+      if (hz.type === 'bump' && e.vT > 300) { e.air = true; e.vz = 60 + e.vT * 0.045; e.z = 0.02; e.airT = 0; e.ev.bump = 1; break; }
+    }
+    if (e.padT < 0.9) for (const p of TR.pads) {
+      let dsv = sh - p.s; dsv -= Math.round(dsv / TR.len) * TR.len;
+      if (Math.abs(e.d - p.d) < PAD_HW + 12 && Math.abs(dsv) < PAD_HL) {
+        e.padT = 1.25; e.vT += Math.cos(e.psi) * 220; e.vR += Math.sin(e.psi) * 220; e.ev.pad = 1; break;
+      }
     }
   }
   // vangrail
@@ -437,13 +772,22 @@ function aiInput(e, ents) {
     let dsv = o.s - e.s; dsv -= Math.round(dsv / TR.len) * TR.len;
     if (dsv > 0 && dsv < 220 && Math.abs(o.d - e.d) < 60 && o.vT < e.vT + 40) target = o.d + (o.d > e.d ? -75 : 75);
   }
+  // om modder heen (zoals aiControl in komeet.html)
+  const sa = ((e.s % TR.len) + TR.len) % TR.len;
+  for (const hz of TR.haz) {
+    if (hz.type !== 'slow' || hz.s1 < sa - 40 || hz.s0 > sa + 300 + e.speed * 0.5) continue;
+    target = hz.d1 >= HW - 1 ? Math.min(target, hz.d0 - 45) : Math.max(target, hz.d1 + 45);
+  }
   target = clamp(target, -HW + 40, HW - 40);
   const want = Math.atan2(target - e.d, 320);
   e.in.steer = clamp((want - e.psi) * 3, -1, 1);
   e.in.acc = true; e.in.brk = false; e.in.drift = false;
+  // voor een lavagat: met vaart erheen
+  const sm2 = ((e.s % TR.len) + TR.len) % TR.len;
+  const lava = e.energy > 0.05 && TR.haz.some(h => h.gap && h.s0 - sm2 > 0 && h.s0 - sm2 < 1100);
   const gp = gapPos(e.s);
   if (gp > -1600 && gp < 0 && e.energy > 0.05) { e.in.boost = true; e.in.steer = clamp(-e.psi * 3 - e.d * 0.01, -1, 1); return; }
-  e.in.boost = e.energy > 0.5 && Math.abs(Q2.kg) < 0.00025 && e.speed > 600 && (e.boostWish = (e.boostWish || 0) + DT) > 2;
+  e.in.boost = lava || e.energy > 0.5 && Math.abs(Q2.kg) < 0.00025 && e.speed > 600 && (e.boostWish = (e.boostWish || 0) + DT) > 2;
   if (!e.in.boost && e.energy < 0.1) e.boostWish = 0;
 }
 
@@ -474,12 +818,15 @@ function startRace() {
   S.player = newEnt(CARS[playerCar], CARS[playerCar].pal, false, grid[5][0], grid[5][1], 1);
   S.ents.push(S.player);
   S.phase = 'count'; S.t = 0; S.raceTime = 0; S.finishOrder = [];
+  itemsReset();
   camInit = false;
 }
 
 const keys = {};
 addEventListener('keydown', e => {
   keys[e.code] = true;
+  initAudio();
+  if (e.code === 'KeyM') musicOn = !musicOn;
   if (e.code === 'KeyR') startRace();
   if (e.code === 'KeyN') loadTrack(TR.idx + 1);
   if (e.code === 'KeyB') loadTrack(TR.idx - 1);
@@ -491,7 +838,10 @@ addEventListener('keyup', e => { keys[e.code] = false; });
 
 function tick() {
   S.t += DT;
-  if (S.phase === 'count') { if (S.t >= 3) { S.phase = 'race'; S.t = 0; } else return; }
+  if (S.phase === 'count') {
+    if (Math.floor(S.t - DT) !== Math.floor(S.t)) beep(S.t >= 3 ? 880 : 440, S.t >= 3 ? 0.4 : 0.15, 'square', 0.08);
+    if (S.t >= 3) { S.phase = 'race'; S.t = 0; } else return;
+  }
   S.raceTime += DT;
   for (const e of S.ents) {
     e.ev = {};
@@ -503,6 +853,7 @@ function tick() {
       p.acc = !!(keys.ArrowUp || keys.KeyW); p.brk = !!(keys.ArrowDown || keys.KeyS);
       p.boost = !!keys.Space; p.drift = !!(keys.ShiftLeft || keys.ShiftRight);
     }
+    itemControl(e, e.in);
     stepEnt(e);
     if (e.splashT > 0) e.splashT -= DT;
     e.lapT += DT;
@@ -514,8 +865,284 @@ function tick() {
     }
   }
   collide(S.ents);
+  itemsTick();
+  soundEvents();
   if (S.player.finished && S.phase === 'race') { S.phase = 'done'; S.t = 0; }
 }
+// ---------------------------------------------------------------- items
+// Rij door een itembox en je krijgt een item; wie achteraan rijdt, krijgt betere. Gebruiken met E of Ctrl.
+const ITEMS = {
+  turbo: { name: 'TURBO', col: '#8fe8ff' }, triple: { name: 'TRIPLE TURBO', col: '#8fe8ff' }, shield: { name: 'SHIELD', col: '#7dffb0' },
+  slick: { name: 'SLICK', col: '#c070ff' }, zap: { name: 'ZAP', col: '#ffd24a' }, storm: { name: 'STORM', col: '#ffe680' }
+};
+const IT = { boxes: [], slicks: [], zaps: [] };
+let msg = null;
+function showMsg(t, col, dur) { msg = { t, col, until: S.raceTime + dur }; }
+function liveOrder() { return S.ents.slice().sort((a, b) => placeOf(a) - placeOf(b)); }
+const wrapDs = v => v - Math.round(v / TR.len) * TR.len;
+function itemsReset() {
+  IT.boxes.length = IT.slicks.length = IT.zaps.length = 0;
+  for (const e of S.ents) Object.assign(e, { item: null, itemN: 0, rollT: 0, shieldT: 0, spinT: 0, aiItemT: 0, itemKey: false });
+  const busy = sv => TR.haz.some(h => sv > h.s0 - 250 && sv < h.s1 + 250) || TR.pads.some(p => Math.abs(wrapDs(p.s - sv)) < 320)
+    || (TR.def.jump && gapPos(sv) > -900 && gapPos(sv) < TR.gapL + 300);
+  for (const f of [0.15, 0.4, 0.65, 0.88]) {
+    let sv = f * TR.len;
+    for (let k = 0; k < 50 && busy(sv); k++) sv += 60;
+    if (busy(sv) || sv > TR.len - 500) continue;
+    for (const o of [-0.6, -0.2, 0.2, 0.6]) IT.boxes.push({ s: sv, d: o * HW, t: 0 });
+  }
+}
+function rollItem(e) {
+  const order = liveOrder(), n = order.length, f = n > 1 ? order.indexOf(e) / (n - 1) : 0;
+  let pool = f < 0.25 ? [['slick', 4], ['shield', 3], ['turbo', 3], ['zap', 1]]
+    : f < 0.7 ? [['turbo', 3], ['zap', 3], ['slick', 2], ['shield', 2], ['triple', 1]]
+    : [['triple', 4], ['turbo', 2], ['zap', 3], ['shield', 1], ['storm', f > 0.85 ? 1 : 0]];
+  pool = pool.filter(p => p[1] > 0);
+  let r = Math.random() * pool.reduce((a, p) => a + p[1], 0);
+  for (const [k, w] of pool) if ((r -= w) < 0) return k;
+  return pool[0][0];
+}
+function zapTarget(e) {
+  const order = liveOrder().filter(o => !o.finished), i = order.indexOf(e);
+  return i > 0 ? order[i - 1] : order[1] || null;
+}
+function hitEntity(o, by) {
+  if (o.finished) return;
+  if (o.shieldT > 0) { o.shieldT = 0; if (o === S.player) beep(330, 0.15, 'square', 0.07); return; }
+  o.spinT = 0.9; o.vT *= 0.35; o.vR *= 0.35; o.padT = 0; o.driftT = 0;
+  if (o === S.player) { showMsg('SPUN OUT!', '#ff8a8a', 1.2); thud(0.4); }
+  else if (by === S.player) { showMsg('HIT!', '#ffd24a', 0.8); beep(1200, 0.1, 'square', 0.06); }
+}
+function useItem(e) {
+  const k = e.item;
+  if (k === 'turbo' || k === 'triple') {
+    e.padT = Math.max(e.padT, 1.0); e.vT += Math.cos(e.psi) * 240; e.vR += Math.sin(e.psi) * 240;
+    if (e === S.player) beep(880, 0.2, 'sawtooth', 0.06);
+  } else if (k === 'shield') e.shieldT = 8;
+  else if (k === 'slick') IT.slicks.push({ s: e.s - 60, d: e.d, t: 14, age: 0, owner: e });
+  else if (k === 'zap') {
+    const tgt = zapTarget(e);
+    if (tgt) IT.zaps.push({ s: e.s + 30, d: e.d, z: 20, tgt, t: 3, owner: e });
+    if (e === S.player) beep(1400, 0.15, 'square', 0.06);
+  } else if (k === 'storm') {
+    for (const o of S.ents) if (o !== e && !o.finished && o.progress > e.progress) hitEntity(o, e);
+    thud(0.6);
+    if (e !== S.player) showMsg('STORM FROM BEHIND!', '#ffe680', 1.2);
+  }
+  if (--e.itemN <= 0) e.item = null;
+}
+function aiWantsItem(e) {
+  const k = e.item;
+  if (k === 'turbo' || k === 'triple') return e.speed > 400 && Math.abs(e.in.steer) < 0.4;
+  if (k === 'shield' || k === 'storm') return true;
+  if (k === 'zap') return !!zapTarget(e);
+  if (k === 'slick') return e.aiItemT < -6 || S.ents.some(o => o !== e && e.progress - o.progress > 60 && e.progress - o.progress < 600);
+  return false;
+}
+function itemControl(e, inp) {
+  if (e.spinT > 0) { e.spinT -= DT; inp.acc = inp.brk = inp.drift = inp.boost = false; inp.steer = 0; e.psi += 9 * DT; }
+  if (e.shieldT > 0) e.shieldT -= DT;
+  if (e.rollT > 0 && (e.rollT -= DT) <= 0) { e.item = e.pending; e.itemN = e.item === 'triple' ? 3 : 1; if (e === S.player) beep(1320, 0.12, 'square', 0.06); }
+  if (!e.item || S.phase !== 'race' || e.finished || e.spinT > 0) return;
+  let use = false;
+  if (e === S.player && !e.ai) { const kk = !!(keys.KeyE || keys.ControlLeft || keys.ControlRight); use = kk && !e.itemKey; e.itemKey = kk; }
+  else { e.aiItemT -= DT; if (e.aiItemT <= 0) use = aiWantsItem(e); }
+  if (use) useItem(e);
+}
+function itemsTick() {
+  const P = S.player;
+  for (const b of IT.boxes) {
+    if (b.t > 0) { b.t -= DT; continue; }
+    for (const e of S.ents) {
+      if (e.finished || e.z > 60 || Math.abs(e.d - b.d) > 50 || Math.abs(wrapDs(e.s - b.s)) > 50) continue;
+      b.t = 2.5;
+      if (!e.item && !(e.rollT > 0)) { e.pending = rollItem(e); e.rollT = e === P ? 1.0 : 0.6; e.aiItemT = 1 + Math.random() * 3; if (e === P) beep(660, 0.08, 'square', 0.05); }
+      break;
+    }
+  }
+  for (let i = IT.slicks.length - 1; i >= 0; i--) {
+    const sl = IT.slicks[i];
+    sl.t -= DT; sl.age += DT;
+    let gone = sl.t <= 0;
+    if (!gone) for (const e of S.ents) {
+      if (e.z > 5 || (e === sl.owner && sl.age < 1)) continue;
+      if (Math.abs(e.d - sl.d) < 42 && Math.abs(wrapDs(e.s - sl.s)) < 42) { hitEntity(e, sl.owner); gone = true; break; }
+    }
+    if (gone) IT.slicks.splice(i, 1);
+  }
+  for (let i = IT.zaps.length - 1; i >= 0; i--) {
+    const zp = IT.zaps[i], o = zp.tgt, ds = wrapDs(o.s - zp.s), dd = o.d - zp.d, dist = Math.hypot(ds, dd) || 1;
+    zp.t -= DT;
+    const st = Math.min(dist, 1700 * DT);
+    zp.s += ds / dist * st; zp.d += dd / dist * st;
+    if (dist < 40) { hitEntity(o, zp.owner); IT.zaps.splice(i, 1); }
+    else if (zp.t <= 0) IT.zaps.splice(i, 1);
+  }
+}
+
+// ---------------------------------------------------------------- geluid (uit komeet.html) en muziek
+let AC = null, osc1, osc2, filt, engGain, masterGain, sfxGain, voiceGain, musicGain, musicFilt, delayNode, noiseBuf;
+// Volume per kanaal (0 tot 1), wordt bewaard tussen sessies.
+const VOL_KEY = 'comet.volume.v1';
+const vol = { sfx: 0.8, music: 0.8, voice: 0.8 };
+try {
+  const v = JSON.parse(localStorage.getItem(VOL_KEY));
+  for (const k in vol) if (v && typeof v[k] === 'number') vol[k] = Math.max(0, Math.min(1, v[k]));
+} catch (e) {}
+let muted = false, musicOn = true;
+const MUSIC = { theme: 0, step: 0, next: 0, intensity: 0, fast: false };
+function initAudio() {
+  if (AC) { AC.resume(); return; }
+  try {
+    AC = new (window.AudioContext || window.webkitAudioContext)();
+    masterGain = AC.createGain(); masterGain.gain.value = 0.6; masterGain.connect(AC.destination);
+    sfxGain = AC.createGain(); sfxGain.gain.value = vol.sfx / 0.8; sfxGain.connect(masterGain);
+    voiceGain = AC.createGain(); voiceGain.gain.value = vol.voice / 0.8; voiceGain.connect(masterGain);
+    filt = AC.createBiquadFilter(); filt.type = 'lowpass'; filt.frequency.value = 400; filt.Q.value = 4;
+    engGain = AC.createGain(); engGain.gain.value = 0;
+    osc1 = AC.createOscillator(); osc1.type = 'sawtooth';
+    osc2 = AC.createOscillator(); osc2.type = 'square';
+    osc1.connect(filt); osc2.connect(filt); filt.connect(engGain); engGain.connect(sfxGain);
+    osc1.start(); osc2.start();
+    musicGain = AC.createGain(); musicGain.gain.value = 0.5;
+    musicFilt = AC.createBiquadFilter(); musicFilt.type = 'lowpass'; musicFilt.frequency.value = 2400;
+    musicFilt.connect(musicGain); musicGain.connect(masterGain);
+    delayNode = AC.createDelay(1); delayNode.delayTime.value = 0.36;
+    const fb = AC.createGain(); fb.gain.value = 0.34;
+    delayNode.connect(fb); fb.connect(delayNode); delayNode.connect(musicFilt);
+    noiseBuf = AC.createBuffer(1, AC.sampleRate * 0.5, AC.sampleRate);
+    const nd = noiseBuf.getChannelData(0);
+    for (let i = 0; i < nd.length; i++) nd[i] = Math.random() * 2 - 1;
+    MUSIC.next = AC.currentTime + 0.1;
+  } catch (e) { AC = null; }
+}
+function beep(freq, dur, type, vol) {
+  if (!AC) return;
+  const o = AC.createOscillator(), g = AC.createGain();
+  o.type = type || 'square'; o.frequency.value = freq;
+  g.gain.setValueAtTime(vol || 0.12, AC.currentTime);
+  g.gain.exponentialRampToValueAtTime(0.001, AC.currentTime + dur);
+  o.connect(g); g.connect(sfxGain); o.start(); o.stop(AC.currentTime + dur);
+}
+function thud(strength) {
+  if (!AC) return;
+  const o = AC.createOscillator(), g = AC.createGain();
+  o.type = 'sawtooth';
+  o.frequency.setValueAtTime(160, AC.currentTime);
+  o.frequency.exponentialRampToValueAtTime(40, AC.currentTime + 0.18);
+  g.gain.setValueAtTime(0.08 + 0.2 * strength, AC.currentTime);
+  g.gain.exponentialRampToValueAtTime(0.001, AC.currentTime + 0.2);
+  o.connect(g); g.connect(sfxGain); o.start(); o.stop(AC.currentTime + 0.22);
+}
+function whoosh() {
+  if (!AC) return;
+  const s = AC.createBufferSource(), f = AC.createBiquadFilter(), g = AC.createGain();
+  s.buffer = noiseBuf; f.type = 'bandpass'; f.Q.value = 1.5;
+  f.frequency.setValueAtTime(400, AC.currentTime); f.frequency.exponentialRampToValueAtTime(2600, AC.currentTime + 0.35);
+  g.gain.setValueAtTime(0.12, AC.currentTime); g.gain.exponentialRampToValueAtTime(0.001, AC.currentTime + 0.45);
+  s.connect(f); f.connect(g); g.connect(sfxGain); s.start(); s.stop(AC.currentTime + 0.5);
+}
+// motorgeluid (zoals updateAudio in komeet.html, zonder de ingebouwde chiptune: de eigen nummers spelen)
+function engineSync(speed, throttle, boosting, active) {
+  if (!AC) return;
+  const t = AC.currentTime;
+  masterGain.gain.setTargetAtTime(muted ? 0 : 0.6, t, 0.03);
+  const f = 52 + speed * 0.13;
+  osc1.frequency.setTargetAtTime(f, t, 0.04);
+  osc2.frequency.setTargetAtTime(f * 0.5 + 1.5, t, 0.04);
+  filt.frequency.setTargetAtTime(350 + speed * 1.6 + (boosting ? 900 : 0), t, 0.05);
+  engGain.gain.setTargetAtTime(active ? 0.03 + 0.035 * throttle + (boosting ? 0.025 : 0) : 0, t, 0.08);
+  musicGain.gain.setTargetAtTime(0, t, 0.2);
+}
+function splash() {
+  if (!AC) return;
+  const sb = AC.createBufferSource(), f = AC.createBiquadFilter(), g = AC.createGain();
+  sb.buffer = noiseBuf; f.type = 'lowpass'; f.frequency.setValueAtTime(1800, AC.currentTime); f.frequency.exponentialRampToValueAtTime(200, AC.currentTime + 0.5);
+  g.gain.setValueAtTime(0.25, AC.currentTime); g.gain.exponentialRampToValueAtTime(0.001, AC.currentTime + 0.5);
+  sb.connect(f); f.connect(g); g.connect(sfxGain); sb.start(); sb.stop(AC.currentTime + 0.5);
+}
+// geluid bij wat het eigen schip overkomt
+function soundEvents() {
+  const ev = S.player.ev;
+  if (ev.wall) thud(0.35);
+  if (ev.jump) whoosh();
+  if (ev.land) thud(0.25);
+  if (ev.pad) { beep(660, 0.12, 'sawtooth', 0.05); beep(990, 0.18, 'sawtooth', 0.04); }
+  if (ev.drift) beep([0, 700, 900, 1200][ev.drift], 0.15, 'square', 0.06);
+  if (ev.splash || ev.fall) splash();
+  if (ev.bump) thud(0.15);
+  if (S.player.finished && !S.player.fanfare) { S.player.fanfare = 1; [523, 659, 784, 1047].forEach((f, i) => setTimeout(() => beep(f, 0.25, 'square', 0.07), i * 140)); }
+}
+const SONG_DIR = '';
+const SONGS = {
+  // 18 plekken.
+  // Laat je er een leeg (''), dan wordt het nummer achter "anders:" gebruikt.
+  title: '04 So Low.mp3',                       // 1  titelscherm
+  menu: '03 Smoothy Smooth.mp3',                // 2  keuzemenu's            (anders: title)
+  cups: [
+    ['The Grande Finale.wav', 'Funky Dealer.wav', '01 A BIT Late to the Party.mp3'],                         // 3-5   Coast Cup:  Boulevard, Harbour Loop, Pier
+    ['Far A Day.wav', '10 Marching Trees in the Forest Army.mp3', '06 No Fear, No Regrets.mp3'],             // 6-8   Sakura Cup: Blossom Lane, Koi Garden, Pagoda Pass
+    ['04 Flow.mp3', '01 Pure Anger.mp3', '05 Belly of the Monster.mp3'],                                     // 9-11  Castle Cup: Lava Moat, Dungeon Run, Tyrant Keep
+    ['02 Running Sideways.mp3', 'Action.wav', '04 Nintendo Galaxy S4.mp3']                                   // 12-14 Star Cup:   Meteor, Nebula, Supernova
+  ],
+  raceResult: '09 Intermission.mp3',            // 15 uitslag van een cuprace (plek 1 t/m 3) en eindstand plek 2 of 3
+  ttResult: '09 Intermission.mp3',              // 16 uitslag van een tijdrit met medaille of record   (anders: raceResult)
+  champion: 'Go Funk Yourself.wav',             // 17 cup gewonnen                                     (anders: raceResult)
+  defeat: 'Ending.wav'                          // 18 slechte uitslag: plek 4 t/m 6, of tijdrit zonder medaille en zonder record   (anders: raceResult)
+};
+// Welk nummer hoort bij dit moment? Geeft de kandidaten in volgorde van voorkeur.
+const SONG_DB = { '04 So Low.mp3': -16.6, '03 Smoothy Smooth.mp3': -17.6, 'The Grande Finale.wav': -18.2, 'Funky Dealer.wav': -19,
+  '01 A BIT Late to the Party.mp3': -17.3, 'Far A Day.wav': -21.1, '10 Marching Trees in the Forest Army.mp3': -18.6,
+  '06 No Fear, No Regrets.mp3': -20.6, '04 Flow.mp3': -19.8, '01 Pure Anger.mp3': -19.5, '05 Belly of the Monster.mp3': -14.9,
+  '02 Running Sideways.mp3': -15.8, 'Action.wav': -21.3, '04 Nintendo Galaxy S4.mp3': -19.1, '09 Intermission.mp3': -17.8,
+  'Go Funk Yourself.wav': -15.3, 'Ending.wav': -23.2 };
+const SONG_TARGET = -27;
+const songBank = {};
+let fileMusic = false, songTitle = '';
+function getSong(name) {
+  if (!songBank[name]) {
+    const el = new Audio();
+    const o = { el, ok: null, name, gain: Math.min(1, Math.pow(10, (SONG_TARGET - (SONG_DB[name] == null ? -18 : SONG_DB[name])) / 20)), title: name.replace(/^\d+\s+/, '').replace(/\.[a-z0-9]+$/i, '') };
+    el.loop = true; el.preload = 'auto'; el.volume = 0;
+    el.addEventListener('canplay', () => { if (o.ok === null) o.ok = true; });
+    el.addEventListener('error', () => { o.ok = false; });
+    el.src = SONG_DIR + encodeURIComponent(name);
+    songBank[name] = o;
+  }
+  return songBank[name];
+}
+function musicSync(dt) {
+  if (!AC) return;                                  // geluid mag pas na de eerste toetsdruk
+  // eerste kandidaat die bestaat; zolang die nog laadt, speelt de ingebouwde muziek
+  let target = null;
+  for (const name of songsWanted()) {
+    if (!name) continue;
+    const w = getSong(name);
+    if (w.ok === false) continue;
+    if (w.ok === true) target = w;
+    break;
+  }
+  for (const k in songBank) {
+    const o = songBank[k], el = o.el;
+    if (o.ok !== true) continue;
+    const goal = o === target && musicOn && !muted ? vol.music * o.gain : 0;
+    const v = el.volume + Math.max(-dt * 1.6, Math.min(dt * 1.6, goal - el.volume));
+    el.volume = Math.max(0, Math.min(1, v));
+    if (o === target) {
+      el.playbackRate = 1;
+      if (el.paused) { el.currentTime = 0; el.play().catch(() => {}); }
+    } else if (el.volume <= 0.001 && !el.paused) el.pause();
+  }
+  fileMusic = !!target && !target.el.paused;
+  songTitle = fileMusic ? target.title : '';
+}
+// welk nummer nu: per cup en baan zoals in komeet.html; de testbaan krijgt het titelnummer
+function songsWanted() {
+  if (S.phase === 'done') return [placeOf(S.player) <= 3 ? SONGS.raceResult : SONGS.defeat, SONGS.raceResult];
+  if (!TR.def.pts) return [SONGS.title];
+  return [SONGS.cups[TR.def.cup % SONGS.cups.length][(TR.idx - 1) % 3]];
+}
+
 function placeOf(e) {
   const fi = S.finishOrder.indexOf(e);
   if (fi >= 0) return fi + 1;
@@ -783,6 +1410,43 @@ function buildRoadMesh() {
       pushQuad(out, add(pos(gi, d0, u0), scale(T[gi], 6)), add(pos(gi, d1, u0), scale(T[gi], 6)), add(pos(gi, d1, u1), scale(T[gi], 6)), add(pos(gi, d0, u1), scale(T[gi], 6)), lit(col, T[gi], 0.85));
     }
   }
+  // gevaren op het wegdek: een strook van s0 tot s1 en d0 tot d1, iets boven de weg (up), met hoogte die mag oplopen
+  const wpt = (sv, d, up) => { at(sv, Q3); return [Q3.px + Q3.rx * d + Q3.ux * up, Q3.py + Q3.ry * d + Q3.uy * up, Q3.pz + Q3.rz * d + Q3.uz * up]; };
+  const strip = (s0, s1, d0, d1, col, up0 = 0.8, up1 = up0, stepL = 32, alt) => {
+    const n = Math.max(1, Math.ceil((s1 - s0) / stepL));
+    for (let k = 0; k < n; k++) {
+      const a = s0 + (s1 - s0) * k / n, b = s0 + (s1 - s0) * (k + 1) / n, ua = up0 + (up1 - up0) * k / n, ub = up0 + (up1 - up0) * (k + 1) / n;
+      at(a, Q3);
+      pushQuad(out, wpt(a, d0, ua), wpt(b, d0, ub), wpt(b, d1, ub), wpt(a, d1, ua), lit(alt && (k & 1) ? alt : col, [Q3.ux, Q3.uy, Q3.uz]));
+    }
+  };
+  const HC = { ice: hex('#bfe8ff'), ice2: hex('#a6dcf8'), mud: hex('#7a5230'), mud2: hex('#6a4626'), lava: hex('#ff5a1a'), lava2: hex('#ffb030'),
+    pad: hex('#30e0ff'), pad2: hex('#ffffff'), bump: hex('#ff8a2a'), bump2: hex('#20202c') };
+  for (const hz of TR.haz || []) {
+    if (hz.type === 'ice') strip(hz.s0, hz.s1, -HW, HW, HC.ice, 0.6, 0.6, 40, HC.ice2);
+    else if (hz.type === 'slow') strip(hz.s0, hz.s1, hz.d0, hz.d1, HC.mud, 0.6, 0.6, 40, HC.mud2);
+    else if (hz.type === 'gap') strip(hz.s0, hz.s1, -HW, HW, HC.lava, 0.7, 0.7, 30, HC.lava2);
+    else if (hz.type === 'jump') {
+      // schans: oplopende geel-zwarte wig, eindigt bij s1
+      for (let c = 0; c < 6; c++) { const d0 = -HW + c * HW / 3; strip(hz.s0 - 60, hz.s1, d0, d0 + HW / 3, (c & 1) ? COL.wallTop : COL.chevB, 0.8, hz.launch ? 34 : 24, 25); }
+      for (const sd of [-1, 1]) strip(hz.s1 - 0.5, hz.s1 + 0.5, sd * HW, sd * HW, COL.chevB);
+      const t0 = wpt(hz.s1, -HW, hz.launch ? 34 : 24), t1 = wpt(hz.s1, HW, hz.launch ? 34 : 24), b0 = wpt(hz.s1, -HW, 0), b1 = wpt(hz.s1, HW, 0);
+      pushQuad(out, b0, b1, t1, t0, lit(COL.chevB, [0, 1, 0]));
+    } else if (hz.type === 'bump') {
+      const m = (hz.s0 + hz.s1) / 2;
+      strip(hz.s0 - 10, m, -HW, HW, HC.bump, 0.8, 12, 12, HC.bump2);
+      strip(m, hz.s1 + 10, -HW, HW, HC.bump, 12, 0.8, 12, HC.bump2);
+    }
+  }
+  for (const p of TR.pads || []) {
+    // boostpad: drie pijlen op een blauwe plaat
+    strip(p.s - PAD_HL, p.s + PAD_HL, p.d - PAD_HW, p.d + PAD_HW, HC.pad, 0.7);
+    for (let k = 0; k < 3; k++) {
+      const s0 = p.s - PAD_HL + 20 + k * 48, tip = wpt(s0 + 30, p.d, 1.2), l = wpt(s0, p.d - PAD_HW * 0.7, 1.2), r = wpt(s0, p.d + PAD_HW * 0.7, 1.2), m = wpt(s0 + 12, p.d, 1.2);
+      at(s0, Q3); const n = [Q3.ux, Q3.uy, Q3.uz];
+      pushTri(out, l, tip, m, lit(HC.pad2, n)); pushTri(out, m, tip, r, lit(HC.pad2, n));
+    }
+  }
   roadMesh = meshVAO(out, PM);
 }
 const groundMesh = () => meshVAO([-30000, GROUND_Y, -30000, 0, 0, 0, 30000, GROUND_Y, -30000, 0, 0, 0, 30000, GROUND_Y, 30000, 0, 0, 0, -30000, GROUND_Y, -30000, 0, 0, 0, 30000, GROUND_Y, 30000, 0, 0, 0, -30000, GROUND_Y, 30000, 0, 0, 0], PG);
@@ -826,6 +1490,7 @@ function texFrom(src, wrap) {
   const img = new Image();
   const info = { tex: t, w: 1, h: 1, ready: false, img };
   img.onload = () => {
+    if (info.dead) return;
     gl.bindTexture(gl.TEXTURE_2D, t);
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, img);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
@@ -865,13 +1530,71 @@ function buildDecor() {
     return true;
   };
   rng = 7 + TR.idx * 131;
+  // decor volgens de indeling uit komeet.html: rijen, herkenningspunten en publiek, op de helling of de grond
+  const di = TR.idx - 1, base = HW + WALL_T + 8;
+  const dressed = di >= 0 && DRESS[di];
+  if (dressed) {
+    const L = TR.len, ownWin = Math.round(900 / TR.step);
+    const clearOf = (x, z, own, need) => {
+      for (let j = 0; j < N; j += 3) {
+        let dj = Math.abs(j - own); dj = Math.min(dj, N - dj);
+        if (dj < ownWin) continue;
+        const dx = P[j * 3] - x, dz = P[j * 3 + 2] - z, r = need + Math.max(0, P[j * 3 + 1] - GROUND_Y) * 1.1;
+        if (dx * dx + dz * dz < r * r) return false;
+      }
+      return true;
+    };
+    const put = (sv, k, side, off) => {
+      if (!ART.obj[k]) return false;
+      const i = Math.floor((((sv % L) + L) % L) / TR.step) % N;
+      const hr = norm([R[i][0], 0, R[i][2]]);
+      const x = P[i * 3] + hr[0] * off * side, z = P[i * 3 + 2] + hr[2] * off * side;
+      if (!clearOf(x, z, i, base + 30)) return false;
+      // op de helling: de rand van de weg min de afstand tot de rand gedeeld door de helling
+      const edgeY = P[i * 3 + 1] + R[i][1] * side * (HW + WALL_T) - ROAD_T;
+      const y = isBridge[i] ? GROUND_Y : Math.max(GROUND_Y, edgeY - Math.max(0, off - HW - WALL_T) / 1.1);
+      const oh = OBJ_H[k] || 200;   // [hoogte, zweefhoogte] voor vliegende dingen
+      add(k, x, y + (Array.isArray(oh) ? oh[1] : 0), z, Array.isArray(oh) ? oh[0] : oh);
+      return true;
+    };
+    const sideOf = (sv, side) => {
+      if (side === 'L') return -1;
+      if (side === 'R') return 1;
+      const inner = TR.kh[Math.floor((((sv % L) + L) % L) / TR.step) % N] >= 0 ? 1 : -1;
+      return side === 'in' ? inner : -inner;
+    };
+    for (const op of DRESS[di]) {
+      if (op[0] === 'row') {
+        for (let sv = op[1] * L; sv < op[2] * L; sv += op[4]) {
+          if (op[5] === 'both') { put(sv, op[3], -1, base + op[6]); put(sv, op[3], 1, base + op[6]); }
+          else put(sv, op[3], sideOf(sv, op[5]), base + op[6]);
+        }
+      } else if (op[0] === 'mark') {
+        const sd = sideOf(op[1] * L, op[3]);
+        if (!put(op[1] * L, op[2], sd, base + op[4])) put(op[1] * L, op[2], -sd, base + op[4]);
+      } else if (op[0] === 'crowd') {
+        let n = 0;
+        for (let sv = op[1] * L; sv < op[2] * L; sv += op[4], n++) {
+          const k = op[3][(n * 3 + (n >> 2)) % op[3].length], off = base + op[6] + (n * 7 % 3) * 12;
+          if (op[5] === 'both') { put(sv, k, -1, off); put(sv + op[4] * 0.4, op[3][(n + 1) % op[3].length], 1, off); }
+          else put(sv, k, sideOf(sv, op[5]), off);
+        }
+      }
+    }
+    // pijlborden aan de buitenkant van scherpe bochten
+    const cv = di === 2 ? 8 : TR.def.cup;
+    for (let sv = 0; sv < L; sv += 130) {
+      const k = TR.kh[Math.floor(sv / TR.step) % N];
+      if (Math.abs(k) > 1 / 620) put(sv, (k > 0 ? 'chevR' : 'chevL') + cv, k > 0 ? -1 : 1, base + 24);
+    }
+  }
   const KINDS = (DECOR_BY_CUP[TR.def.cup] || DECOR_KINDS).filter(k => ART.obj[k[0]]);
   const tot = KINDS.reduce((a, k) => a + k[2], 0);
   for (let i = 0; i < N; i += 7) {
     for (const sd of [-1, 1]) {
-      if (rnd() < 0.35) continue;
+      if (rnd() < (dressed ? 0.75 : 0.35)) continue;
       const h = Math.max(0, P[i * 3 + 1]);
-      const off = HW + WALL_T + h * 1.1 + 60 + rnd() * rnd() * 900;
+      const off = HW + WALL_T + h * 1.1 + (dressed ? 380 : 60) + rnd() * rnd() * 900;
       const hr = norm([R[i][0], 0, R[i][2]]);
       const x = P[i * 3] + hr[0] * off * sd, z = P[i * 3 + 2] + hr[2] * off * sd;
       if (!freeAt(x, z, 40)) continue;
@@ -881,7 +1604,7 @@ function buildDecor() {
     }
   }
   // publiek bij de start, en een paar grote herkenningspunten
-  for (let i = 4; i < 80; i += 5) for (const sd of [-1, 1]) {
+  if (!dressed) for (let i = 4; i < 80; i += 5) for (const sd of [-1, 1]) {
     const h = Math.max(0, P[i * 3 + 1]), off = HW + WALL_T + h * 1.1 + 70;
     const hr = norm([R[i][0], 0, R[i][2]]);
     const x = P[i * 3] + hr[0] * off * sd, z = P[i * 3 + 2] + hr[2] * off * sd;
@@ -1042,6 +1765,7 @@ function render(dt) {
     gl.bindVertexArray(sh.vao); gl.drawArrays(gl.TRIANGLES, 0, sh.count);
     gl.disable(gl.POLYGON_OFFSET_FILL);
   }
+  drawDynamic();
   // decor
   gl.useProgram(PB.p);
   gl.uniformMatrix4fv(PB.u.uVP, false, VP);
@@ -1056,6 +1780,73 @@ function render(dt) {
   }
   gl.bindVertexArray(null);
   drawHud();
+}
+
+// ---------------------------------------------------------------- bewegende dingen op de baan
+const dynVAO = (() => {
+  const vao = gl.createVertexArray(); gl.bindVertexArray(vao);
+  const buf = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+  gl.bufferData(gl.ARRAY_BUFFER, 4 * 6 * 60000, gl.DYNAMIC_DRAW);
+  const lp = gl.getAttribLocation(PM.p, 'aPos'), lc = gl.getAttribLocation(PM.p, 'aCol');
+  gl.enableVertexAttribArray(lp); gl.vertexAttribPointer(lp, 3, gl.FLOAT, false, 24, 0);
+  gl.enableVertexAttribArray(lc); gl.vertexAttribPointer(lc, 3, gl.FLOAT, false, 24, 12);
+  gl.bindVertexArray(null);
+  return { vao, buf };
+})();
+const DQ = {};
+function drawDynamic() {
+  const out = [], t = S.raceTime;
+  const wp = (sv, d, up) => { at(sv, DQ); return [DQ.px + DQ.rx * d + DQ.ux * up, DQ.py + DQ.ry * d + DQ.uy * up, DQ.pz + DQ.rz * d + DQ.uz * up]; };
+  const up = sv => { at(sv, DQ); return [DQ.ux, DQ.uy, DQ.uz]; };
+  // golven: een schuimende band die dwars over de weg spoelt
+  for (const hz of TR.haz || []) {
+    if (hz.type !== 'wave') continue;
+    const c = waveAt(hz, HW, t);
+    if (c === null) continue;
+    const d0 = clamp(c - WAVE_HW, -HW, HW), d1 = clamp(c + WAVE_HW, -HW, HW);
+    if (d1 <= d0) continue;
+    for (let sv = hz.s0; sv < hz.s1; sv += 35) {
+      const n = up(sv);
+      pushQuad(out, wp(sv, d0, 2), wp(sv + 35, d0, 2), wp(sv + 35, d1, 2), wp(sv, d1, 2), lit(hex('#3fb8e8'), n));
+      const f0 = hz.dir > 0 ? d1 - 14 : d0, f1 = hz.dir > 0 ? d1 : d0 + 14;
+      pushQuad(out, wp(sv, f0, 3), wp(sv + 35, f0, 3), wp(sv + 35, f1, 3), wp(sv, f1, 3), lit(hex('#f0fbff'), n));
+    }
+  }
+  // kubus rond een punt, in de assen van de weg
+  const cube = (sv, d, h, r, rot, cols) => {
+    at(sv, DQ);
+    const T = [DQ.tx, DQ.ty, DQ.tz], R = [DQ.rx, DQ.ry, DQ.rz], U = [DQ.ux, DQ.uy, DQ.uz], c = wp(sv, d, h);
+    const cr = Math.cos(rot), srt = Math.sin(rot), ax = add(scale(T, cr), scale(R, srt)), ay = add(scale(T, -srt), scale(R, cr));
+    const P = (x, y, z) => add(add(add(c, scale(ax, x * r)), scale(ay, y * r)), scale(U, z * r));
+    const F = [[[1, -1, -1], [1, 1, -1], [1, 1, 1], [1, -1, 1]], [[-1, -1, -1], [-1, 1, -1], [-1, 1, 1], [-1, -1, 1]], [[-1, 1, -1], [1, 1, -1], [1, 1, 1], [-1, 1, 1]],
+      [[-1, -1, -1], [1, -1, -1], [1, -1, 1], [-1, -1, 1]], [[-1, -1, 1], [1, -1, 1], [1, 1, 1], [-1, 1, 1]], [[-1, -1, -1], [1, -1, -1], [1, 1, -1], [-1, 1, -1]]];
+    F.forEach((q, i) => pushQuad(out, P(...q[0]), P(...q[1]), P(...q[2]), P(...q[3]), cols[i % cols.length]));
+  };
+  const HUES = ['#ff4f8a', '#ffb833', '#7dffb0', '#4fc3ff', '#c070ff'].map(hex);
+  for (const b of IT.boxes) {
+    if (b.t > 0) continue;
+    const h0 = HUES[Math.floor(flick * 4 + b.d) % 5 + 0 | 0] || HUES[0], h1 = h0.map(v => v * 0.75);
+    cube(b.s, b.d, 26 + Math.sin(flick * 3 + b.d) * 4, 16, flick * 1.6 + b.d, [h0, h1, [1, 1, 1], h1, h0, [1, 1, 1]]);
+  }
+  for (const sl of IT.slicks) {
+    const n = up(sl.s), ring = (r, col, h) => { for (let i = 0; i < 10; i++) { const a0 = i / 10 * 6.283, a1 = (i + 1) / 10 * 6.283; pushTri(out, wp(sl.s, sl.d, h), wp(sl.s + Math.cos(a0) * r, sl.d + Math.sin(a0) * r, h), wp(sl.s + Math.cos(a1) * r, sl.d + Math.sin(a1) * r, h), lit(col, n)); } };
+    ring(44, hex('#1e0b30'), 1.5); ring(30, hex('#5a2a90'), 2); ring(12, hex('#c070ff'), 2.5);
+  }
+  for (const zp of IT.zaps) cube(zp.s, zp.d, 22, 9, flick * 8, [hex('#ffb030'), hex('#fff6c0')]);
+  for (const e of S.ents) {
+    if (!(e.shieldT > 0) || (e.shieldT < 2 && (flick * 8) % 1 < 0.5)) continue;
+    const n = up(e.s);
+    for (let i = 0; i < 16; i++) {
+      const a0 = i / 16 * 6.283, a1 = (i + 1) / 16 * 6.283, r = 46;
+      const p0 = wp(e.s + Math.cos(a0) * r, e.d + Math.sin(a0) * r, e.z + 4), p1 = wp(e.s + Math.cos(a1) * r, e.d + Math.sin(a1) * r, e.z + 4);
+      pushQuad(out, p0, p1, add(p1, scale(n, 10)), add(p0, scale(n, 10)), lit(hex('#7dffb0'), n));
+    }
+  }
+  if (!out.length) return;
+  gl.uniformMatrix4fv(PM.u.uM, false, I4);
+  gl.bindBuffer(gl.ARRAY_BUFFER, dynVAO.buf);
+  gl.bufferSubData(gl.ARRAY_BUFFER, 0, new Float32Array(out.slice(0, 6 * 60000)));
+  gl.bindVertexArray(dynVAO.vao); gl.drawArrays(gl.TRIANGLES, 0, Math.min(60000, out.length / 6));
 }
 
 // ---------------------------------------------------------------- HUD met een eigen pixellettertype (3x5)
@@ -1102,6 +1893,17 @@ function drawHud() {
   if (p.driftT > 0) text('DRIFT' + '!!!'.slice(0, lv), 100, H - 12, 1, ['#fff', '#7ff', '#ff7', '#f8a'][lv]);
   if (p.slip && Math.abs(TR.bank[at(p.s, Q2).i]) > 40) text('TOO SLOW - SLIDING!', W / 2, H - 40, 1, '#f86', 'c');
   if (p.splashT > 0) text('SPLASH! TOO SLOW FOR THE JUMP', W / 2, H / 2 - 20, 2, '#7ef', 'c');
+  // itemvak bovenaan in het midden
+  if (S.phase !== 'count') {
+    hx.fillStyle = '#14101e'; hx.fillRect(W / 2 - 40, 18, 80, 16);
+    let name = '', col = '#556';
+    if (p.rollT > 0) { const ks = Object.keys(ITEMS); const k = ks[Math.floor(flick * 14) % ks.length]; name = ITEMS[k].name; col = '#889'; }
+    else if (p.item) { name = ITEMS[p.item].name + (p.itemN > 1 ? ' X' + p.itemN : ''); col = ITEMS[p.item].col; }
+    text(name || 'NO ITEM', W / 2, 23, 1, name ? col : '#445', 'c');
+    if (p.item && !p.rollT) text('E: USE', W / 2, 37, 1, '#cfe', 'c');
+  }
+  if (msg && S.raceTime < msg.until) text(msg.t, W / 2, H / 2 - 60, 2, msg.col, 'c');
+  if (p.ev && p.ev.fall) showMsg('BURNED! TOO SLOW FOR THE JUMP', '#ff8a4a', 1.4);
   if (p.ai) text('AUTOPILOT (P)', W / 2, 8, 1, '#7ff', 'c');
   // kaartje
   if (!mapPts) {
@@ -1123,7 +1925,7 @@ function drawHud() {
     const n = 3 - Math.floor(S.t);
     text(n, W / 2, H / 2 - 30, 6, '#ffd23a', 'c');
     text('ARROWS / WASD: DRIVE   SPACE: BOOST   SHIFT: DRIFT', W / 2, H - 50, 1, '#fff', 'c');
-    text('C: CHANGE SHIP   N / B: NEXT / PREVIOUS TRACK   R: RESTART   P: AUTOPILOT', W / 2, H - 42, 1, '#cfe', 'c');
+    text('E: ITEM   C: SHIP   N / B: TRACK   R: RESTART   M: MUSIC   P: AUTOPILOT', W / 2, H - 42, 1, '#cfe', 'c');
     text(TR.def.name, W / 2, H / 2 + 24, 2, '#fff', 'c');
   } else if (S.phase === 'race' && S.t < 1) text('GO!', W / 2, H / 2 - 30, 6, '#7f7', 'c');
   if (S.phase === 'race' && p.lastLap && p.lapT < 2.5) text('LAP ' + fmt(p.lastLap), W / 2, 40, 2, '#fff', 'c');
@@ -1145,9 +1947,11 @@ function loadTrack(idx) {
   for (let i = 0; i < TR.N; i++) rr = Math.max(rr, Math.hypot(TR.P[i * 3] - cx, TR.P[i * 3 + 2] - cz));
   TR.center = [cx, cz, rr + 1400];
   if (roadMesh) gl.deleteVertexArray(roadMesh.vao);
-  for (const g of decor) { if (g.vao) gl.deleteVertexArray(g.vao); for (const t of g.tex) gl.deleteTexture(t.tex); }
-  if (skyTex) gl.deleteTexture(skyTex.tex);
+  for (const g of decor) { if (g.vao) gl.deleteVertexArray(g.vao); for (const t of g.tex) { t.dead = true; gl.deleteTexture(t.tex); } }
+  if (skyTex) { skyTex.dead = true; gl.deleteTexture(skyTex.tex); }
   decor = []; mapPts = null;
+  TR.haz = []; TR.pads = [];
+  if (TR.def.pts) placeHaz3d();
   buildRoadMesh(); buildDecor(); buildSky();
   startRace();
 }
@@ -1160,6 +1964,8 @@ function frame(now) {
   accT += dt;
   while (accT >= DT) { if (!S.paused) tick(); accT -= DT; }
   render(dt);
+  musicSync(dt);
+  engineSync(S.player.speed, S.player.in.acc ? 1 : 0, S.player.boosting, S.phase !== 'done');
   requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);
