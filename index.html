@@ -1757,7 +1757,7 @@ function buildMaps(tr, C) {
       else if (hz.type === 'slow') haz[idx * 4 + 1] = Math.max(haz[idx * 4 + 1], cl(Math.min(along, d - hz.d0, hz.d1 + 30 - d)));
       else if (hz.type === 'bank') {
         if (d * hz.side > 0) haz[idx * 4 + 2] = Math.max(haz[idx * 4 + 2], 40 * Math.max(0, Math.min(1, (sv - hz.s0) / C.BANK_T, (hz.s1 - sv) / C.BANK_T)));
-      } else if (hz.type === 'jump' || hz.type === 'bump') haz[idx * 4 + 3] = Math.max(haz[idx * 4 + 3], cl(Math.min(along, tr.hw + 30 - ad)));   // golven en gaten tekenen we apart
+      } else if (hz.type === 'jump') haz[idx * 4 + 3] = Math.max(haz[idx * 4 + 3], cl(Math.min(along, tr.hw + 30 - ad)));   // golven en gaten tekenen we apart
     }
   }
   // omzetten naar 16-bits floats, zodat het uploaden naar de videokaart snel gaat
@@ -2248,6 +2248,8 @@ function startRace(trackIdx, mode, quick) {
     placeOnGrid(p, 90, 0);
   }
   G.ticks = 0; G.laps = []; G.lapStart = 0; G.ghostRec = [];
+  itemsReset();
+  roamersReset();
   G.shake = G.flash = 0; G.msgT = 0; G.msgQueue = null; G.wallCool = 0;
   G.newRecord = false; G.medal = 0; G.results = null; G.finishT = 0;
   G.raceId = (G.raceId || 0) + 1;
@@ -2437,6 +2439,204 @@ function updateParts(dt) {
 }
 
 // ---------------------------------------------------------------- spelverloop
+// ---------------------------------------------------------------- itemboxen en items
+// Alleen in cups en online (niet in tijdrit). Rij door een itembox en je krijgt een item; wie achteraan rijdt, krijgt betere.
+// Gebruiken met E of Ctrl. Online alleen items die anderen niet raken (TURBO, TRIPLE TURBO, SHIELD), zodat het gelijk blijft.
+const ITEMS = {
+  turbo: { name: 'TURBO', col: '#8fe8ff' }, triple: { name: 'TRIPLE TURBO', col: '#8fe8ff' }, shield: { name: 'SHIELD', col: '#7dffb0' },
+  slick: { name: 'SLICK', col: '#c070ff' }, zap: { name: 'ZAP', col: '#ffd24a' }
+};
+const IT = { boxes: [], slicks: [], zaps: [] };
+const itemsOn = () => G.mode === 'cup' || G.mode === 'online';
+function itemsReset() {
+  IT.boxes.length = IT.slicks.length = IT.zaps.length = 0;
+  for (const e of G.ents) Object.assign(e, { item: null, itemN: 0, rollT: 0, shieldT: 0, spinT: 0, aiItemT: 0, itemKey: false });
+  if (!itemsOn()) return;
+  // vier rijen van vier boxen per ronde, op plekken waar geen gevaar of boostpad ligt
+  const busy = s => {
+    const q = posAt(s);
+    return T.haz.some(h => s > h.s0 - 250 && s < h.s1 + 250) || T.pads.some(p => Math.hypot(p.x - q.x, p.y - q.y) < 320);
+  };
+  for (const f of [0.15, 0.4, 0.65, 0.88]) {
+    let s = f * T.len;
+    for (let k = 0; k < 50 && busy(s); k++) s += 60;
+    if (busy(s) || s > T.len - 500) continue;
+    const q = posAt(s);
+    for (const o of [-0.6, -0.2, 0.2, 0.6]) { const d = o * T.hw; IT.boxes.push({ x: q.x - q.ty * d, y: q.y + q.tx * d, t: 0 }); }
+  }
+}
+function rollItem(e) {
+  const order = liveOrder(), n = order.length, f = n > 1 ? order.indexOf(e) / (n - 1) : 0;
+  let pool = f < 0.25 ? [['slick', 4], ['shield', 3], ['turbo', 3], ['zap', 1]]
+    : f < 0.7 ? [['turbo', 3], ['zap', 3], ['slick', 2], ['shield', 2], ['triple', 1]]
+    : [['triple', 4], ['turbo', 2], ['zap', 3], ['shield', 1]];
+  if (G.mode === 'online') pool = pool.filter(p => p[0] === 'turbo' || p[0] === 'triple' || p[0] === 'shield');
+  let r = Math.random() * pool.reduce((a, p) => a + p[1], 0);
+  for (const [k, w] of pool) if ((r -= w) < 0) return k;
+  return pool[0][0];
+}
+// het doelwit van een ZAP: de rijder vlak voor je (wie voorop rijdt, raakt de nummer twee)
+function zapTarget(e) {
+  const order = liveOrder().filter(o => !o.finished && !o.dnf), i = order.indexOf(e);
+  return i > 0 ? order[i - 1] : order[1] || null;
+}
+function hitEntity(o, by) {
+  if (o.remote || o.finished) return;
+  if (o.shieldT > 0) { o.shieldT = 0; if (o === G.player) beep(330, 0.15, 'square', 0.07); return; }
+  o.spinT = 0.9; o.vx *= 0.35; o.vy *= 0.35; o.padT = 0; o.driftT = 0;
+  if (o === G.player) { showMsg('SPUN OUT!', '', '#ff8a8a', 1.2); G.shake = Math.max(G.shake, 0.5); thud(0.4); }
+  else if (by === G.player) { showMsg('HIT!', '', '#ffd24a', 0.8); beep(1200, 0.1, 'square', 0.06); }
+  if (o.rival != null && Math.random() < 0.6) say(o.rival, 'bump');
+}
+function useItem(e) {
+  const fx = Math.cos(e.th), fy = Math.sin(e.th), k = e.item;
+  if (k === 'turbo' || k === 'triple') {
+    e.padT = Math.max(e.padT, 1.0); e.vx += fx * 240; e.vy += fy * 240;
+    if (e === G.player) beep(880, 0.2, 'sawtooth', 0.06);
+  } else if (k === 'shield') e.shieldT = 8;
+  else if (k === 'slick') IT.slicks.push({ x: e.x - fx * 60, y: e.y - fy * 60, t: 14, age: 0, owner: e });
+  else if (k === 'zap') {
+    const tgt = zapTarget(e);
+    if (tgt) IT.zaps.push({ x: e.x + fx * 30, y: e.y + fy * 30, tgt, t: 3, owner: e });
+    if (e === G.player) beep(1400, 0.15, 'square', 0.06);
+  }
+  if (--e.itemN <= 0) e.item = null;
+}
+function aiWantsItem(e) {
+  const k = e.item;
+  if (k === 'turbo' || k === 'triple') return Math.hypot(e.vx, e.vy) > 400 && Math.abs(e.in.steer) < 0.4;
+  if (k === 'shield') return true;
+  if (k === 'zap') return !!zapTarget(e);
+  if (k === 'slick') return e.aiItemT < -6 || G.ents.some(o => o !== e && e.progress - o.progress > 60 && e.progress - o.progress < 600);
+  return false;
+}
+// per rijder, vlak voor de physics: tollen, schild, de itemroulette en een item gebruiken
+function itemControl(e, inp) {
+  if (e.spinT > 0) { e.spinT -= DT; inp.acc = inp.brk = inp.drift = inp.boost = false; inp.steer = 0; }
+  if (e.shieldT > 0) e.shieldT -= DT;
+  if (e.rollT > 0 && (e.rollT -= DT) <= 0) { e.item = e.pending; e.itemN = e.item === 'triple' ? 3 : 1; if (e === G.player) beep(1320, 0.12, 'square', 0.06); }
+  if (!e.item || G.state !== 'race' || e.finished || e.spinT > 0) return;
+  let use = false;
+  if (e === G.player) { const k = !!(keys.KeyE || keys.ControlLeft || keys.ControlRight); use = k && !e.itemKey && !G.paused; e.itemKey = k; }
+  else if (e.ai) { e.aiItemT -= DT; if (e.aiItemT <= 0) use = aiWantsItem(e); }
+  if (use) useItem(e);
+}
+// na de physics: boxen oppakken, plassen en schoten
+function itemsTick() {
+  if (!itemsOn()) return;
+  const P = G.player;
+  for (const b of IT.boxes) {
+    if (b.t > 0) { b.t -= DT; continue; }
+    for (const e of G.ents) {
+      if (e.remote || e.finished || e.z > 60) continue;
+      if ((e.x - b.x) ** 2 + (e.y - b.y) ** 2 > 50 * 50) continue;
+      b.t = 2.5;
+      for (let i = 0; i < 8; i++) spawn(b.x, b.y, 24, (Math.random() - 0.5) * 300, (Math.random() - 0.5) * 300, 60 + Math.random() * 120, 0.5, 3, '255,230,120', true, 300);
+      if (!e.item && !(e.rollT > 0)) { e.pending = rollItem(e); e.rollT = e === P ? 1.0 : 0.6; e.aiItemT = 1 + Math.random() * 3; if (e === P) beep(660, 0.08, 'square', 0.05); }
+      break;
+    }
+  }
+  for (let i = IT.slicks.length - 1; i >= 0; i--) {
+    const s = IT.slicks[i];
+    s.t -= DT; s.age += DT;
+    let gone = s.t <= 0;
+    if (!gone) for (const e of G.ents) {
+      if (e.remote || e.z > 5 || (e === s.owner && s.age < 1)) continue;
+      if ((e.x - s.x) ** 2 + (e.y - s.y) ** 2 < 42 * 42) { hitEntity(e, s.owner); gone = true; break; }
+    }
+    if (gone) IT.slicks.splice(i, 1);
+  }
+  for (let i = IT.zaps.length - 1; i >= 0; i--) {
+    const z = IT.zaps[i], o = z.tgt, dx = o.x - z.x, dy = o.y - z.y, d = Math.hypot(dx, dy) || 1;
+    z.t -= DT;
+    const st = Math.min(d, 1700 * DT);
+    z.x += dx / d * st; z.y += dy / d * st;
+    if (G.ticks % 2 === 0) spawn(z.x, z.y, 20, 0, 0, 0, 0.3, 3, '255,220,90', true, 0);
+    if (d < 40) { hitEntity(o, z.owner); IT.zaps.splice(i, 1); }
+    else if (z.t <= 0) IT.zaps.splice(i, 1);
+  }
+}
+// tekenen in de wereld: boxen, plassen, schoten en schilden
+function drawItemsWorld() {
+  if (!itemsOn()) return;
+  const sz = z => cam.f / z * H / 2;
+  for (const b of IT.boxes) {
+    if (b.t > 0 || !project(b.x, b.y, 24 + Math.sin(G.time * 3 + b.x) * 3) || pr[2] < 60 || pr[2] > 4500) continue;
+    const r = sz(pr[2]) * 20, cx = pr[0], cy = pr[1], a = G.time * 1.6;
+    const pts = k => { const o = []; for (let i = 0; i < 4; i++) { const t = a + i * Math.PI / 2; o.push(cx + Math.cos(t) * r * k, cy + Math.sin(t) * r * k * 0.9); } return o; };
+    const hue = ['#ff4f8a', '#ffb833', '#7dffb0', '#4fc3ff', '#c070ff'][Math.floor(G.time * 4) % 5];
+    ctx.fillStyle = '#0d0818'; fillPoly(pts(1.18));
+    ctx.fillStyle = hue; fillPoly(pts(1));
+    ctx.fillStyle = 'rgba(255,255,255,0.75)'; fillPoly(pts(0.62));
+    if (r > 5) text('?', cx, cy + r * 0.38, r * 1.1, '#1a1030', 'center', 900);
+  }
+  for (const s of IT.slicks) {
+    const ring = (rad, col) => {
+      const p2 = [];
+      for (let i = 0; i < 10; i++) { const t = i / 10 * Math.PI * 2; if (!project(s.x + Math.cos(t) * rad, s.y + Math.sin(t) * rad, 0)) return; p2.push(pr[0], pr[1]); }
+      ctx.fillStyle = col; fillPoly(p2);
+    };
+    ring(44, '#1e0b30'); ring(30, '#5a2a90'); ring(12, '#c070ff');
+  }
+  for (const z of IT.zaps) {
+    if (!project(z.x, z.y, 20) || pr[2] < 40) continue;
+    const r = Math.max(2, sz(pr[2]) * 10);
+    ctx.fillStyle = '#ffb030'; fillDisc(pr[0], pr[1], r); ctx.fillStyle = '#fff6c0'; fillDisc(pr[0], pr[1], r * 0.55);
+  }
+  for (const e of G.ents) {
+    if (!(e.shieldT > 0) || (e.shieldT < 2 && (G.time * 8) % 1 < 0.5)) continue;
+    if (!project(e.rx, e.ry, 14 + e.rz + (e.rbz || 0)) || pr[2] < 40) continue;
+    ctx.globalAlpha = 0.28; ctx.fillStyle = '#7dffb0'; fillDisc(pr[0], pr[1], sz(pr[2]) * 34);
+    ctx.globalAlpha = 1;
+  }
+}
+// ---------------------------------------------------------------- figuren die over de weg lopen
+// Op drie plekken per ronde lopen twee figuren van de baan zelf heen en weer over de weg (op racetijd, dus online gelijk).
+// Wie er een raakt, stuitert eraf en verliest snelheid; een schild vangt de klap op.
+const ROAM = [], ROAM_PREF = ['frog', 'ghost', 'skeleton', 'yeti', 'knight', 'robot', 'alien', 'astro', 'juggler', 'worker', 'kimono', 'raver'];
+function roamersReset() {
+  ROAM.length = 0;
+  const kinds = [...new Set(T.scenery.map(o => o.k))].filter(k => { const sp = SPRITES[T.index + ':' + k]; return sp && sp.an && !FLY[k]; });
+  const kind = ROAM_PREF.find(k => kinds.includes(k)) || kinds[0];
+  if (!kind) return;
+  const busy = sv => T.haz.some(h => sv > h.s0 - 200 && sv < h.s1 + 200) || IT.boxes.some(b => { const q = posAt(sv); return Math.hypot(b.x - q.x, b.y - q.y) < 400; });
+  [0.28, 0.55, 0.8].forEach((f, zi) => {
+    let sv = f * T.len;
+    for (let k = 0; k < 40 && busy(sv); k++) sv += 70;
+    if (busy(sv) || sv > T.len - 600) return;
+    for (let i = 0; i < 2; i++) ROAM.push({ s: sv + i * 150, k: kind, per: 4.2 + zi * 0.7, ph: i * Math.PI + zi, x: 0, y: 0, vd: 0 });
+  });
+}
+function roamersTick() {
+  for (const r of ROAM) {
+    const w = Math.PI * 2 / r.per, a = raceTime * w + r.ph, d = Math.sin(a) * T.hw * 0.78, q = posAt(r.s);
+    r.x = q.x - q.ty * d; r.y = q.y + q.tx * d; r.vd = Math.cos(a);
+    for (const e of G.ents) {
+      if (e.remote || e.z > 30 || (e.bumpT || 0) > 0) continue;
+      const dx = e.x - r.x, dy = e.y - r.y, dist = Math.hypot(dx, dy);
+      if (dist > 40) continue;
+      e.bumpT = 0.7;
+      if (e.shieldT > 0) { e.shieldT = 0; continue; }
+      e.vx = e.vx * 0.45 + dx / (dist || 1) * 160; e.vy = e.vy * 0.45 + dy / (dist || 1) * 160; e.padT = 0; e.driftT = 0;
+      for (let i = 0; i < 6; i++) spawn(r.x, r.y, 20, (Math.random() - 0.5) * 220, (Math.random() - 0.5) * 220, 60 + Math.random() * 80, 0.4, 3, '255,255,255', false, 300);
+      if (e === G.player) { G.shake = Math.max(G.shake, 0.4); thud(0.35); }
+    }
+  }
+  for (const e of G.ents) if (e.bumpT > 0) e.bumpT -= DT;
+}
+// het itemvakje bovenin het scherm
+function drawItemSlot(u) {
+  if (!itemsOn() || G.intro > 0) return;
+  const P = G.player, bw = 150 * u, bh = 54 * u, x = W / 2 - bw / 2, y = 22 * u;
+  panel(x, y, bw, bh, 0.8);
+  let label = '', col = '#5a5880';
+  if (P.rollT > 0) { const keysI = Object.keys(ITEMS); const k = keysI[Math.floor(G.time * 14) % keysI.length]; label = ITEMS[k].name; col = '#cfd3ff'; }
+  else if (P.item) { label = ITEMS[P.item].name + (P.itemN > 1 ? ' X' + P.itemN : ''); col = ITEMS[P.item].col; }
+  else label = 'NO ITEM';
+  text(label, W / 2, y + bh / 2 + 4 * u, (label.length > 10 ? 15 : 19) * u, col, 'center', 900);
+  if (P.item && !(P.rollT > 0)) text('E: USE', W / 2, y + bh - 6 * u, 10 * u, '#cfd3ff', 'center', 700);
+  if (P.shieldT > 0) text('SHIELD ' + Math.ceil(P.shieldT), W / 2, y + bh + 16 * u, 13 * u, '#7dffb0', 'center', 800);
+}
 function tick() {
   const racing = G.state === 'race', P = G.player, live = racing || G.state === 'finished';
   raceTime = G.raceTicks * DT;
@@ -2466,8 +2666,11 @@ function tick() {
       inp.steer = ctl ? ((keys.ArrowRight || keys.KeyD) ? 1 : 0) - ((keys.ArrowLeft || keys.KeyA) ? 1 : 0) : 0;
       inp.boost = ctl && !!keys.Space;
     }
+    itemControl(e, inp);
     stepEntity(e);
   }
+  if (racing) itemsTick();
+  if (live) roamersTick();
   // slipstream: wie even vlak achter een ander rijdt, wordt meegezogen en laadt wat boost bij
   if (racing) for (const e of G.ents) {
     const fx = Math.cos(e.th), fy = Math.sin(e.th);
@@ -4486,6 +4689,11 @@ function drawGround() {
       const fl = (G.time * 0.6) % 1;
       ctx.fillStyle = lava ? '#ffb030' : '#a070ff';
       for (let k = 0; k < 3; k++) { const a = hz.s0 + 30 + ((k / 3 + fl) % 1) * (hz.s1 - hz.s0 - 70); groundStrip(a, a + 18, -hw * 0.8 + k * 40, -hw * 0.2 + k * 60, 18); }
+    } else if (hz.type === 'bump') {
+      // hobbel: lichte voorkant, donkere achterkant, zodat je de bult ziet liggen
+      const m = (hz.s0 + hz.s1) / 2;
+      ctx.fillStyle = 'rgba(255,245,215,0.5)'; groundStrip(hz.s0 - 26, m, -hw, hw, 8);
+      ctx.fillStyle = 'rgba(0,0,0,0.45)'; groundStrip(m, hz.s1 + 26, -hw, hw, 8);
     } else if (hz.type === 'wave') {
       const c = waveAt(hz, hw, raceTime);
       if (c === null) continue;
@@ -4500,6 +4708,7 @@ function drawGround() {
 }
 function drawWorld(ents) {
   drawGround();
+  drawItemsWorld();
   drawList.length = 0;
   const maxX = W / H / cam.f;
   for (const o of T.scenery) {
@@ -4521,12 +4730,17 @@ function drawWorld(ents) {
     const zc = (g.x - cam.x) * camC + (g.y - cam.y) * camS;
     if (zc > 70 && zc < 5600) drawList.push({ z: zc, g });
   }
+  for (const r of ROAM) {
+    const zc = (r.x - cam.x) * camC + (r.y - cam.y) * camS;
+    // kijkrichting: in beeld naar links of naar rechts, afhankelijk van waar hij heen loopt
+    if (zc > 110 && zc < 5600) drawList.push({ z: zc, o: { k: r.k, x: r.x, y: r.y }, ox: r.x, oy: r.y, flip: r.vd < 0 });
+  }
   if (ents) for (const e of ents) drawList.push({ z: (e.rx - cam.x) * camC + (e.ry - cam.y) * camS, e });
   drawList.sort((a, b) => b.z - a.z);
   for (const it of drawList) {
     if (it.e) {
       const e = it.e;
-      drawShip(e.rx, e.ry, e.rth, e.steer * 0.42 + (e.rbt || 0), 7 + Math.sin(G.time * 5 + (e.rival || 0)) * 0.9 + e.rz + (e.rbz || 0), e.car, e.pal, 1, e.boosting ? 1.6 : (e.in.acc ? 1 : 0.25));
+      drawShip(e.rx, e.ry, e.rth + (e.spinT > 0 ? (0.9 - e.spinT) * 14 : 0), e.steer * 0.42 + (e.rbt || 0), 7 + Math.sin(G.time * 5 + (e.rival || 0)) * 0.9 + e.rz + (e.rbz || 0), e.car, e.pal, 1, e.boosting ? 1.6 : (e.in.acc ? 1 : 0.25));
       if (G.mode === 'online' && e !== G.player && it.z < 2600 && project(e.rx, e.ry, 46 + e.rz)) text(e.name, pr[0], pr[1], 13 * H / 720, e.pal[2], 'center', 800);
     } else if (it.g) {
       drawGate(it.g, it.z);
@@ -4587,7 +4801,7 @@ function render(dt) {
       for (let k = 0; k < len; k++) ctx.fillRect(Math.round(cx + dx * (r0 + k)), Math.round(cy + dy * (r0 + k)), 1, 1);
     }
   }
-  if (G.intro > 0 && !G.paused) drawIntro(u); else { drawHud(u, speed, runT); if (G.mode === 'online' && G.lastT != null && G.lastT > 0) drawLastCountdown(u); }
+  if (G.intro > 0 && !G.paused) drawIntro(u); else { drawHud(u, speed, runT); drawItemSlot(u); if (G.mode === 'online' && G.lastT != null && G.lastT > 0) drawLastCountdown(u); }
 }
 
 // Intro voor de race: zwarte balken boven en onder, naam van de cup en de baan, in een cup de rivalen op een rij.
@@ -5056,7 +5270,7 @@ function drawMenu(u) {
       text(words.slice(0, half).join(' '), x + cw / 2, y0 + 366 * u, 13 * u, '#fff', 'center', 500, false);
       text(words.slice(half).join(' '), x + cw / 2, y0 + 384 * u, 13 * u, '#fff', 'center', 500, false);
     });
-    text('Drive: arrows or WASD     Boost: space     Drift: shift     Pause: Esc', W / 2, y0 + ch + 30 * u, 15 * u, '#ffb833', 'center', 700, false);
+    text('Drive: arrows or WASD     Boost: space     Drift: shift     Item: E     Pause: Esc', W / 2, y0 + ch + 30 * u, 15 * u, '#ffb833', 'center', 700, false);
     if (ui.mode === 1) {
       const sp = Math.min(190 * u, (W - 60 * u) / 5), rx0 = W / 2 - sp * 2.5, ry = y0 + ch + 74 * u;
       ui.rivals.forEach((ci, i) => {
