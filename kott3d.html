@@ -110,8 +110,9 @@ const MODELS = {
 // omlaag naar de steile kom (tot 80 graden gekanteld) en terug naar de start.
 // x, z, hoogte, kanteling in graden (de richting volgt de bocht vanzelf)
 const CP = [
-  [0, 0, 0, 0], [1500, 1500, 70, 0], [2500, 3000, 430, 6], [2480, 3550, 425, 10], [2400, 3950, 290, 14], [2250, 4500, 60, 20], [1000, 5500, 250, 30],
-  [-800, 5600, 330, 30], [-2300, 4500, 360, 24], [-2500, 3000, 370, 12], [-1500, 1500, 365, 0],
+  [0, 0, 0, 0], [1400, 1300, 60, 0], [2300, 2400, 200, 0], [2300, 3000, 280, 0], [2300, 3600, 320, 0],   // recht omhoog naar de schans
+  [2300, 4300, 190, 0], [2300, 4900, 110, 0], [2300, 5600, 90, 0], [2250, 6300, 120, 10],            // over het water, lager landen, rechtdoor
+  [1400, 7000, 220, 30], [0, 7100, 300, 30], [-1400, 6500, 340, 28], [-2300, 5000, 360, 22], [-2500, 3000, 370, 12], [-1500, 1500, 365, 0],
   [0, 0, 360, 0], [1100, -1100, 330, 6], [2100, -2300, 270, 40], [2050, -3500, 215, 74], [1000, -4250, 205, 80],
   [-350, -4150, 205, 80], [-1350, -3300, 195, 66], [-1550, -2000, 100, 22], [-1000, -900, 20, 0]
 ];
@@ -163,10 +164,10 @@ function buildTrack() {
     kg0.push(dot(dT, R[i])); kn0.push(dot(dT, U[i]));
   }
   const smooth = (a, w) => a.map((_, i) => { let s = 0; for (let j = -w; j <= w; j++) s += a[(i + j + N) % N]; return s / (2 * w + 1); });
-  // schans op de top van de heuvel (hoogste punt in het eerste deel)
-  let jumpI = 0;
-  for (let i = 0; i < N * 0.4; i++) if (P[i * 3 + 1] > P[jumpI * 3 + 1]) jumpI = i;
-  Object.assign(TR, { jumpI, jumpS: jumpI * step, N, len, step, P, T, R, U, kg: smooth(kg0, 4), kn: smooth(kn0, 4), bank: Array.from(bankMag, (m, i) => m * sgn[i]) });
+  // schans en gat: het lintpunt het dichtst bij JUMP_AT (rand van de schans) en LAND_AT (begin van de landing)
+  const near = (x, z) => { let b = 0, bd = 1e18; for (let i = 0; i < N * 0.45; i++) { const d = (P[i * 3] - x) ** 2 + (P[i * 3 + 2] - z) ** 2; if (d < bd) { bd = d; b = i; } } return b; };
+  const lipI = near(JUMP_AT[0], JUMP_AT[1]), landI = near(LAND_AT[0], LAND_AT[1]);
+  Object.assign(TR, { lipI, landI, lipS: lipI * step, gapL: (landI - lipI) * step, N, len, step, P, T, R, U, kg: smooth(kg0, 4), kn: smooth(kn0, 4), bank: Array.from(bankMag, (m, i) => m * sgn[i]) });
 }
 
 // punt op de baan op afstand s (lineair tussen twee lintpunten)
@@ -195,7 +196,11 @@ const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
 // Zwaartekracht valt uiteen in een deel langs de weg (heuvels), een deel opzij (kanteling: trekt je
 // omlaag) en een deel loodrecht op de weg. Houvast opzij is begrensd door de druk op de weg (MU * N):
 // op een steile wand houdt alleen snelheid (v^2 * kn) je boven.
-const Q = {}, Q2 = {};
+const Q = {}, Q2 = {}, Q3 = {};
+// schans over het water: rand van de schans en begin van de landing (x, z), lengte en hoogte van de schans
+const JUMP_AT = [2300, 3600], LAND_AT = [2300, 4500], RAMP_L = 130, RAMP_H = 30;
+// waar sta je ten opzichte van de schansrand? (negatief = ervoor)
+function gapPos(s) { let u = ((s - TR.lipS) % TR.len + TR.len) % TR.len; if (u > TR.len / 2) u -= TR.len; return u; }
 function driftLevel(t) { return t > 1.6 ? 3 : t > 1.0 ? 2 : t > 0.5 ? 1 : 0; }
 function stepEnt(e) {
   const c = e.car, k = e.skill, inp = e.in;
@@ -254,19 +259,36 @@ function stepEnt(e) {
   const a = Q.kg * ds, ca = Math.cos(a), sa = Math.sin(a);
   e.psi -= a;
   const vT = e.vT * ca + e.vR * sa; e.vR = -e.vT * sa + e.vR * ca; e.vT = vT;
-  // schans: wie eroverheen gaat, vliegt
-  const js = TR.jumpS, before = ((e.s - js) % TR.len + TR.len) % TR.len;
-  if (!e.air && before > TR.len - 2 * Math.abs(ds) - 1 && e.vT > 300) { e.air = true; e.vz = e.vT * 0.32; e.airT = 0; e.ev.jump = 1; }
+  const g0 = gapPos(e.s);
   e.s += ds; e.progress += ds;
+  // schans: omhoog over de schans, bij de rand de lucht in; geen weg in het gat
+  const g1 = gapPos(e.s);
+  if (!e.air) {
+    if (g1 > -RAMP_L && g1 <= 0) e.z = RAMP_H * (g1 + RAMP_L) / RAMP_L;
+    else if (g0 <= 0 && g1 > 0 && g1 < TR.gapL) {
+      // de sprong rekent met echte hoogte: de weg aan de overkant ligt lager
+      e.air = true; e.gapFly = true; e.airT = 0; e.ev.jump = 1; e.z = RAMP_H;
+      e.flyY = Q.py + RAMP_H; e.flyVy = Math.max(0, e.vT) * (Q.ty + 0.48); e.vz = 0;
+    }
+    else e.z = 0;
+  }
   e.d += e.vR * DT;
   e.speed = Math.hypot(e.vT, e.vR);
 
   // loskomen bij een top, landen
   if (!e.air && N < 0) { e.air = true; e.vz = 0; e.airT = 0; }
   if (e.air) {
-    e.vz -= (N - ADH * 0.7) * DT; e.z += e.vz * DT; e.airT += DT;   // in de lucht trekt de magneet minder
-    if (e.z <= 0) {
-      e.z = 0; e.vz = 0; e.air = false; e.ev.land = 1;
+    if (e.gapFly) {
+      e.flyVy -= GRAV * DT; e.flyY += e.flyVy * DT;
+      at(e.s, Q3); e.z = (e.flyY - Q3.py) / Math.max(0.5, Q3.uy);
+    } else { e.vz -= (N - ADH * 0.7) * DT; e.z += e.vz * DT; }   // in de lucht trekt de magneet minder
+    e.airT += DT;
+    if (e.z <= 0 && g1 > 0 && g1 < TR.gapL) {
+      // in het water: terug voor de schans, met weinig vaart
+      e.progress -= g1 + 900; e.s -= g1 + 900;
+      e.z = 0; e.vz = 0; e.air = false; e.gapFly = false; e.vT = 250; e.vR = 0; e.psi = 0; e.d *= 0.5; e.splashT = 1.6; e.ev.splash = 1;
+    } else if (e.z <= 0) {
+      e.z = 0; e.vz = 0; e.air = false; e.gapFly = false; e.ev.land = 1;
       if (e.airT > 0.6) { e.padT = Math.max(e.padT, 0.5); e.vT += 120; }
     }
   }
@@ -320,6 +342,8 @@ function aiInput(e, ents) {
   const want = Math.atan2(target - e.d, 320);
   e.in.steer = clamp((want - e.psi) * 3, -1, 1);
   e.in.acc = true; e.in.brk = false; e.in.drift = false;
+  const gp = gapPos(e.s);
+  if (gp > -1600 && gp < 0 && e.energy > 0.05) { e.in.boost = true; e.in.steer = clamp(-e.psi * 3 - e.d * 0.01, -1, 1); return; }
   e.in.boost = e.energy > 0.5 && Math.abs(Q2.kg) < 0.00025 && e.speed > 600 && (e.boostWish = (e.boostWish || 0) + DT) > 2;
   if (!e.in.boost && e.energy < 0.1) e.boostWish = 0;
 }
@@ -379,6 +403,7 @@ function tick() {
       p.boost = !!keys.Space; p.drift = !!(keys.ShiftLeft || keys.ShiftRight);
     }
     stepEnt(e);
+    if (e.splashT > 0) e.splashT -= DT;
     e.lapT += DT;
     const lap = Math.floor(e.progress / TR.len) + 2;
     if (lap > e.lap && !e.finished) {
@@ -514,7 +539,7 @@ const COL = {
   asphA: hex('#5a5870'), asphB: hex('#625f7a'), line: hex('#f4f0e8'), curbR: hex('#e8383c'), curbW: hex('#f8f4ec'),
   wallA: hex('#2a7cf0'), wallB: hex('#f4f4f8'), wallTop: hex('#ffd23a'), under: hex('#3a3448'), side: hex('#8a8498'),
   grassA: hex('#5cb04a'), grassB: hex('#4c9c40'), earth: hex('#c89a5a'), pillar: hex('#b4aec0'), gantry: hex('#20202c'),
-  chevA: hex('#ff8a2a'), chevB: hex('#20202c')
+  chevA: hex('#ff8a2a'), chevB: hex('#20202c'), water: hex('#1fa8c8'), waterL: hex('#7fe0e8'), foam: hex('#f0fbf8')
 };
 let roadMesh, decor = [], isBridge;
 function buildRoadMesh() {
@@ -533,11 +558,11 @@ function buildRoadMesh() {
   const edges = [-HW, -HW + 18, -5, 5, HW - 18, HW];
   for (let i = 0; i < N; i++) {
     const j = (i + 1) % N, Ui = U[i], Ri = R[i];
+    if (i >= TR.lipI && i < TR.landI) continue;   // het gat over het water
     const curb = (i >> 2) & 1, band = Math.floor(i / 6) & 1, steep = Math.abs(TR.bank[i]) > 45;
     for (let k = 0; k < 5; k++) {
       let col = k === 0 || k === 4 ? (curb ? COL.curbR : COL.curbW) : k === 2 ? (curb ? COL.line : (band ? COL.asphA : COL.asphB)) : (band ? COL.asphA : COL.asphB);
       if (i < 3) col = null;   // startlijn: geblokt
-      if (i > TR.jumpI - 5 && i <= TR.jumpI) col = ((i + k) & 1) ? COL.wallTop : COL.chevB;   // schans
       if (col) pushQuad(out, pos(i, edges[k], 0), pos(j, edges[k], 0), pos(j, edges[k + 1], 0), pos(i, edges[k + 1], 0), lit(col, Ui));
     }
     if (i < 3) for (let c = 0; c < 12; c++) {
@@ -577,6 +602,45 @@ function buildRoadMesh() {
         pushQuad(out, [c[0] + ox - px, top, c[2] + oz - pz], [c[0] + ox + px, top, c[2] + oz + pz], [c[0] + ox + px, GROUND_Y, c[2] + oz + pz], [c[0] + ox - px, GROUND_Y, c[2] + oz - pz], lit(COL.pillar, [nx, 0, nz]));
       }
     }
+  }
+  // schans: een geel-zwarte wig op de weg tot aan de rand
+  const rampN = Math.round(RAMP_L / TR.step), rh = i => RAMP_H * clamp((i - (TR.lipI - rampN)) / rampN, 0, 1);
+  for (let i = TR.lipI - rampN; i < TR.lipI; i++) {
+    const j = i + 1;
+    for (let c = 0; c < 6; c++) {
+      const d0 = -HW + c * HW / 3, d1 = d0 + HW / 3;
+      pushQuad(out, pos(i, d0, rh(i)), pos(j, d0, rh(j)), pos(j, d1, rh(j)), pos(i, d1, rh(i)), lit(((c + (i >> 1)) & 1) ? COL.wallTop : COL.chevB, U[i]));
+    }
+    for (const sd of [-1, 1]) pushQuad(out, pos(i, sd * HW, 0), pos(j, sd * HW, 0), pos(j, sd * HW, rh(j)), pos(i, sd * HW, rh(i)), lit(COL.chevB, R[i]));
+  }
+  // uiteinden bij het gat: een steile grashelling omlaag naar het water (en een zwarte voorkant aan de schans)
+  const EW = HW + WALL_T, SLOPE = 0.45, foot = {};
+  for (const [ei, dir] of [[TR.lipI, 1], [TR.landI, -1]]) {
+    const th = norm([T[ei][0] * dir, 0, T[ei][2] * dir]);
+    const toFoot = p => { const k = (p[1] - GROUND_Y) * SLOPE; return [p[0] + th[0] * k, GROUND_Y, p[2] + th[2] * k]; };
+    const a = pos(ei, -EW, 0), b = pos(ei, EW, 0), fa = toFoot(a), fb = toFoot(b);
+    const n = norm([th[0], SLOPE, th[2]]);
+    pushQuad(out, a, b, fb, fa, lit(COL.grassA, n));
+    for (let k = 1; k < 4; k++) {   // strepen in de helling
+      const t0 = k / 4, t1 = t0 + 0.05, m = (p, q, t) => [p[0] + (q[0] - p[0]) * t, p[1] + (q[1] - p[1]) * t + 0.5, p[2] + (q[2] - p[2]) * t];
+      pushQuad(out, m(a, fa, t0), m(b, fb, t0), m(b, fb, t1), m(a, fa, t1), lit(COL.grassB, n));
+    }
+    for (const sd of [-1, 1]) {
+      const p = pos(ei, sd * EW, -ROAD_T), h = norm([R[ei][0] * sd, 0, R[ei][2] * sd]), k = (p[1] - GROUND_Y) * 1.1;
+      pushTri(out, sd < 0 ? a : b, [p[0] + h[0] * k, GROUND_Y, p[2] + h[2] * k], sd < 0 ? fa : fb, lit(COL.grassB, n));
+    }
+    if (dir > 0) pushQuad(out, pos(ei, -HW, 0), pos(ei, HW, 0), pos(ei, HW, RAMP_H), pos(ei, -HW, RAMP_H), lit(COL.chevB, th));
+    foot[dir] = (P[ei * 3 + 1] - GROUND_Y) * SLOPE;
+  }
+  // meertje tussen de twee hellingen: rand van schuim, water met lichte strepen
+  {
+    const a = TR.lipI, b = TR.landI, ta = norm([T[a][0], 0, T[a][2]]), ra = norm([R[a][0], 0, R[a][2]]);
+    const pa = [P[a * 3], GROUND_Y, P[a * 3 + 2]], L = (b - a) * TR.step, f0 = foot[1] - 30, f1 = L - foot[-1] + 30;
+    const at2 = (f, d, y) => [pa[0] + ta[0] * f + ra[0] * d, GROUND_Y + y, pa[2] + ta[2] * f + ra[2] * d];
+    const rect = (q0, q1, d0, d1, y, col) => pushQuad(out, at2(q0, d0, y), at2(q1, d0, y), at2(q1, d1, y), at2(q0, d1, y), col);
+    rect(f0 - 40, f1 + 40, -HW - 320, HW + 320, 1, COL.foam);
+    rect(f0, f1, -HW - 280, HW + 280, 2, COL.water);
+    for (let k = 0; k < 9; k++) { const f = f0 + 30 + k * (f1 - f0 - 60) / 8, d = ((k * 137) % 360) - 180; rect(f, f + 12, d - 60, d + 60, 3, COL.waterL); }
   }
   // startpoort
   const gi = 1, gh = 175;
@@ -835,7 +899,9 @@ function render(dt) {
     gl.uniformMatrix4fv(PM.u.uM, false, M);
     const sm = shipCache.get(e.car.id + e.pal.join());
     gl.bindVertexArray(sm.vao); gl.drawArrays(gl.TRIANGLES, 0, sm.count);
-    // schaduw plat op het wegdek
+    // schaduw plat op het wegdek (niet boven het gat)
+    const gpos = gapPos(e.s);
+    if (gpos > 0 && gpos < TR.gapL) continue;
     const b = add(fr.base, scale(fr.u, 0.6));
     const Ms = [fr.r[0] * k, fr.r[1] * k, fr.r[2] * k, 0, fr.f[0] * k, fr.f[1] * k, fr.f[2] * k, 0, fr.u[0], fr.u[1], fr.u[2], 0, b[0], b[1], b[2], 1];
     gl.enable(gl.POLYGON_OFFSET_FILL); gl.polygonOffset(-2, -4);
@@ -903,6 +969,7 @@ function drawHud() {
   const lv = driftLevel(p.driftT);
   if (p.driftT > 0) text('DRIFT' + '!!!'.slice(0, lv), 100, H - 12, 1, ['#fff', '#7ff', '#ff7', '#f8a'][lv]);
   if (p.slip && Math.abs(TR.bank[at(p.s, Q2).i]) > 40) text('TOO SLOW - SLIDING!', W / 2, H - 40, 1, '#f86', 'c');
+  if (p.splashT > 0) text('SPLASH! TOO SLOW FOR THE JUMP', W / 2, H / 2 - 20, 2, '#7ef', 'c');
   if (p.ai) text('AUTOPILOT (P)', W / 2, 8, 1, '#7ff', 'c');
   // kaartje
   if (!mapPts) {
