@@ -1950,17 +1950,28 @@ precision highp float; in vec3 vW; flat in vec3 vC; uniform vec3 uFlame; out vec
 ${GLSL_COMMON}
 void main(){ vec3 c = vC.r < 0.0 ? uFlame : vC; o = vec4(fog(c, vW), 1.0); }`;
 const FS_GROUND = `#version 300 es
-precision highp float; in vec3 vW; flat in vec3 vC; uniform vec3 uG[6]; uniform vec3 uCenter; out vec4 o;
+precision highp float; in vec3 vW; flat in vec3 vC; uniform vec3 uG[6]; uniform vec3 uCenter; uniform sampler2D uDist; uniform vec3 uDistBox; out vec4 o;
 ${GLSL_COMMON}
-// uG: twee tegelkleuren, twee kleuren voor plekjes, de rand, en het water (of de leegte) eromheen
+float vnoise(vec2 p){ vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
+  return mix(mix(hash(i), hash(i + vec2(1, 0)), f.x), mix(hash(i + vec2(0, 1)), hash(i + vec2(1, 1)), f.x), f.y); }
+// uG: twee grondtinten, twee tinten voor plekken, berm/rand, en het water (of de leegte) eromheen
 void main(){
   vec2 p = vW.xz - uCenter.xy;
   float r = length(p);
-  vec2 t = floor(vW.xz / 320.0);
-  float h = hash(t);
-  vec3 c = mod(t.x + t.y, 2.0) < 1.0 ? uG[0] : uG[1];
-  vec2 t2 = floor(vW.xz / 80.0);
-  if (h > 0.72) c = hash(t2) > 0.5 ? uG[2] : uG[3];
+  // afstand tot de baan (en tot de voet van de helling) uit de afstandskaart
+  vec2 uv = (vW.xz - uDistBox.xy) / uDistBox.z;
+  float dist = (uv.x < 0.0 || uv.y < 0.0 || uv.x > 1.0 || uv.y > 1.0) ? 4000.0 : texture(uDist, uv).r * 2040.0;
+  float th = bayer(gl_FragCoord.xy);
+  // ver weg: grote rustige vlakken (twee tinten, met een rasterovergang), hier en daar een plek
+  float nb = vnoise(vW.xz / 1400.0) + 0.5 * vnoise(vW.xz / 520.0);
+  vec3 c = nb + (th - 0.5) * 0.18 > 0.82 ? uG[1] : uG[0];
+  float pt = vnoise(vW.xz / 300.0 + 17.0);
+  if (pt + (th - 0.5) * 0.12 > 0.78) c = uG[2];
+  if (pt + (th - 0.5) * 0.12 > 0.88) c = uG[3];
+  // dicht bij de baan: gemaaide stroken evenwijdig aan de baan, en een berm langs de voet van de helling
+  if (dist < 900.0) { float band = floor(dist / 110.0); vec3 m = mod(band, 2.0) < 1.0 ? uG[0] : mix(uG[0], uG[1], 0.6); c = dist + (th - 0.5) * 120.0 < 760.0 ? m : c; }
+  if (dist < 70.0) c = uG[4];
+  if (dist < 70.0 && dist > 58.0) c = mix(uG[4], vec3(0.0), 0.18);
   if (r > uCenter.z) c = uG[4];
   if (r > uCenter.z + 350.0) c = mod(floor(r / 90.0 + hash(floor(vW.xz / 400.0)) * 0.6), 5.0) < 1.0 ? mix(uG[5], vec3(1.0), 0.45) : uG[5];
   o = vec4(fog(c, vW), 1.0);
@@ -2103,8 +2114,8 @@ function gate3d(out, sv, style) {
 }
 // grond per cup: tegels A en B, plekjes A en B, rand, water
 const GROUND = [
-  [[.96, .86, .6], [.92, .8, .54], [.42, .72, .32], [.36, .64, .28], [.98, .93, .74], [.15, .72, .8]],     // kust
-  [[.46, .7, .36], [.42, .64, .32], [.95, .72, .82], [.88, .62, .74], [.8, .75, .6], [.2, .5, .72]],       // sakura
+  [[.95, .84, .58], [.9, .78, .52], [.46, .74, .34], [.38, .66, .3], [.82, .7, .5], [.15, .72, .8]],     // kust
+  [[.44, .68, .34], [.4, .62, .31], [.95, .74, .84], [.86, .62, .74], [.7, .64, .52], [.2, .5, .72]],       // sakura
   [[.36, .5, .3], [.32, .45, .27], [.5, .48, .45], [.44, .42, .4], [.3, .3, .32], [.15, .25, .38]],       // kasteel
   [[.13, .11, .24], [.11, .09, .2], [.3, .2, .5], [.22, .15, .4], [.06, .05, .12], [.03, .02, .08]],       // sterren
   [[.92, .72, .45], [.88, .66, .4], [.8, .55, .3], [.74, .5, .28], [.95, .8, .55], [.15, .6, .62]],       // duin
@@ -2116,6 +2127,9 @@ function buildRoadMesh() {
   // kleur van de hellingen per cup (gras, zand, sneeuw of sterrenstof)
   const SL = [['#5cb04a', '#4c9c40'], ['#5cb04a', '#4c9c40'], ['#4e8a3e', '#437a36'], ['#4a3a78', '#3c2e66'], ['#e0b070', '#d4a062'], ['#7aa040', '#6a8e36'], ['#e8f0fa', '#d4e2f2'], ['#4a3a78', '#3c2e66']][TR.def.cup];
   COL.grassA = hex(SL[0]); COL.grassB = hex(SL[1]);
+  // rail in de themakleur met wit, curbs in de accentkleur met wit, bovenrand in de accentkleur
+  const TH = THEMES[CUPS[TR.def.cup].theme];
+  COL.wallA = hex(TH.ui); COL.wallB = hex('#f4f2f8'); COL.curbR = hex(TH.ui); COL.curbW = hex('#f8f4ec'); COL.wallTop = hex(TH.accent);
   const { N, P, R, U, T } = TR, out = [];
   const pos = (i, d, up) => { i = (i + N) % N; return [P[i * 3] + R[i][0] * d + U[i][0] * up, P[i * 3 + 1] + R[i][1] * d + U[i][1] * up, P[i * 3 + 2] + R[i][2] * d + U[i][2] * up]; };
   // waar loopt er een ander stuk baan (veel lager) onder? daar pilaren in plaats van een talud
@@ -2425,17 +2439,25 @@ function buildDecor() {
   }
   const KINDS = (DECOR_BY_CUP[TR.def.cup] || DECOR_KINDS).filter(k => ART.obj[k[0]]);
   const tot = KINDS.reduce((a, k) => a + k[2], 0);
-  for (let i = 0; i < N; i += 7) {
-    for (const sd of [-1, 1]) {
-      if (rnd() < (dressed ? 0.75 : 0.35)) continue;
-      const h = Math.max(0, P[i * 3 + 1]);
-      const off = HW + WALL_T + h * 1.1 + (dressed ? 380 : 60) + rnd() * rnd() * 900;
-      const hr = norm([R[i][0], 0, R[i][2]]);
-      const x = P[i * 3] + hr[0] * off * sd, z = P[i * 3 + 2] + hr[2] * off * sd;
+  // een groepje per stuk baan, om en om links en rechts: alleen de grootste soorten (bomen, rotsen) als bosje
+  const groves = KINDS.filter(k => k[1] >= 180 && k[2] >= 1);
+  let side = 1;
+  for (let i = Math.floor(N * 0.04); i < N; i += Math.round((dressed ? 1600 : 900) / TR.step)) {
+    side = -side;
+    const h = Math.max(0, P[i * 3 + 1] - GROUND_Y);
+    const hr = norm([R[i][0], 0, R[i][2]]), tg = norm([TR.T[i][0], 0, TR.T[i][2]]);
+    const off = HW + WALL_T + h * 1.1 + 260 + rnd() * 380;
+    const cx = P[i * 3] + hr[0] * off * side, cz = P[i * 3 + 2] + hr[2] * off * side;
+    const pool = groves.length ? groves : KINDS;
+    let pick = rnd() * pool.reduce((a, k) => a + k[2], 0), kind = pool[0];
+    for (const k of pool) { pick -= k[2]; if (pick <= 0) { kind = k; break; } }
+    // bosje (rond, dicht) of rijtje (langs de baan)
+    const row = rnd() < 0.4, cnt = 3 + Math.floor(rnd() * 4);
+    for (let q = 0; q < cnt; q++) {
+      const a = rnd() * 6.283, rr = row ? 0 : 40 + rnd() * 150, along = row ? (q - cnt / 2) * 150 : 0;
+      const x = cx + Math.cos(a) * rr + tg[0] * along, z = cz + Math.sin(a) * rr + tg[2] * along;
       if (!freeAt(x, z, 40)) continue;
-      let pick = rnd() * tot, kind = KINDS[0];
-      for (const k of KINDS) { pick -= k[2]; if (pick <= 0) { kind = k; break; } }
-      add(kind[0], x, GROUND_Y, z, kind[1] * (0.85 + rnd() * 0.3));
+      add(kind[0], x, GROUND_Y, z, kind[1] * (0.82 + rnd() * 0.36));
     }
   }
   // publiek bij de start, en een paar grote herkenningspunten
@@ -2584,6 +2606,7 @@ function render(dt) {
     gl.uniform3fv(pr.u.uCam, cam.pos); gl.uniform3fv(pr.u.uFog, FOG); gl.uniform2f(pr.u.uFogR, 2600, 11000);
   };
   common(PG); gl.uniform3fv(PG.u['uG[0]'], GROUND[TR.def.cup].flat()); gl.uniform3fv(PG.u.uCenter, TR.center);
+  if (distMap) { gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, distMap.tex); gl.uniform1i(PG.u.uDist, 1); gl.uniform3fv(PG.u.uDistBox, distMap.box); gl.activeTexture(gl.TEXTURE0); }
   gl.bindVertexArray(ground.vao); gl.drawArrays(gl.TRIANGLES, 0, ground.count);
   common(PM); gl.uniform3f(PM.u.uFlame, 1, 0.6, 0.2);
   gl.bindVertexArray(roadMesh.vao); gl.drawArrays(gl.TRIANGLES, 0, roadMesh.count);
@@ -2642,6 +2665,8 @@ const dynVAO = (() => {
   return { vao, buf };
 })();
 const DQ = {};
+// golfkleuren: diep, midden, licht, glans, schuim (twee tinten), spat, natte weg
+const WAVE_COLS = ['#1a6fa8', '#2286c4', '#2f9fd8', '#4cbde8', '#8adcf4', '#e4f8ff', '#ffffff', '#2c3a4e'].map(hex);
 function drawDynamic() {
   const out = [], t = S.raceTime;
   const wp = (sv, d, up) => { at(sv, DQ); return [DQ.px + DQ.rx * d + DQ.ux * up, DQ.py + DQ.ry * d + DQ.uy * up, DQ.pz + DQ.rz * d + DQ.uz * up]; };
@@ -2651,13 +2676,33 @@ function drawDynamic() {
     if (hz.type !== 'wave') continue;
     const c = waveAt(hz, HW, t);
     if (c === null) continue;
-    const d0 = clamp(c - WAVE_HW, -HW, HW), d1 = clamp(c + WAVE_HW, -HW, HW);
-    if (d1 <= d0) continue;
-    for (let sv = hz.s0; sv < hz.s1; sv += 35) {
-      const n = up(sv);
-      pushQuad(out, wp(sv, d0, 2), wp(sv + 35, d0, 2), wp(sv + 35, d1, 2), wp(sv, d1, 2), lit(hex('#3fb8e8'), n));
-      const f0 = hz.dir > 0 ? d1 - 14 : d0, f1 = hz.dir > 0 ? d1 : d0 + 14;
-      pushQuad(out, wp(sv, f0, 3), wp(sv + 35, f0, 3), wp(sv + 35, f1, 3), wp(sv, f1, 3), lit(hex('#f0fbff'), n));
+    // dwarsdoorsnede: van achter (rustig, laag) naar voren (hoge rug, omkrullende kop); dir = de kant waarheen hij spoelt
+    const dir = hz.dir, PROF = [[-1.0, 0, 0], [-0.55, 6, 1], [-0.15, 15, 2], [0.25, 25, 3], [0.55, 30, 4], [0.78, 26, 5], [0.92, 16, 5], [1.0, 3, 6]];
+    const WC = WAVE_COLS;
+    const segL = 40, lenS = hz.s1 - hz.s0;
+    for (let sv = hz.s0; sv < hz.s1 - 1; sv += segL) {
+      const sb = Math.min(hz.s1, sv + segL), n = up(sv);
+      // aan de uiteinden van het stuk loopt de golf uit
+      const fa = Math.min(1, (sv - hz.s0) / 160, (hz.s1 - sv) / 160), fb = Math.min(1, (sb - hz.s0) / 160, (hz.s1 - sb) / 160);
+      const wob = q => 1 + 0.12 * Math.sin(q * 0.02 + t * 3);
+      for (let k = 0; k + 1 < PROF.length; k++) {
+        const [xa, ha, ca] = PROF[k], [xb, hb] = PROF[k + 1];
+        const da = c + dir * xa * WAVE_HW, db = c + dir * xb * WAVE_HW;
+        if ((da < -HW && db < -HW) || (da > HW && db > HW)) continue;
+        const cd = v => clamp(v, -HW, HW);
+        pushQuad(out, wp(sv, cd(da), 1 + ha * fa * wob(sv)), wp(sb, cd(da), 1 + ha * fb * wob(sb)), wp(sb, cd(db), 1 + hb * fb * wob(sb)), wp(sv, cd(db), 1 + hb * fa * wob(sv)), lit(WC[ca], n, 0.75));
+      }
+      // natte strook achter de golf
+      const w0 = clamp(c - dir * WAVE_HW * 2.4, -HW, HW), w1 = clamp(c - dir * WAVE_HW, -HW, HW);
+      if (Math.abs(w1 - w0) > 1) pushQuad(out, wp(sv, w0, 0.9), wp(sb, w0, 0.9), wp(sb, w1, 0.9), wp(sv, w1, 0.9), lit(WC[7], n, 0.8));
+      // spatwater boven de kop: kleine witte blokjes die meedansen
+      for (let q = 0; q < 2; q++) {
+        const ph = Math.sin(sv * 12.9898 + q * 78.233) * 43758.5453, rr = ph - Math.floor(ph), life = (t * 2.2 + rr) % 1;
+        const dd = c + dir * WAVE_HW * (0.85 + life * 0.5), hh = 30 * fa + life * 22 - life * life * 30, ss = sv + rr * segL;
+        if (Math.abs(dd) > HW || fa < 0.3) continue;
+        const a = wp(ss, dd - 3, hh), b = wp(ss + 6, dd - 3, hh), cc = wp(ss + 6, dd + 3, hh + 6), d = wp(ss, dd + 3, hh + 6);
+        pushQuad(out, a, b, cc, d, WC[6]);
+      }
     }
   }
   // kubus rond een punt, in de assen van de weg
@@ -3497,6 +3542,46 @@ const fmt = t => { const m = Math.floor(t / 60), s = t - m * 60; return m + ':' 
 let mapPts = null;
 
 // ---------------------------------------------------------------- start
+// Afstandskaart voor de grond: per vakje de afstand tot de voet van de helling naast de weg (of de weg zelf, bij een brug).
+// Eerst de baan in het raster zetten, dan twee keer langs (heen en terug) de afstanden doorgeven.
+let distMap = null;
+function buildDistMap() {
+  const n = 384, half = TR.center[2] + 600, x0 = TR.center[0] - half, z0 = TR.center[1] - half, cell = 2 * half / n;
+  const d = new Float32Array(n * n).fill(1e9);
+  for (let i = 0; i < TR.N; i++) {
+    const foot = HW + WALL_T + Math.max(0, TR.P[i * 3 + 1] - GROUND_Y) * 1.1;   // tot waar de helling reikt
+    const r = Math.ceil(foot / cell) + 1, cx = (TR.P[i * 3] - x0) / cell, cz = (TR.P[i * 3 + 2] - z0) / cell;
+    for (let y = Math.max(0, Math.floor(cz - r)); y <= Math.min(n - 1, Math.ceil(cz + r)); y++)
+      for (let x = Math.max(0, Math.floor(cx - r)); x <= Math.min(n - 1, Math.ceil(cx + r)); x++) {
+        const v = Math.hypot(x - cx, y - cz) * cell - foot;
+        if (v < d[y * n + x]) d[y * n + x] = v;
+      }
+  }
+  // chamfer-afstand voor de rest
+  const D1 = cell, D2 = cell * Math.SQRT2;
+  for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) {
+    let v = d[y * n + x];
+    if (x > 0) v = Math.min(v, d[y * n + x - 1] + D1);
+    if (y > 0) { v = Math.min(v, d[(y - 1) * n + x] + D1); if (x > 0) v = Math.min(v, d[(y - 1) * n + x - 1] + D2); if (x < n - 1) v = Math.min(v, d[(y - 1) * n + x + 1] + D2); }
+    d[y * n + x] = v;
+  }
+  for (let y = n - 1; y >= 0; y--) for (let x = n - 1; x >= 0; x--) {
+    let v = d[y * n + x];
+    if (x < n - 1) v = Math.min(v, d[y * n + x + 1] + D1);
+    if (y < n - 1) { v = Math.min(v, d[(y + 1) * n + x] + D1); if (x < n - 1) v = Math.min(v, d[(y + 1) * n + x + 1] + D2); if (x > 0) v = Math.min(v, d[(y + 1) * n + x - 1] + D2); }
+    d[y * n + x] = v;
+  }
+  const bytes = new Uint8Array(n * n);
+  for (let k = 0; k < n * n; k++) bytes[k] = Math.max(0, Math.min(255, Math.round(d[k] / 8)));
+  if (!distMap) distMap = { tex: gl.createTexture() };
+  gl.bindTexture(gl.TEXTURE_2D, distMap.tex);
+  gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.R8, n, n, 0, gl.RED, gl.UNSIGNED_BYTE, bytes);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+  distMap.box = [x0, z0, 2 * half];
+}
+
 // een baan laden: lint, decor en lucht opnieuw opbouwen
 function loadTrack(idx, intro) {
   idx = (idx + TRACKS.length) % TRACKS.length;
@@ -3505,6 +3590,7 @@ function loadTrack(idx, intro) {
   for (let i = 0; i < TR.N; i++) { cx += TR.P[i * 3] / TR.N; cz += TR.P[i * 3 + 2] / TR.N; }
   for (let i = 0; i < TR.N; i++) rr = Math.max(rr, Math.hypot(TR.P[i * 3] - cx, TR.P[i * 3 + 2] - cz));
   TR.center = [cx, cz, rr + 1400];
+  buildDistMap();
   if (roadMesh) gl.deleteVertexArray(roadMesh.vao);
   for (const g of decor) { if (g.vao) gl.deleteVertexArray(g.vao); for (const t of g.tex) { t.dead = true; gl.deleteTexture(t.tex); } }
   if (skyTex) { skyTex.dead = true; gl.deleteTexture(skyTex.tex); }
