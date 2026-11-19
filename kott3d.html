@@ -1592,7 +1592,7 @@ function aiWantsItem(e) {
 function itemControl(e, inp) {
   if (e.spinT > 0) { e.spinT -= DT; inp.acc = inp.brk = inp.drift = inp.boost = false; inp.steer = 0; e.psi += 9 * DT; }
   if (e.shieldT > 0) e.shieldT -= DT;
-  if (e.rollT > 0 && (e.rollT -= DT) <= 0) { e.item = e.pending; e.itemN = e.item === 'triple' ? 3 : 1; if (e === S.player) beep(1320, 0.12, 'square', 0.06); }
+  if (e.rollT > 0 && (e.rollT -= DT) <= 0) { e.item = e.pending; e.itemN = e.item === 'triple' ? 3 : 1; e.itemAt = flick; if (e === S.player) beep(1320, 0.12, 'square', 0.06); }
   if (!e.item || S.phase !== 'race' || e.finished || e.spinT > 0) return;
   let use = false;
   if (e === S.player && !e.ai) { const kk = !!(keys.KeyE || keys.ControlLeft || keys.ControlRight); use = kk && !e.itemKey; e.itemKey = kk; }
@@ -1625,6 +1625,7 @@ function itemsTick() {
     zp.t -= DT;
     const st = Math.min(dist, 1700 * DT);
     zp.s += ds / dist * st; zp.d += dd / dist * st;
+    (zp.trail = zp.trail || []).push([zp.s, zp.d]); if (zp.trail.length > 10) zp.trail.shift();
     if (dist < 40) { hitEntity(o, zp.owner); IT.zaps.splice(i, 1); }
     else if (zp.t <= 0) IT.zaps.splice(i, 1);
   }
@@ -2657,7 +2658,7 @@ function render(dt) {
 const dynVAO = (() => {
   const vao = gl.createVertexArray(); gl.bindVertexArray(vao);
   const buf = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, buf);
-  gl.bufferData(gl.ARRAY_BUFFER, 4 * 6 * 60000, gl.DYNAMIC_DRAW);
+  gl.bufferData(gl.ARRAY_BUFFER, 4 * 6 * 120000, gl.DYNAMIC_DRAW);
   const lp = gl.getAttribLocation(PM.p, 'aPos'), lc = gl.getAttribLocation(PM.p, 'aCol');
   gl.enableVertexAttribArray(lp); gl.vertexAttribPointer(lp, 3, gl.FLOAT, false, 24, 0);
   gl.enableVertexAttribArray(lc); gl.vertexAttribPointer(lc, 3, gl.FLOAT, false, 24, 12);
@@ -2665,6 +2666,10 @@ const dynVAO = (() => {
   return { vao, buf };
 })();
 const DQ = {};
+// kleuren van de items op de baan
+const IT_COLS = { hue: ['#ff4f8a', '#ffb833', '#7dffb0', '#4fc3ff', '#c070ff'].map(hex), white: [1, 1, 1], ringA: hex('#ffd24a'), ringB: hex('#fff6c0'),
+  slickEdge: hex('#1e0b30'), slick: hex('#5a2a90'), slick2: hex('#6c34a8'), slickHi: hex('#c070ff'), zap: hex('#ffb030'), zapHi: hex('#fff6c0'),
+  shield: hex('#7dffb0'), shieldHi: hex('#e8fff2'), star: hex('#ffd24a') };
 // golfkleuren: diep, midden, licht, glans, schuim (twee tinten), spat, natte weg
 const WAVE_COLS = ['#1a6fa8', '#2286c4', '#2f9fd8', '#4cbde8', '#8adcf4', '#e4f8ff', '#ffffff', '#2c3a4e'].map(hex);
 function drawDynamic() {
@@ -2715,31 +2720,73 @@ function drawDynamic() {
       [[-1, -1, -1], [1, -1, -1], [1, -1, 1], [-1, -1, 1]], [[-1, -1, 1], [1, -1, 1], [1, 1, 1], [-1, 1, 1]], [[-1, -1, -1], [1, -1, -1], [1, 1, -1], [-1, 1, -1]]];
     F.forEach((q, i) => pushQuad(out, P(...q[0]), P(...q[1]), P(...q[2]), P(...q[3]), cols[i % cols.length]));
   };
-  const HUES = ['#ff4f8a', '#ffb833', '#7dffb0', '#4fc3ff', '#c070ff'].map(hex);
+  // ring plat op de weg (van r0 tot r1), in stukjes die om en om van kleur wisselen
+  const ring = (sv, d, h, r0, r1, nSeg, colA, colB, n, spin) => {
+    for (let i = 0; i < nSeg; i++) {
+      const a0 = i / nSeg * 6.283 + (spin || 0), a1 = (i + 1) / nSeg * 6.283 + (spin || 0), q = (x, y, r) => wp(sv + Math.cos(x) * r, d + Math.sin(x) * r, h);
+      pushQuad(out, q(a0, 0, r0), q(a1, 0, r0), q(a1, 0, r1), q(a0, 0, r1), lit(i % 2 ? colB : colA, n, 0.9));
+    }
+  };
+  const IC = IT_COLS;
+  // itemboxen: een draaiende kubus in regenboogkleuren met een wit kader, een lichtring op de weg eronder
   for (const b of IT.boxes) {
     if (b.t > 0) continue;
-    const h0 = HUES[Math.floor(flick * 4 + b.d) % 5 + 0 | 0] || HUES[0], h1 = h0.map(v => v * 0.75);
-    cube(b.s, b.d, 26 + Math.sin(flick * 3 + b.d) * 4, 16, flick * 1.6 + b.d, [h0, h1, [1, 1, 1], h1, h0, [1, 1, 1]]);
+    const n = up(b.s), hue = IC.hue[Math.floor(flick * 3 + b.d * 0.05 + 10) % 5], dark = hue.map(v => v * 0.7);
+    const h = 30 + Math.sin(flick * 3 + b.d) * 4, rot = flick * 1.6 + b.d;
+    ring(b.s, b.d, 1.2, 22, 30, 12, IC.ringA, IC.ringB, n, -flick * 2);
+    cube(b.s, b.d, h, 13, rot, [hue, dark, IC.white, dark, hue, IC.white]);
+    // wit kader: twaalf ribben als dunne balkjes
+    at(b.s, DQ);
+    const T = [DQ.tx, DQ.ty, DQ.tz], Rr = [DQ.rx, DQ.ry, DQ.rz], U = [DQ.ux, DQ.uy, DQ.uz], c = wp(b.s, b.d, h);
+    const cr = Math.cos(rot), sr = Math.sin(rot), ax = add(scale(T, cr), scale(Rr, sr)), ay = add(scale(T, -sr), scale(Rr, cr));
+    const Pt = (x, y, z) => add(add(add(c, scale(ax, x)), scale(ay, y)), scale(U, z));
+    const bar = (p, q2, w) => { const dv = sub(q2, p), side = scale(norm(cross(dv, sub(cam.pos, p))), w); pushQuad(out, add(p, side), add(q2, side), sub(q2, side), sub(p, side), IC.white); };
+    const R2 = 16;
+    for (const [sx, sy] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) bar(Pt(sx * R2, sy * R2, -R2), Pt(sx * R2, sy * R2, R2), 1.6);
+    for (const z of [-R2, R2]) { const cs = [[-1, -1], [1, -1], [1, 1], [-1, 1]]; for (let k = 0; k < 4; k++) { const [x1, y1] = cs[k], [x2, y2] = cs[(k + 1) % 4]; bar(Pt(x1 * R2, y1 * R2, z), Pt(x2 * R2, y2 * R2, z), 1.6); } }
+    // vonkje bovenop
+    if ((flick * 2 + b.d) % 1 < 0.5) cube(b.s, b.d, h + 26, 2.5, 0, [IC.white]);
   }
+  // olieplas: donkere rand, paarse plas, lichte kern, en bubbels die opborrelen
   for (const sl of IT.slicks) {
-    const n = up(sl.s), ring = (r, col, h) => { for (let i = 0; i < 10; i++) { const a0 = i / 10 * 6.283, a1 = (i + 1) / 10 * 6.283; pushTri(out, wp(sl.s, sl.d, h), wp(sl.s + Math.cos(a0) * r, sl.d + Math.sin(a0) * r, h), wp(sl.s + Math.cos(a1) * r, sl.d + Math.sin(a1) * r, h), lit(col, n)); } };
-    ring(44, hex('#1e0b30'), 1.5); ring(30, hex('#5a2a90'), 2); ring(12, hex('#c070ff'), 2.5);
+    const n = up(sl.s), wob = 1 + Math.sin(flick * 2 + sl.s) * 0.04;
+    ring(sl.s, sl.d, 1.4, 0, 48 * wob, 14, IC.slickEdge, IC.slickEdge, n);
+    ring(sl.s, sl.d, 1.8, 0, 38 * wob, 14, IC.slick, IC.slick2, n, flick * 0.5);
+    ring(sl.s, sl.d, 2.2, 0, 14, 10, IC.slickHi, IC.slickHi, n);
+    for (let q = 0; q < 4; q++) {
+      const life = (flick * 0.9 + q * 0.27 + sl.d * 0.01) % 1, a = q * 1.7 + sl.s;
+      cube(sl.s + Math.cos(a) * 20, sl.d + Math.sin(a) * 20, 2 + life * 8, 2 + (1 - life) * 3, 0, [IC.slickHi]);
+    }
   }
-  for (const zp of IT.zaps) cube(zp.s, zp.d, 22, 9, flick * 8, [hex('#ffb030'), hex('#fff6c0')]);
+  // ZAP: een gloeiende bol met een lichtspoor achter zich
+  for (const zp of IT.zaps) {
+    (zp.trail || []).forEach((p, i, arr) => { const f = (i + 1) / arr.length; cube(p[0], p[1], 22, 2 + f * 6, 0, [f > 0.6 ? IC.zapHi : IC.zap]); });
+    cube(zp.s, zp.d, 22, 11, flick * 8, [IC.zap, IC.zapHi]);
+    cube(zp.s, zp.d, 22, 6, -flick * 10, [IC.white]);
+  }
   for (const e of S.ents) {
-    if (!(e.shieldT > 0) || (e.shieldT < 2 && (flick * 8) % 1 < 0.5)) continue;
-    const n = up(e.s);
-    for (let i = 0; i < 16; i++) {
-      const a0 = i / 16 * 6.283, a1 = (i + 1) / 16 * 6.283, r = 46;
-      const p0 = wp(e.s + Math.cos(a0) * r, e.d + Math.sin(a0) * r, e.z + 4), p1 = wp(e.s + Math.cos(a1) * r, e.d + Math.sin(a1) * r, e.z + 4);
-      pushQuad(out, p0, p1, add(p1, scale(n, 10)), add(p0, scale(n, 10)), lit(hex('#7dffb0'), n));
+    // schild: een dunne gloeiende ring rond het schip met draaiende vonkjes (het zicht blijft vrij); knippert als hij bijna op is
+    if (e.shieldT > 0 && !(e.shieldT < 2 && (flick * 8) % 1 < 0.5)) {
+      const n = up(e.s);
+      for (let i = 0; i < 20; i++) {
+        if (i % 2) continue;
+        const a0 = i / 20 * 6.283 + flick * 1.5, a1 = (i + 1) / 20 * 6.283 + flick * 1.5, r = 40;
+        const q = (a, h) => wp(e.s + Math.cos(a) * r, e.d + Math.sin(a) * r, e.z + h);
+        pushQuad(out, q(a0, 3), q(a1, 3), q(a1, 7), q(a0, 7), lit(i % 4 ? IC.shield : IC.shieldHi, n, 0.95));
+      }
+      for (let q = 0; q < 3; q++) { const a = -flick * 3 + q * 2.094; cube(e.s + Math.cos(a) * 40, e.d + Math.sin(a) * 40, e.z + 16 + Math.sin(flick * 5 + q) * 4, 2.5, flick * 4, [IC.shieldHi]); }
+    }
+    // getold: sterretjes die rond het schip draaien
+    if (e.spinT > 0) for (let q = 0; q < 3; q++) {
+      const a = flick * 8 + q * 2.094;
+      cube(e.s + Math.cos(a) * 18, e.d + Math.sin(a) * 18, e.z + 34, 2.2, flick * 6, [IC.star]);
     }
   }
   if (!out.length) return;
   gl.uniformMatrix4fv(PM.u.uM, false, I4);
   gl.bindBuffer(gl.ARRAY_BUFFER, dynVAO.buf);
-  gl.bufferSubData(gl.ARRAY_BUFFER, 0, new Float32Array(out.slice(0, 6 * 60000)));
-  gl.bindVertexArray(dynVAO.vao); gl.drawArrays(gl.TRIANGLES, 0, Math.min(60000, out.length / 6));
+  gl.bufferSubData(gl.ARRAY_BUFFER, 0, new Float32Array(out.slice(0, 6 * 120000)));
+  gl.bindVertexArray(dynVAO.vao); gl.drawArrays(gl.TRIANGLES, 0, Math.min(120000, out.length / 6));
 }
 
 // ---------------------------------------------------------------- HUD en menu's (uit komeet.html)
@@ -3394,17 +3441,70 @@ function drawOptions(u) {
   });
   text('up/down: select     left/right: change     Esc: close', W / 2, py + ph - 24 * u, 13 * u, '#cfd3ff', 'center');
 }
+// Icoontjes van de items, ontworpen op een raster van 16 bij 16 en met harde pixels getekend (fillPoly/fillDisc).
+// Eerst een donkere rand (dezelfde vorm een pixel verschoven), dan de kleur, dan een glimlicht.
+function drawItemIcon(k, cx, cy, size) {
+  const sc = size / 16, ox = cx - size / 2, oy = cy - size / 2, o = Math.max(1, Math.round(sc * 0.9));
+  const P = pts => pts.map((v, i) => i % 2 ? oy + v * sc : ox + v * sc);
+  const shape = (draw, col, edge) => {
+    if (edge !== false) { ctx.fillStyle = '#16101a'; for (const [dx, dy] of [[-o, 0], [o, 0], [0, -o], [0, o]]) draw(dx, dy); }
+    ctx.fillStyle = col; draw(0, 0);
+  };
+  const poly = (pts, col, edge) => shape((dx, dy) => fillPoly(P(pts).map((v, i) => v + (i % 2 ? dy : dx))), col, edge);
+  const disc = (x, y, r, col, edge) => shape((dx, dy) => fillDisc(ox + x * sc + dx, oy + y * sc + dy, r * sc), col, edge);
+  const chevron = (y, h, col) => poly([2, y + 5, 8, y, 14, y + 5, 14, y + 5 + h, 8, y + h, 2, y + 5 + h], col);
+  if (k === 'turbo') {
+    chevron(8, 3, '#2f9fd8'); chevron(2, 3, '#8fe8ff');
+    poly([5, 6, 8, 3.5, 8, 5, 6, 7], '#ffffff', false);
+  } else if (k === 'triple') {
+    chevron(10, 2.2, '#2f9fd8'); chevron(5.5, 2.2, '#5cc8f0'); chevron(1, 2.2, '#8fe8ff');
+  } else if (k === 'shield') {
+    poly([3, 2, 13, 2, 13, 8, 8, 14.5, 3, 8], '#3fc48a');
+    poly([8, 2, 13, 2, 13, 8, 8, 14.5], '#7dffb0', false);
+    poly([4.5, 3.5, 7, 3.5, 4.5, 8], '#e8fff2', false);
+  } else if (k === 'slick') {
+    disc(5.5, 10, 4, '#7a3ac0'); disc(10.5, 10.5, 3.8, '#7a3ac0'); disc(8, 7.5, 4.2, '#7a3ac0');
+    disc(8, 8.5, 3, '#c070ff', false); disc(12.5, 3.5, 1.5, '#c070ff'); disc(6.5, 6.5, 1.1, '#f0d8ff', false);
+  } else if (k === 'zap') {
+    poly([9.5, 0.5, 3.5, 9, 7.5, 9, 5.5, 15.5, 12.5, 6, 8.5, 6, 11, 0.5], '#ffd24a');
+    poly([9, 2, 6, 7.5, 7.5, 7.5], '#fff6c0', false);
+  } else if (k === 'storm') {
+    poly([8, 9, 5, 14, 8, 13, 7, 16, 11, 11, 8, 12, 10, 9], '#ffd24a');
+    disc(5, 7, 3, '#8a86a8'); disc(9, 5.5, 4, '#8a86a8'); disc(12, 7.5, 2.8, '#8a86a8');
+    poly([3, 7, 14, 7, 14, 10, 3, 10], '#8a86a8');
+    disc(8.5, 5, 2.5, '#d8d6e8', false); disc(5, 7, 1.6, '#c4c0d8', false);
+  }
+}
 function drawItemSlot(u) {
   if (G.mode === 'tt' || G.intro > 0) return;
-  const P = G.player, bw = 150 * u, bh = 54 * u, x = W / 2 - bw / 2, y = 22 * u;
-  panel(x, y, bw, bh, 0.8);
-  let label = '', col = '#5a5880';
-  if (P.rollT > 0) { const keysI = Object.keys(ITEMS); const k = keysI[Math.floor(G.time * 14) % keysI.length]; label = ITEMS[k].name; col = '#cfd3ff'; }
-  else if (P.item) { label = ITEMS[P.item].name + (P.itemN > 1 ? ' X' + P.itemN : ''); col = ITEMS[P.item].col; }
-  else label = 'NO ITEM';
-  text(label, W / 2, y + bh / 2 + 4 * u, (label.length > 10 ? 15 : 19) * u, col, 'center', 900);
-  if (P.item && !(P.rollT > 0)) text('E: USE', W / 2, y + bh - 6 * u, 10 * u, '#cfd3ff', 'center', 700);
-  if (P.shieldT > 0) text('SHIELD ' + Math.ceil(P.shieldT), W / 2, y + bh + 16 * u, 13 * u, '#7dffb0', 'center', 800);
+  const P = G.player, bw = 210 * u, bh = 78 * u, x = W / 2 - bw / 2, y = 18 * u, box = bh - 16 * u;
+  panel(x, y, bw, bh, 0.82);
+  // vakje voor het icoontje
+  const bx = x + 8 * u, by = y + 8 * u, icx = bx + box / 2, icy = by + box / 2;
+  ctx.fillStyle = 'rgba(255,255,255,0.08)'; ctx.fillRect(Math.round(bx), Math.round(by), Math.round(box), Math.round(box));
+  let k = null, label = 'NO ITEM', col = '#5a5880';
+  if (P.rollT > 0) {
+    // roulette: de icoontjes draaien langs en remmen af
+    const keysI = Object.keys(ITEMS), sp = 6 + 26 * Math.min(1, P.rollT);
+    k = keysI[Math.floor(G.time * sp) % keysI.length]; label = '???'; col = '#cfd3ff';
+  } else if (P.item) { k = P.item; label = ITEMS[k].name; col = ITEMS[k].col; }
+  if (k) {
+    const pop = P.rollT > 0 ? 1 : 1 + Math.max(0, 0.25 - (G.time - (P.itemAt || 0))) * 1.6;
+    drawItemIcon(k, icx, icy, Math.round(box * 0.72 * pop / 16) * 16 || 16);
+  } else { ctx.fillStyle = 'rgba(255,255,255,0.12)'; ctx.fillRect(Math.round(icx - box * 0.18), Math.round(icy - 1), Math.round(box * 0.36), Math.max(2, Math.round(3 * u))); }
+  const tx = bx + box + 12 * u;
+  text(label, tx, y + 36 * u, (label.length > 10 ? 14 : 18) * u, col, 'left', 900);
+  if (P.item && !(P.rollT > 0)) {
+    text('E: USE', tx, y + 60 * u, 11 * u, '#cfd3ff', 'left', 700);
+    if (P.itemN > 1) for (let i = 0; i < P.itemN; i++) { ctx.fillStyle = col; ctx.fillRect(Math.round(x + bw - 18 * u - i * 12 * u), Math.round(y + 52 * u), Math.round(8 * u), Math.round(8 * u)); }
+  }
+  if (P.shieldT > 0) {
+    // schild: balkje dat afloopt
+    const f = Math.min(1, P.shieldT / 8);
+    ctx.fillStyle = 'rgba(8,5,22,0.8)'; ctx.fillRect(Math.round(x), Math.round(y + bh + 6 * u), Math.round(bw), Math.round(10 * u));
+    ctx.fillStyle = '#7dffb0'; ctx.fillRect(Math.round(x + 2), Math.round(y + bh + 8 * u), Math.round((bw - 4) * f), Math.round(6 * u));
+    text('SHIELD', W / 2, y + bh + 32 * u, 12 * u, '#7dffb0', 'center', 800);
+  }
 }
   // online-scherm in de stijl van komeet.html: verbinden, kamer maken of meedoen, en de kamer
   function drawOnlineMenu(u) {
