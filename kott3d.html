@@ -709,16 +709,26 @@ function stepEnt(e) {
       return;
     }
   }
-  // schans: ook als je net los bent van een heuveltopje (anders mis je hem op hoge snelheid)
-  if (e.z < 15 && !e.gapFly) for (const hz of TR.haz) {
-    if (hz.type === 'jump' && sh >= hz.s0 && sh <= hz.s1 && e.vT > 350) { const vz = hz.gap ? 150 + e.vT * 0.13 : 110 + e.vT * 0.11; if (!e.air || e.vz < vz) { e.air = true; e.vz = vz; e.z = Math.max(e.z, 0.02); e.airT = 0; e.ev.jump = 1; } }
-  }
-  if (!e.air) {
-    for (const hz of TR.haz) {
-      if (sh < hz.s0 || sh > hz.s1) continue;
-      if (hz.type === 'jump' && e.vT > 350) { e.air = true; e.vz = hz.gap ? 150 + e.vT * 0.13 : 110 + e.vT * 0.11; e.z = 0.02; e.airT = 0; e.ev.jump = 1; break; }
-      if (hz.type === 'bump' && e.vT > 300) { e.air = true; e.vz = 60 + e.vT * 0.045; e.z = 0.02; e.airT = 0; e.ev.bump = 1; break; }
+  // schans en hobbels: het schip rijdt de helling op (z volgt het wegdek van de wig) en komt pas aan de rand los
+  let ramp = 0;
+  if (!e.gapFly) for (const hz of TR.haz) {
+    if (hz.type === 'jump') {
+      const a0 = hz.s0 - 60, Hh = hz.launch ? 34 : 24;
+      if (!e.air && sh >= a0 && sh < hz.s1) ramp = Math.max(ramp, Hh * (sh - a0) / (hz.s1 - a0));
+      else if (e.rampH && sh >= hz.s1 && sh < hz.s1 + 60) {
+        e.air = true; e.z = e.rampH; e.airT = 0; e.ev.jump = 1; e.rampH = 0;
+        e.vz = e.vT > 350 ? (hz.gap ? 150 + e.vT * 0.13 : 110 + e.vT * 0.11) : 0;   // te langzaam: je valt er gewoon af
+      }
+    } else if (hz.type === 'bump') {
+      const m = (hz.s0 + hz.s1) / 2, half = (hz.s1 - hz.s0) / 2 + 10;
+      if (e.air || Math.abs(sh - m) >= half) continue;
+      if (sh < m) ramp = Math.max(ramp, 12 * (1 - (m - sh) / half));
+      else if (e.rampH && e.vT > 300) { e.air = true; e.z = e.rampH; e.vz = 60 + e.vT * 0.045; e.airT = 0; e.ev.bump = 1; e.rampH = 0; }
+      else ramp = Math.max(ramp, 12 * (1 - (sh - m) / half));
     }
+  }
+  if (!e.air) { if (ramp > 0) e.z = ramp; e.rampH = ramp; }
+  if (!e.air) {
     if (e.padT < 0.9) for (const p of TR.pads) {
       let dsv = sh - p.s; dsv -= Math.round(dsv / TR.len) * TR.len;
       if (Math.abs(e.d - p.d) < PAD_HW + 12 && Math.abs(dsv) < PAD_HL) {
