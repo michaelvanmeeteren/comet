@@ -592,7 +592,7 @@ const JUMP_AT = [2300, 3600], LAND_AT = [2300, 4500], RAMP_L = 130, RAMP_H = 30;
 function gapPos(s) { let u = ((s - TR.lipS) % TR.len + TR.len) % TR.len; if (u > TR.len / 2) u -= TR.len; return u; }
 function driftLevel(t) { return t > 1.6 ? 3 : t > 1.0 ? 2 : t > 0.5 ? 1 : 0; }
 function stepEnt(e) {
-  const c = e.car, k = e.skill, inp = e.in;
+  const c = e.car, k = e.skill * (S.mul || 1), inp = e.in;
   at(e.s, Q);
   e.steer += (inp.steer - e.steer) * Math.min(1, DT * 9);
   const air = e.air;
@@ -748,6 +748,7 @@ function collide(ents) {
     const dd = b.d - a.d;
     if (Math.abs(dsv) > 70 || Math.abs(dd) > 44 || Math.abs(a.z - b.z) > 40) continue;
     const ox = 70 - Math.abs(dsv), oy = 44 - Math.abs(dd);
+    a.ev.bumped = b; b.ev.bumped = a;
     const ma = a.car.mass, mb = b.car.mass, wa = mb / (ma + mb), wb = ma / (ma + mb);
     if (oy < ox * 0.63) {
       const sd = Math.sign(dd || 1);
@@ -792,6 +793,202 @@ function aiInput(e, ents) {
 }
 
 // ---------------------------------------------------------------- spelverloop
+// ---------------------------------------------------------------- rivalen en klassen (uit komeet.html)
+const RIVALS = [
+  { name: 'DODGER', kind: 'FOX', title: 'Sly sprinter', lines: {
+      start: ['Alright, no hard feelings when I win, yeah?', 'Nice ride. Shame about the driver.', 'Don\'t take this personally, okay?'],
+      pass: ['Whoops, did I just slip past you?', 'You left the door wide open, pal.', 'Thanks for the tow!', 'Oh, were you using that corner?'],
+      passed: ['Hey, hey, that was my line!', 'Okay, okay. That was actually smooth.', 'Oh come on, I blinked!', 'Sneaky. I like it.'],
+      bump: ['Easy! I just had this thing painted.', 'Watch it, will you?', 'Oh, so that\'s how we\'re playing it?'],
+      final: ['Last lap. Now it gets fun.', 'One lap left. Don\'t choke.'],
+      win: ['Told you. No hard feelings, right?', 'Honestly? I barely tried.', 'You made me work for it. A little.'],
+      lose: ['Fine, you got me. This time.', 'I let you have that one. Mostly.', 'Okay, that was good. Don\'t get used to it.'] },
+    car: 0, pal: ['#ffe0ec', '#f0c0d4', '#ff3f8f', '#d81f6f', '#300a1c', '#ff9fc8', '#3a0f24'] },
+  { name: 'BARON', kind: 'RAVEN', title: 'Arrogant speed demon', lines: {
+      start: ['Try not to embarrass yourself out there.', 'I\'d wish you luck, but it won\'t help.', 'Stay out of my way and we\'ll be fine.'],
+      pass: ['Move over, I\'ve got places to be.', 'And that\'s how it\'s done.', 'Were you even trying?', 'Don\'t feel bad. Nobody keeps up.'],
+      passed: ['That was luck and you know it.', 'Enjoy the view. It won\'t last.', 'Excuse me?!', 'I was letting the engine cool.'],
+      bump: ['Do you have any idea what this costs?', 'Hands off the wings!', 'Unbelievable. Just unbelievable.'],
+      final: ['Final lap. Time to stop playing around.', 'Last lap. Watch and learn.'],
+      win: ['Was there ever any doubt?', 'You\'re welcome for the lesson.', 'Second place suits you, honestly.'],
+      lose: ['The track was a mess today. Everyone saw it.', 'My engine was off. Obviously.', 'I wasn\'t even warmed up.'] },
+    car: 1, pal: ['#d8fff8', '#b0eee4', '#1fd8c0', '#0fae9a', '#06302a', '#9ffff0', '#083a34'] },
+  { name: 'HUSH', kind: 'LYNX', title: 'Quiet king of corners', lines: {
+      start: ['...Good luck.', 'Let\'s keep it clean.', 'See you out there.'],
+      pass: ['Coming through.', 'Inside line. Sorry.', 'My turn.', 'You braked early.'],
+      passed: ['Nice move.', 'Huh. Didn\'t see that coming.', 'Fair enough.', 'Okay. You\'re quick.'],
+      bump: ['Easy now.', 'Careful.', '...Really?'],
+      final: ['One more lap. Focus.', 'Last lap. Breathe.'],
+      win: ['Good race. I mean it.', 'That was close. Well driven.', 'You pushed me. Thanks.'],
+      lose: ['You earned that one.', 'You were faster today. Respect.', 'Clean driving. Well done.'] },
+    car: 2, pal: ['#ffd8d0', '#f0b8ac', '#ff3a2a', '#cc2014', '#300c08', '#ff9a8a', '#3a100c'] },
+  { name: 'SPLASH', kind: 'OTTER', title: 'Cheerful wrecking ball', lines: {
+      start: ['Oh man, oh man, I love this part!', 'Is everyone ready? I\'m so ready!', 'Okay okay okay, here we go!'],
+      pass: ['Wheee! See you at the finish!', 'Sorry, coming through, sorry!', 'Did you see that? Did you SEE that?', 'Tag! You\'re it!'],
+      passed: ['Whoa, you\'re flying!', 'Aw, I was so close!', 'Hey, wait for me!', 'Nice one! No really, nice one!'],
+      bump: ['Oops! My bad! Kind of!', 'Ha! Bumper cars!', 'Sorry, sorry! Okay, not that sorry.'],
+      final: ['Last lap already? Nooo, I was having fun!', 'One more lap! Make it count!'],
+      win: ['Wait, I won? I actually won?!', 'Best. Day. Ever!', 'I can\'t believe it! Somebody pinch me!'],
+      lose: ['That was awesome! Again, again!', 'Who cares who won, that was great!', 'You were so fast! Teach me that!'] },
+    car: 3, pal: ['#eedcff', '#d6bcf4', '#a04fff', '#7a2fd8', '#1c0a33', '#d0a0ff', '#220c40'] },
+  { name: 'GUS', kind: 'VULTURE', title: 'Patient veteran', lines: {
+      start: ['Take your time, kid. I\'m in no hurry.', 'Seen a hundred starts like this one.', 'Let\'s see what you\'ve got.'],
+      pass: ['There it is. Knew you\'d slip up.', 'Patience, kid. Works every time.', 'Don\'t mind me, just passing through.', 'Too eager on the throttle.'],
+      passed: ['Go on, enjoy it while it lasts.', 'Not bad. Not bad at all.', 'Hm. Getting slow in my old age.', 'Alright, you\'ve got some nerve.'],
+      bump: ['Back in my day we called that a foul.', 'Watch the bodywork, rookie.', 'Easy. These bones are old.'],
+      final: ['Last lap. This is where races are won.', 'One to go. Don\'t get greedy.'],
+      win: ['Slow and steady. Told you.', 'Still got it.', 'Experience, kid. Can\'t buy it.'],
+      lose: ['Well, well. You\'ve got something, rookie.', 'About time someone beat me.', 'Good. Now do it again next race.'] },
+    car: 0, pal: ['#ffffff', '#dcdcdc', '#9aa4b0', '#6c7682', '#16181c', '#e0e8f0', '#20242a'] },
+  { name: 'MELLOW', kind: 'FROG', title: 'Laid-back joker', lines: {
+      start: ["No rush. The finish line isn't going anywhere.", "Wake me when the lights go green."],
+      pass: ["Just hopping by, don't mind me.", "Ribbit. That means goodbye.", "Smooth as a lily pad."],
+      passed: ["Whoa, somebody had coffee.", "Cool, cool. I'll catch up. Probably.", "Nice jump, pal."],
+      bump: ["Hey, easy on the paint, man.", "Not cool. Well, a little cool."],
+      final: ["Last lap? Guess I should start trying.", "One more lap, then snacks."],
+      win: ["Huh. I won. Neat.", "Relax and it all works out."],
+      lose: ["Eh, it's just a race. Good one though.", "You wanted it more. Fair."] },
+    car: 2, pal: ['#fbffd0', '#e6eea8', '#c8c82a', '#98981a', '#2a2a06', '#f0ff7a', '#343408'] },
+  { name: 'NEWTON', kind: 'OWL', title: 'Know-it-all professor', lines: {
+      start: ["I have calculated the ideal line. Have you?", "Statistically, this is my race."],
+      pass: ["As predicted.", "Your apex was two metres late.", "Elementary, really."],
+      passed: ["Hm. That was not in my notes.", "Interesting. Highly irregular.", "A fluke. I shall recalculate."],
+      bump: ["Mind the feathers, if you please!", "That is against at least three rules."],
+      final: ["Final lap. The numbers favour me.", "One lap left. Observe carefully."],
+      win: ["Quod erat demonstrandum.", "Class dismissed."],
+      lose: ["I stand corrected. Rare, but it happens.", "Remarkable. I must study your line."] },
+    car: 1, pal: ['#fff0d0', '#eed8a8', '#c8862a', '#9a6212', '#2a1a06', '#ffd27a', '#34200a'] },
+  { name: 'PIP', kind: 'RABBIT', title: 'Nervous rookie', lines: {
+      start: ["Okay. Okay. I can do this. I think.", "Is it normal that my paws are shaking?"],
+      pass: ["Oh! Sorry! Was that allowed?", "I passed someone! I actually passed someone!", "Eep, coming through!"],
+      passed: ["Ah! Where did you come from?", "Wow, you're really good at this.", "Please don't lap me."],
+      bump: ["Sorry sorry sorry!", "Yikes! Was that me? That was me."],
+      final: ["Last lap! Don't panic. Don't panic!", "One more lap. Deep breaths."],
+      win: ["I won? Me? Are you sure?", "Mum is never going to believe this!"],
+      lose: ["That was scary. Can we go again?", "You were amazing! I'll practise more."] },
+    car: 2, pal: ['#e0f6ff', '#bce4f6', '#3ab8ff', '#1a8ed8', '#06243a', '#9fdcff', '#0a2c44'] },
+  { name: 'RAZOR', kind: 'SHARK', title: 'Trash-talking bully', lines: {
+      start: ["Fresh bait on the grid. Lovely.", "Hope you packed a spare bumper."],
+      pass: ["Chomp. Gone.", "Out of my water, minnow!", "Too slow, little fish."],
+      passed: ["You'll pay for that one!", "Enjoy it. I bite back.", "Oh, now you've done it."],
+      bump: ["You want some? Come get some!", "Ha! Felt that, did you?"],
+      final: ["Last lap. Feeding time.", "One lap left to catch you. Easy."],
+      win: ["Top of the food chain, baby!", "Smell that? That's second place."],
+      lose: ["The track was rigged! Rigged!", "Next time I'm not playing nice."] },
+    car: 3, pal: ['#dce6ff', '#b8c6ee', '#5078f0', '#2238a0', '#0a1030', '#8aa4ff', '#0e163c'] },
+  { name: 'MOCHI', kind: 'PANDA', title: 'Sleepy heavyweight', lines: {
+      start: ["Yawn. Is it starting already?", "Five more minutes..."],
+      pass: ["Oh. Hello. Goodbye.", "Rolling through. Slowly.", "Did not mean to. Sorry."],
+      passed: ["Mm. Go ahead. I'm chewing.", "So fast. So tiring to watch.", "Nice. Very nice. Yawn."],
+      bump: ["Oof. Soft landing, at least.", "Careful. I'm heavy."],
+      final: ["Last lap. Then a nap.", "One more lap. I can stay awake."],
+      win: ["I won? Good. Bedtime.", "Slow and sleepy wins the race."],
+      lose: ["Well raced. Wake me for the next one.", "You deserve it. I deserve a nap."] },
+    car: 3, pal: ['#f0ffe8', '#d0eec4', '#4aa85a', '#2e7c40', '#0c2412', '#b0f0a0', '#103018'] },
+  { name: 'CRUMB', kind: 'MOUSE', title: 'Tiny and fearless', lines: {
+      start: ["Small craft, big engine. Watch out!", "Don't look down on me. Literally."],
+      pass: ["Squeak! Right under your nose!", "Too big to see me coming!", "Zip! Bye!"],
+      passed: ["Hey! Pick on someone your own size!", "Grr. I'll get you for that.", "Fast! But I'm faster. Soon."],
+      bump: ["Is that all you've got, big guy?", "Ha! Didn't even feel it!"],
+      final: ["Last lap! No fear!", "One lap left. All or nothing!"],
+      win: ["Size isn't everything!", "Who's little now, huh?"],
+      lose: ["Next time, cheese is on you.", "Okay, you're good. For a giant."] },
+    car: 1, pal: ['#fff0e0', '#f0d4b8', '#ff8a3a', '#d8641a', '#30160a', '#ffc08a', '#3a1c0c'] },
+  { name: 'TUSK', kind: 'BOAR', title: 'Hot-headed brawler', lines: {
+      start: ["Out of my way or get flattened!", "I brake for nobody."],
+      pass: ["MOVE!", "Coming through, like it or not!", "Ha! Eat my dust!"],
+      passed: ["WHAT? Get back here!", "Nobody passes me! Nobody!", "Grrr. Lucky. Very lucky."],
+      bump: ["That's it! Now I'm angry!", "Shove me again. I dare you."],
+      final: ["Last lap! Full charge!", "One lap. No brakes. Let's go!"],
+      win: ["HA! Strongest AND fastest!", "That's how a boar does it!"],
+      lose: ["Rematch! Right now!", "Fine. You're tough. I respect tough."] },
+    car: 3, pal: ['#ffe0e0', '#eebcbc', '#b82a3a', '#8a1626', '#2a060a', '#ff8a96', '#34080e'] },
+  { name: 'MONTY', kind: 'PENGUIN', title: 'Ice-cold gentleman', lines: {
+      start: ["A pleasure to race you. Do keep up.", "Splendid weather for a victory."],
+      pass: ["Pardon me. After you. No, after me.", "Terribly sorry, old chap.", "Cool as ice."],
+      passed: ["Well played. Most unexpected.", "I say! Rather quick, aren't you?", "Good show. It won't happen twice."],
+      bump: ["I beg your pardon!", "Mind the suit, would you?"],
+      final: ["Final lap. Shall we settle this?", "One lap to go. Chin up."],
+      win: ["A fine race. I was finer.", "Do send my regards to second place."],
+      lose: ["Bravo. Truly, bravo.", "The better racer won. Jolly good."] },
+    car: 0, pal: ['#e6e0ff', '#c8bef4', '#6a5aff', '#4a3ad8', '#120e36', '#b0a6ff', '#181244'] },
+  { name: 'DUSK', kind: 'BAT', title: 'Night-shift daredevil', lines: {
+      start: ["Lights out? Even better.", "I race by ear. Try that."],
+      pass: ["Swoosh! Didn't hear me coming?", "Upside down and still faster!", "Screech! Later!"],
+      passed: ["Whoa, you're off my radar!", "Nice echo you left there.", "Okay, that was wild. I like it."],
+      bump: ["Hey! Wings are fragile!", "Bonk! Ha ha, again!"],
+      final: ["Last lap! Lights off, full speed!", "One more lap, then back to the cave."],
+      win: ["Who needs eyes to win?", "Night shift takes it!"],
+      lose: ["You're crazy fast. Respect.", "I'll get you after dark."] },
+    car: 0, pal: ['#ffe0fa', '#eebce6', '#c83ab0', '#9a1e88', '#2a0626', '#ff8ae8', '#340830'] },
+  { name: 'NYX', kind: 'CAT', title: 'Gloomy goth', lines: {
+      start: ["Another race. How thrilling. Sigh.", "We all finish in the end. Somehow."],
+      pass: ["Don't look at me.", "I pass like a shadow. Whatever.", "Nothing personal. Nothing matters."],
+      passed: ["Typical.", "Go on. Leave. Everyone does.", "Fast. Like my will to care, leaving."],
+      bump: ["Ugh. Touching.", "You scratched the black. It's still black."],
+      final: ["Last lap. The end is near. Finally.", "One lap left. Then silence."],
+      win: ["I won. I feel nothing. Maybe a little.", "Darkness wins. As always."],
+      lose: ["Losing suits my mood.", "Fine. I'll write a poem about it."] },
+    car: 1, pal: ['#f0e0ff', '#d4bcec', '#b04ae0', '#6a2a9a', '#180a26', '#d8a0ff', '#200e34'] },
+  { name: 'ASH', kind: 'WOLF', title: 'Lone drifter', lines: {
+      start: ["I race alone. Stay out of my lane.", "No pack. No plan. Just the road."],
+      pass: ["Don't follow me.", "The road was mine anyway.", "Keep your distance."],
+      passed: ["Hm. You've got fangs.", "Enjoy the lead. It gets lonely.", "Not bad, stranger."],
+      bump: ["Back off.", "I bite. Fair warning."],
+      final: ["Last lap. This is where I hunt.", "One lap. Then I'm gone."],
+      win: ["Don't thank me. I was passing through.", "The lone wolf takes it."],
+      lose: ["You ran a good race. I'll remember it.", "Tonight you lead the pack."] },
+    car: 0, pal: ['#e8f0f4', '#c8d6de', '#7a9ab0', '#4e6e86', '#101c26', '#b8dcf0', '#16242e'] },
+  { name: 'GABBY', kind: 'KOALA', title: 'Radio chatterbox', lines: {
+      start: ["Testing, testing! Is this thing on?", "Good evening, race fans, and welcome!"],
+      pass: ["And Gabby takes the inside! Unreal!", "What a move! By me! Incredible!", "Breaking news: I just passed you!"],
+      passed: ["And there goes the challenger, folks!", "Ooh, replay that one!", "A stunning pass! I hate it!"],
+      bump: ["Contact! The crowd goes wild!", "Ouch! That will be on the highlights!"],
+      final: ["Final lap, folks! Nobody blink!", "One lap to go and it's wide open!"],
+      win: ["Gabby wins! You heard it here first!", "What a finish! What a racer! Me!"],
+      lose: ["A deserved winner, folks. Truly.", "That's all from me. Great race!"] },
+    car: 2, pal: ['#f0ffd0', '#d8eea8', '#8ad02a', '#62a012', '#182a06', '#c8ff7a', '#203408'] },
+  { name: 'TINY', kind: 'ELEPHANT', title: 'Gentle giant', lines: {
+      start: ["Good luck, everyone! Drive safely!", "Oh, I do hope we all have fun."],
+      pass: ["Excuse me, little one. Big craft coming.", "So sorry. I can't really stop.", "Mind your toes!"],
+      passed: ["Oh, well done! Off you go!", "My, you're quick!", "Lovely pass. Truly lovely."],
+      bump: ["Oh dear! Are you all right?", "Sorry! I never forget a bump."],
+      final: ["Last lap! Trunks up!", "One more lap. Do your best, dear."],
+      win: ["Oh my. I won! Cake for everyone!", "Big hugs all round!"],
+      lose: ["Wonderful driving! I'm so proud of you.", "You won! Let's celebrate anyway."] },
+    car: 3, pal: ['#fff8d0', '#eee2a0', '#f0c020', '#c09000', '#2a2004', '#ffe880', '#342808'] }
+];
+const CLASSES = [
+  // lead/chase: hoeveel een tegenstander inhoudt als hij ver voor ligt, en aanzet als hij ver achter ligt
+  { name: '50CC', sub: 'Relaxed', mul: 0.86, ai: -0.05, lead: 0.94, chase: 1.02, info: ['Everything slower', 'Rivals wait for you', 'Learn the tracks'] },
+  { name: '100CC', sub: 'Standard', mul: 1, ai: 0, lead: 0.955, chase: 1.035, info: ['Normal speed', 'A fair fight', 'As the cups were meant'] },
+  { name: '150CC', sub: 'Fast and fierce', mul: 1.13, ai: 0.03, lead: 0.972, chase: 1.05, info: ['Everything faster', 'Rivals fight back', 'For the experts'] }
+];
+const CUPS = [
+  { name: 'COAST CUP', theme: 0, sub: 'Beach, harbour and funfair' },
+  { name: 'SAKURA CUP', theme: 1, sub: 'Blossoms, bamboo and neon' },
+  { name: 'CASTLE CUP', theme: 2, sub: 'Moat, dungeon and stormy keep' },
+  { name: 'STAR CUP', theme: 3, sub: 'Meteors, a ring and a supernova' },
+  // De tweede vier cups zijn verwant aan de eerste vier (zelfde basisthema en muziek), met eigen banen en kleuren.
+  { name: 'DUNE CUP', theme: 0, sub: 'Oasis, bazaar and canyon' },
+  { name: 'LOTUS CUP', theme: 1, sub: 'Marigolds, monsoon and festival' },
+  { name: 'FROST CUP', theme: 2, sub: 'Glacier, crypt and frozen throne' },
+  { name: 'LEGEND CUP', theme: 3, sub: 'Aurora, a titan and the big bang' }
+];
+const POINTS = [10, 7, 5, 3, 2, 1];
+const MEDAL_COL = ['#4a4860', '#c8793a', '#cfd6e0', '#ffd24a'], MEDAL_NAME = ['', 'BRONZE', 'SILVER', 'GOLD'];
+const PAL_GHOST = ['#9ff', '#7de', '#5cd', '#4bc', '#268', '#aff', '#dff'];
+// opslag: keuzes, records met ghost per baan en voertuig, beste cupresultaat per cup en klasse
+const SAVE3 = 'kott3d.save.v1';
+const save = (() => { try { return Object.assign({ char: 0, car: 0, cls: 1, rec: {}, ghost: {}, cups: {} }, JSON.parse(localStorage.getItem(SAVE3)) || {}); } catch (e) { return { char: 0, car: 0, cls: 1, rec: {}, ghost: {}, cups: {} }; } })();
+function store() { try { localStorage.setItem(SAVE3, JSON.stringify(save)); } catch (e) {} }
+// spelstatus buiten de race: menu of race, en welke modus
+const G3 = { state: 'menu', mode: 'free' };
+const ui = { screen: 'title', sel: 0, cup: 0, track: 1, char: save.char | 0, car: save.car | 0, cls: save.cls == null ? 1 : save.cls, back: [] };
+let cupRun = null;
+// portretten (f0 tot f17 in art/sprites.js) voor menu en boordradio
+const FACE_IMG = [];
+for (let i = 0; i < 18; i++) { const im = new Image(); if (ART.obj['f' + i]) im.src = ART.obj['f' + i]; FACE_IMG.push(im); }
 const S = { phase: 'count', t: 0, ents: [], player: null, raceTime: 0, finishOrder: [] };
 const RIVAL_PALS = [
   ['#ffe0f0', '#f0c0d8', '#ff4f9a', '#d82a78', '#2a1020', '#ffffff', '#301028'],
@@ -806,38 +1003,60 @@ function newEnt(car, pal, ai, s, d, skill) {
     in: { steer: 0, acc: false, brk: false, boost: false, drift: false }, ev: {}, load: 0, slip: false, lapT: 0, best: 0, lap: 1 };
 }
 let playerCar = 0;
-function startRace() {
+// Start een race in de huidige modus: cup (vijf rivalen uit de cup, klasse), tijdrit (alleen, met ghost) of vrij.
+const INTRO_T = 4.2;
+function startRace(intro) {
   S.ents = [];
   const grid = [];
   for (let r = 0; r < 3; r++) for (let c = 0; c < 2; c++) grid.push([TR.len - 70 - r * 95 - c * 40, c ? 55 : -55]);
-  const others = [0, 1, 2, 3].filter(i => i !== playerCar);
-  for (let i = 0; i < 5; i++) {
-    const car = CARS[others[i % 3]];
-    S.ents.push(newEnt(car, RIVAL_PALS[i], true, grid[i][0], grid[i][1], 0.9 + 0.018 * i));
+  const mode = G3.state === 'menu' ? 'demo' : G3.mode;
+  if (mode === 'online') { netBuildRace(grid); return; }
+  S.mul = mode === 'cup' ? CLASSES[ui.cls].mul : 1;
+  const ai = mode === 'cup' ? CLASSES[ui.cls].ai : 0;
+  if (mode !== 'tt') {
+    const riv = mode === 'cup' ? cupRun.rivals : (S.freeRivals = S.freeRivals || pickRivals(ui.char));
+    riv.forEach((r, i) => {
+      const e = newEnt(CARS[RIVALS[r].car], RIVALS[r].pal, true, grid[i][0], grid[i][1], 0.9 + 0.018 * i + ai);
+      e.rival = r; e.slot = i; S.ents.push(e);
+    });
   }
-  S.player = newEnt(CARS[playerCar], CARS[playerCar].pal, false, grid[5][0], grid[5][1], 1);
+  const pg = mode === 'tt' ? [TR.len - 70, 0] : grid[5];
+  S.player = newEnt(CARS[playerCar], CARS[playerCar].pal, mode === 'demo', pg[0], pg[1], 1);
+  S.player.isPlayer = true;
   S.ents.push(S.player);
-  S.phase = 'count'; S.t = 0; S.raceTime = 0; S.finishOrder = [];
+  // ghost: de beste rit op deze baan met dit voertuig
+  S.ghost = null; S.rec = []; S.medals = null;
+  if (mode === 'tt') {
+    const g = save.ghost[recKey()];
+    if (g) S.ghost = { frames: g, ent: newEnt(CARS[playerCar], PAL_GHOST, false, pg[0], pg[1], 1) };
+    S.medals = medalsFor(TR.idx, playerCar);
+  }
+  S.phase = mode === 'demo' ? 'race' : intro ? 'intro' : 'count'; S.t = 0; S.raceTime = 0; S.finishOrder = [];
+  S.radio = null; S.radioCool = 3; S.result = null;
+  msg = null; S.saidStart = S.saidFinal = false; S.final = false;
   itemsReset();
   camInit = false;
 }
 
 const keys = {};
 addEventListener('keydown', e => {
+  const first = !keys[e.code];
   keys[e.code] = true;
   initAudio();
   if (e.code === 'KeyM') musicOn = !musicOn;
-  if (e.code === 'KeyR') startRace();
-  if (e.code === 'KeyN') loadTrack(TR.idx + 1);
-  if (e.code === 'KeyB') loadTrack(TR.idx - 1);
-  if (e.code === 'KeyC') { playerCar = (playerCar + 1) % 4; startRace(); }
-  if (e.code === 'KeyP' && S.player) S.player.ai = !S.player.ai;
+  if (OPT.open) { if (first) optKey(e.code); }
+  else if (G3.state === 'menu') { if (first) { if (e.code === 'KeyO') optOpen(); else menuKey(e.code); } }
+  else if (first) raceKey(e.code);
   if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space'].includes(e.code)) e.preventDefault();
 });
 addEventListener('keyup', e => { keys[e.code] = false; });
 
 function tick() {
   S.t += DT;
+  if (S.radioCool > 0) S.radioCool -= DT;
+  if (S.radio && (S.radio.t -= DT) <= 0) S.radio = null;
+  if (S.phase === 'intro') { if (S.t >= INTRO_T) { S.phase = 'count'; S.t = 0; camInit = false; } return; }
+  if (S.phase === 'count' && G3.mode === 'online' && S.goAt) S.t = Math.max(0, 3 - (S.goAt - Date.now()) / 1000);
   if (S.phase === 'count') {
     if (Math.floor(S.t - DT) !== Math.floor(S.t)) beep(S.t >= 3 ? 880 : 440, S.t >= 3 ? 0.4 : 0.15, 'square', 0.08);
     if (S.t >= 3) { S.phase = 'race'; S.t = 0; } else return;
@@ -845,7 +1064,7 @@ function tick() {
   S.raceTime += DT;
   for (const e of S.ents) {
     e.ev = {};
-    if (e.finished) { e.in = { steer: 0, acc: false, brk: false, boost: false, drift: false }; if (e.ai || e === S.player) aiInput(e, S.ents), e.in.acc = e.speed < 500, e.in.boost = false; }
+    if (e.finished || (e === S.player && S.phase === 'done')) { e.in = { steer: 0, acc: false, brk: false, boost: false, drift: false }; aiInput(e, S.ents); e.in.acc = e.speed < 500; e.in.boost = false; }
     else if (e.ai) aiInput(e, S.ents);
     else {
       const p = e.in;
@@ -853,6 +1072,7 @@ function tick() {
       p.acc = !!(keys.ArrowUp || keys.KeyW); p.brk = !!(keys.ArrowDown || keys.KeyS);
       p.boost = !!keys.Space; p.drift = !!(keys.ShiftLeft || keys.ShiftRight);
     }
+    if (e.remote != null || e.botRemote != null) { netFollow(e); continue; }
     itemControl(e, e.in);
     stepEnt(e);
     if (e.splashT > 0) e.splashT -= DT;
@@ -866,9 +1086,565 @@ function tick() {
   }
   collide(S.ents);
   itemsTick();
+  if (G3.state === 'menu') { if (S.player.finished) startRace(); return; }
   soundEvents();
-  if (S.player.finished && S.phase === 'race') { S.phase = 'done'; S.t = 0; }
+  radioTick();
+  // ghost opnemen (30 per seconde) en afspelen
+  if (G3.mode === 'tt' && !S.player.finished && Math.round(S.raceTime / DT) % 4 === 0) { const p = S.player; S.rec.push([Math.round(p.progress), Math.round(p.d), Math.round(p.z), Math.round(p.psi * 100) / 100]); }
+  if (S.ghost) {
+    const f = S.raceTime * 30, fr = S.ghost.frames, i = Math.min(fr.length - 2, Math.floor(f)), t = Math.min(1, f - i), g = S.ghost.ent;
+    if (i >= 0 && fr[i + 1]) { g.progress = fr[i][0] + (fr[i + 1][0] - fr[i][0]) * t; g.s = g.progress; g.d = fr[i][1] + (fr[i + 1][1] - fr[i][1]) * t; g.z = fr[i][2]; g.psi = fr[i][3]; }
+  }
+  if (G3.mode === 'online') netTick();
+  if (S.player.finished && S.phase === 'race') finishRace();
 }
+// ---------------------------------------------------------------- cup, tijdrit en uitslag
+// vijf rivalen, nooit het eigen personage
+function pickRivals(own) {
+  const pool = RIVALS.map((_, i) => i).filter(i => i !== own);
+  for (let i = pool.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [pool[i], pool[j]] = [pool[j], pool[i]]; }
+  return pool.slice(0, 5);
+}
+const recKey = () => TR.def.id + ':' + playerCar;
+// medailletijden: de computer rijdt de baan een keer alleen met dit voertuig (zoals getMedals in komeet.html)
+const medalCache = {};
+function medalsFor(idx, car) {
+  const key = idx + ':' + car;
+  if (medalCache[key]) return medalCache[key];
+  const keepT = S.raceTime, e = newEnt(CARS[car], CARS[car].pal, true, TR.len - 70, 0, 1);
+  e.item = null; e.spinT = 0; e.shieldT = 0;
+  let n = 0;
+  while (e.progress < LAPS * TR.len && n < 300 / DT) { S.raceTime = n * DT; aiInput(e, [e]); stepEnt(e); n++; }
+  S.raceTime = keepT;
+  const base = n * DT;
+  return (medalCache[key] = [base * 1.1, base * 1.0, base * 0.94]);
+}
+function nameOf(e) { return e.isPlayer ? 'YOU' : e.netName ? e.netName : e.rival != null ? RIVALS[e.rival].name : 'GHOST'; }
+// race voorbij: uitslag, punten, record en ghost
+function finishRace() {
+  S.phase = 'done'; S.t = 0;
+  const order = liveOrder(), p = S.player, res = { order: order.map(e => ({ e, name: nameOf(e), t: e.finished ? e.finishT : null })) };
+  if (G3.mode === 'cup') {
+    order.forEach((e, i) => { const k = e.isPlayer ? 0 : e.slot + 1; cupRun.points[k] += POINTS[i]; res.order[i].pts = POINTS[i]; });
+    cupRun.done = cupRun.race >= 2;
+    if (cupRun.done) {
+      const pos = cupStandings().findIndex(r => r.k === 0) + 1, key = ui.cup + '-' + ui.cls;
+      if (!save.cups[key] || pos < save.cups[key]) { save.cups[key] = pos; store(); }
+      res.cupPos = pos;
+    }
+  } else if (G3.mode === 'tt') {
+    const key = recKey(), old = save.rec[key];
+    res.medal = S.medals ? S.medals.reduce((m, t, i) => p.finishT <= t ? i + 1 : m, 0) : 0;
+    if (!old || p.finishT < old) { save.rec[key] = p.finishT; save.ghost[key] = S.rec; store(); res.newRecord = true; }
+  }
+  S.result = res;
+  // de rivalen reageren op de uitslag
+  const winner = order[0];
+  if (winner.rival != null) say(winner.rival, 'win', true);
+  else { const r = order.find(e => e.rival != null); if (r) say(r.rival, 'lose', true); }
+}
+function cupStandings() {
+  const rows = [{ k: 0, name: 'YOU', face: ui.char, pts: cupRun.points[0] }];
+  cupRun.rivals.forEach((r, i) => rows.push({ k: i + 1, name: RIVALS[r].name, face: r, pts: cupRun.points[i + 1] }));
+  return rows.sort((a, b) => b.pts - a.pts || a.k - b.k);
+}
+const cupTrack = (cup, race) => 1 + cup * 3 + race;
+function startCup() {
+  cupRun = { cup: ui.cup, race: 0, rivals: pickRivals(ui.char), points: [0, 0, 0, 0, 0, 0], done: false };
+  G3.state = 'race'; G3.mode = 'cup'; loadTrack(cupTrack(ui.cup, 0), true);
+}
+function goRace(mode, track) { G3.state = 'race'; G3.mode = mode; S.freeRivals = null; loadTrack(track, true); }
+function toMenu() { G3.state = 'menu'; ui.screen = 'title'; ui.back = []; cupRun = null; S.freeRivals = null; loadTrack(ui.track); }
+function raceKey(code) {
+  if (S.phase === 'intro') { if (code === 'Enter' || code === 'Space' || code === 'Escape') { S.phase = 'count'; S.t = 0; camInit = false; } return; }
+  if (code === 'KeyO') { optOpen(); return; }
+  if (code === 'Escape') { if (G3.mode === 'online') { NET.send({ t: 'leave' }); NET.room = null; } toMenu(); return; }
+  if (code === 'KeyP' && S.player) S.player.ai = !S.player.ai;
+  if (S.phase === 'done' && S.t > 1 && (code === 'Enter' || code === 'Space')) {
+    if (G3.mode === 'cup') {
+      if (!cupRun.done) { cupRun.race++; loadTrack(cupTrack(cupRun.cup, cupRun.race), true); }
+      else if (!S.final) S.final = true;
+      else { S.final = false; toMenu(); }
+    } else if (G3.mode === 'online') { G3.state = 'menu'; ui.screen = 'online'; ui.back = ['mode']; loadTrack(ui.track); }
+    else startRace();
+    return;
+  }
+  if (G3.mode === 'online' && /^Digit[1-4]$/.test(code)) { const i = +code[5] - 1; NET.send({ t: 'emote', e: i }); emoteShow('YOU', i); return; }
+  if (G3.mode !== 'cup' && G3.mode !== 'online' && code === 'KeyR') startRace();
+  if (G3.mode === 'free' && code === 'KeyN') loadTrack(TR.idx + 1);
+  if (G3.mode === 'free' && code === 'KeyB') loadTrack(TR.idx - 1);
+}
+// boordradio: rivalen zeggen iets bij de start, inhalen, botsen, de laatste ronde en de finish
+function say(rival, key, force) {
+  if (rival == null || !RIVALS[rival] || G3.mode === 'tt' || G3.mode === 'online' || (S.radioCool > 0 && !force)) return;
+  const arr = RIVALS[rival].lines[key]; if (!arr) return;
+  let txt = arr[Math.floor(Math.random() * arr.length)];
+  if (txt === S.lastLine) txt = arr[Math.floor(Math.random() * arr.length)];
+  S.lastLine = txt;
+  const dur = txt.length * VOICES[rival].step + 2.2;
+  S.radio = { rival, text: txt, t: dur }; S.radioCool = dur + 2.5;
+  babble(rival, txt);
+}
+function radioTick() {
+  if (S.phase !== 'race') return;
+  const p = S.player, riv = S.ents.filter(e => e.rival != null);
+  if (!riv.length) return;
+  if (!S.saidStart && S.t > 0.6) { S.saidStart = true; const r = riv[Math.floor(Math.random() * riv.length)]; say(r.rival, 'start', true); }
+  for (const r of riv) {
+    const ahead = r.progress > p.progress;
+    if (r.wasAhead != null && ahead !== r.wasAhead && Math.abs(r.progress - p.progress) < 300 && !p.finished && !r.finished) say(r.rival, ahead ? 'pass' : 'passed');
+    r.wasAhead = ahead;
+    if (r.ev.bumped === p) say(r.rival, 'bump');
+  }
+  if (p.lap === LAPS + 1 && !S.saidFinal) { S.saidFinal = true; const r = riv[Math.floor(Math.random() * riv.length)]; say(r.rival, 'final', true); }
+}
+
+// ---------------------------------------------------------------- online
+// Zelfde server als komeet.html (server/server.js). Posities gaan als baancoordinaten in de bekende velden van 's':
+// x = afstand langs de baan, y = zijwaarts, th = koers t.o.v. de baan, z = hoogte, vx/vy = snelheid, p = voortgang.
+const NET_VERSION = 103;   // VERSION_3D in server/server.js
+const NET = {
+  ws: null, id: null, status: 'off', err: '', room: null, pending: null, code: '', sel: 0, typing: false, offset: 0, race: null,
+  addr: (() => { if (location.protocol.startsWith('http')) return location.host; try { return localStorage.getItem('comet.server') || 'localhost:8080'; } catch (e) { return 'localhost:8080'; } })(),
+  send(m) { if (this.ws && this.ws.readyState === 1) this.ws.send(JSON.stringify(m)); }
+};
+const NET_SITE = location.protocol === 'https:' || location.hostname.endsWith('github.io');
+function netRefreshAddr() {
+  if (!NET_SITE) return Promise.resolve();
+  return fetch('server.json?' + Date.now(), { cache: 'no-store' }).then(r => r.ok ? r.json() : null).then(j => {
+    if (j && j.url) NET.addr = j.url;
+    NET.err = j && !j.url ? 'THE ONLINE SERVER IS OFFLINE RIGHT NOW' : '';
+  }).catch(() => {});
+}
+function netUrl() {
+  let a = NET.addr.trim();
+  if (/^https:\/\//i.test(a)) a = 'wss://' + a.slice(8);
+  else if (/^http:\/\//i.test(a)) a = 'ws://' + a.slice(7);
+  else if (!/^wss?:\/\//i.test(a)) a = (location.protocol === 'https:' ? 'wss://' : 'ws://') + a;
+  return a.replace(/\/+$/, '').replace(/\/ws$/, '') + '/ws';
+}
+const netName = () => save.netName || RIVALS[ui.char].name;
+function netConnect() {
+  if (NET.ws && NET.ws.readyState === 1 && NET.id != null) { NET.send({ t: 'pick', char: ui.char, car: ui.car, name: netName() }); return; }
+  NET.status = 'connecting'; NET.err = '';
+  netRefreshAddr().then(() => {
+    if (NET.ws) { try { NET.ws.close(); } catch (e) {} }
+    let ws;
+    try { ws = new WebSocket(netUrl()); } catch (e) { NET.status = 'off'; NET.err = 'BAD SERVER ADDRESS'; return; }
+    NET.ws = ws; NET.id = null;
+    ws.onopen = () => NET.send({ t: 'hello', v: NET_VERSION, name: netName(), char: ui.char, car: ui.car });
+    ws.onmessage = ev => { let m; try { m = JSON.parse(ev.data); } catch (e) { return; } netOnMessage(m); };
+    ws.onclose = () => {
+      if (NET.ws !== ws) return;
+      const wasRoom = NET.room;
+      NET.ws = null; NET.id = null; NET.room = null; NET.status = 'off';
+      if (!NET.err) NET.err = wasRoom ? 'CONNECTION LOST' : 'SERVER IS OFFLINE OR UNREACHABLE';
+      if (G3.mode === 'online' && G3.state !== 'menu') { G3.state = 'menu'; ui.screen = 'online'; loadTrack(ui.track); }
+    };
+  });
+}
+function netSet(o) { if (!NET.room) return; Object.assign(NET.room, o); NET.seq = (NET.seq || 0) + 1; NET.send({ t: 'set', seq: NET.seq, step: 'lobby', ...o }); }
+const netEnt = id => S.ents.find(e => e.remote === id);
+const EMOTES = ['GG!', 'NICE!', 'WOW!', 'OOPS!'];
+function emoteShow(name, i) { (NET.feed = NET.feed || []).push({ text: name + ': ' + EMOTES[i], until: performance.now() + 2600 }); if (NET.feed.length > 4) NET.feed.shift(); }
+function netOnMessage(m) {
+  switch (m.t) {
+    case 'welcome':
+      NET.id = m.id; NET.status = 'on'; NET.offset = m.time - Date.now(); NET.bestRtt = Infinity;
+      for (let i = 0; i < 6; i++) setTimeout(() => NET.send({ t: 'ping', c: Date.now() }), 150 * i);
+      break;
+    case 'pong': { const now = Date.now(), rtt = now - m.c; if (rtt >= 0 && rtt < NET.bestRtt) { NET.bestRtt = rtt; NET.offset = m.s - (m.c + now) / 2; } break; }
+    case 'err': NET.err = m.msg; NET.typing = false; break;
+    case 'emote': { if (m.id === NET.id) break; const pl = NET.room && NET.room.players.find(p => p.id === m.id); emoteShow(pl ? pl.name : 'RACER', m.e); beep(990, 0.06, 'square', 0.04); break; }
+    case 'room':
+      // race voorbij (iedereen binnen): punten tellen uit de laatste uitslag, en in een cup door naar de volgende race
+      if (m.code && m.state === 'lobby' && NET.race && !NET.race.counted && NET.lastOrder) {
+        NET.race.counted = true;
+        if (NET.cup) {
+          NET.lastOrder.forEach((r, i) => { NET.cup.pts[r.k] = (NET.cup.pts[r.k] || 0) + [10, 7, 5, 3, 2, 1, 0, 0][i]; NET.cup.names[r.k] = r.name; });
+          if (NET.race.cupRace >= 2) NET.cup.done = true;
+          else if (m.host === NET.id) setTimeout(() => netSet({ cupRace: NET.race.cupRace + 1 }), 50);
+        }
+      }
+      // oude antwoorden op keuzes van de host niet over de eigen keuze heen zetten
+      if (m.code && NET.room && m.host === NET.id && (m.hs || 0) < (NET.seq || 0)) { NET.room.players = m.players; NET.room.state = m.state; break; }
+      NET.room = m.code ? m : null; if (m.code) { NET.err = ''; NET.typing = false; }
+      break;
+    case 'start':
+      NET.race = { id: m.raceId, host: m.host, grid: m.grid, bots: m.bots, seed: m.seed, cls: m.cls, done: {}, omode: m.omode, cupRace: m.cupRace || 0 };
+      if (m.omode === 1 && (m.cupRace === 0 || !NET.cup)) NET.cup = { pts: {}, names: {}, done: false };
+      if (m.omode !== 1) NET.cup = null;
+      S.goAt = m.time - NET.offset + 5500;
+      G3.state = 'race'; G3.mode = 'online'; ui.track = m.track;
+      loadTrack(m.track, false);
+      break;
+    case 's': {
+      if (G3.mode !== 'online' || !S.ents.length) break;
+      const now = Date.now(), e = netEnt(m.id);
+      if (e) netPush(e, [m.x, m.y, m.th, m.z, m.vx, m.vy, m.st, m.b, m.p], now);
+      if (Array.isArray(m.bots) && NET.race && m.id === NET.race.host) m.bots.forEach((b, i) => { const be = S.ents.find(q => q.botRemote === i); if (be) netPush(be, b, now); });
+      break;
+    }
+    case 'fin': { const e = netEnt(m.id); if (e && !e.finished) { e.finished = true; e.finishT = m.time; S.finishOrder.push(e); } break; }
+    case 'botfin': { const e = S.ents.find(q => q.botRemote === m.bot); if (e && !e.finished) { e.finished = true; e.finishT = m.time; S.finishOrder.push(e); } break; }
+    case 'left': {
+      // weg tijdens de race: onderaan in de uitslag; ging de host weg, dan ook zijn computerrijders
+      const gone = S.ents.filter(e => e.remote === m.id || (NET.race && m.id === NET.race.host && e.botRemote != null));
+      for (const e of gone) if (!e.finished) { e.finished = true; e.dnf = true; e.finishT = null; }
+      break;
+    }
+    case 'end': if (G3.mode === 'online' && G3.state !== 'menu') { G3.state = 'menu'; ui.screen = 'online'; loadTrack(ui.track); } break;
+  }
+}
+// startveld online: spelers in de volgorde van de server, daarna de computerrijders (rijden bij de host)
+function netBuildRace(grid) {
+  const R = NET.race, room = NET.room || { players: [] }, isHost = R.host === NET.id;
+  S.mul = CLASSES[R.cls == null ? 1 : R.cls].mul;
+  const rnd = mulberry32(R.seed || 1), used = new Set(room.players.map(p => p.char));
+  R.grid.forEach((id, i) => {
+    const pl = room.players.find(p => p.id === id) || { name: 'RACER', char: 0, car: 0 }, g = grid[i % 6];
+    if (id === NET.id) { S.player = newEnt(CARS[ui.car], CARS[ui.car].pal, false, g[0], g[1], 1); S.player.isPlayer = true; S.player.face = ui.char; S.ents.push(S.player); }
+    else { const e = newEnt(CARS[pl.car % 4], RIVALS[pl.char % 18].pal, false, g[0], g[1], 1); e.remote = id; e.netName = pl.name; e.face = pl.char % 18; e.net = []; S.ents.push(e); }
+  });
+  const pool = RIVALS.map((_, i) => i).filter(i => !used.has(i));
+  for (let b = 0; b < R.bots; b++) {
+    const r = pool.splice(Math.floor(rnd() * pool.length), 1)[0], g = grid[(R.grid.length + b) % 6];
+    const e = newEnt(CARS[RIVALS[r].car], RIVALS[r].pal, isHost, g[0], g[1], 0.9 + 0.018 * b + CLASSES[R.cls == null ? 1 : R.cls].ai);
+    e.rival = r; e.slot = b; e.bot = b; if (!isHost) { e.botRemote = b; e.net = []; }
+    S.ents.push(e);
+  }
+  S.ghost = null; S.rec = []; S.medals = null;
+  S.phase = 'count'; S.t = 0; S.raceTime = 0; S.finishOrder = [];
+  S.radio = null; S.radioCool = 3; S.result = null; msg = null; S.final = false;
+  itemsReset(); camInit = false;
+}
+// ontvangen standen bewaren en ze iets terug in de tijd tonen (vloeiend, ook als er een bericht later komt)
+function netPush(e, a, now) { e.net.push({ t: now, v: a.map(Number) }); if (e.net.length > 8) e.net.shift(); }
+function netFollow(e) {
+  const buf = e.net; if (!buf || !buf.length) return;
+  const tShow = Date.now() - 150;
+  let i = buf.length - 1; while (i > 0 && buf[i - 1].t > tShow) i--;
+  const b = buf[i], a = buf[Math.max(0, i - 1)], f = b.t > a.t ? clamp((tShow - a.t) / (b.t - a.t), 0, 1) : 1;
+  const L = (k) => a.v[k] + (b.v[k] - a.v[k]) * f;
+  e.progress = L(8); e.s = e.progress; e.d = L(1); e.psi = b.v[2]; e.z = L(3); e.vT = b.v[4]; e.vR = b.v[5]; e.steer = b.v[6]; e.boosting = !!b.v[7];
+  e.speed = Math.hypot(e.vT, e.vR); e.ev = {};
+}
+// eigen stand (en bij de host die van de computerrijders) 30 keer per seconde versturen; binnenkomst melden
+function netTick() {
+  const p = S.player, R = NET.race; if (!R) return;
+  if (Math.round(S.raceTime / DT) % 4 === 0) {
+    const m = { t: 's', x: Math.round(((p.s % TR.len) + TR.len) % TR.len), y: Math.round(p.d), th: Math.round(p.psi * 1000) / 1000, z: Math.round(p.z), vx: Math.round(p.vT), vy: Math.round(p.vR), st: Math.round(p.steer * 100) / 100, b: p.boosting ? 1 : 0, p: Math.round(p.progress), l: p.lap };
+    if (R.host === NET.id) m.bots = S.ents.filter(e => e.bot != null).map(e => [Math.round(e.s), Math.round(e.d), Math.round(e.psi * 1000) / 1000, Math.round(e.z), Math.round(e.vT), Math.round(e.vR), Math.round(e.steer * 100) / 100, e.boosting ? 1 : 0, Math.round(e.progress), e.finished ? 1 : 0]);
+    NET.send(m);
+  }
+  if (S.phase === 'done' && S.result) S.result.order = liveOrder().map(e => ({ e, name: nameOf(e), t: e.finished && !e.dnf ? e.finishT : null }));
+  NET.lastOrder = liveOrder().map(e => ({ k: e.isPlayer ? NET.id : e.remote != null ? e.remote : 'b' + e.bot, name: e.isPlayer ? netName() : nameOf(e) }));
+  if (p.finished && !R.done.me) { R.done.me = true; NET.send({ t: 'fin', time: p.finishT }); }
+  if (R.host === NET.id) {
+    const bots = S.ents.filter(e => e.bot != null);
+    for (const e of bots) if (e.finished && !R.done['b' + e.bot]) { R.done['b' + e.bot] = true; NET.send({ t: 'botfin', bot: e.bot, time: e.finishT }); }
+    if (!R.done.bots && bots.every(e => e.finished)) { R.done.bots = true; NET.send({ t: 'botsdone' }); }
+  }
+}
+// online-scherm: verbinden, kamer maken of meedoen met een code, en in de kamer de keuzes van de host
+function onlineKey(code) {
+  const room = NET.room, isHost = room && room.host === NET.id;
+  const U = code === 'ArrowUp', D = code === 'ArrowDown', L = code === 'ArrowLeft', R = code === 'ArrowRight', OK = code === 'Enter';
+  if (NET.naming) {
+    // eigen naam: letters, cijfers en spatie, hoogstens 12 tekens
+    if (code === 'Escape') { NET.naming = false; return true; }
+    if (code === 'Backspace') { NET.nameBuf = NET.nameBuf.slice(0, -1); return true; }
+    if (OK) { save.netName = NET.nameBuf.trim(); store(); NET.naming = false; NET.send({ t: 'pick', char: ui.char, car: ui.car, name: netName() }); return true; }
+    const ch = /^Key([A-Z])$/.exec(code) || /^Digit([0-9])$/.exec(code);
+    if (ch && NET.nameBuf.length < 12) NET.nameBuf += ch[1];
+    if (code === 'Space' && NET.nameBuf.length < 12) NET.nameBuf += ' ';
+    return true;
+  }
+  if (NET.typing) {
+    if (code === 'Escape') { NET.typing = false; return true; }
+    if (code === 'Backspace') { NET.code = NET.code.slice(0, -1); return true; }
+    const ch = /^Key([A-Z])$/.exec(code) || /^Digit([0-9])$/.exec(code);
+    if (ch && NET.code.length < 4) { NET.code += ch[1]; return true; }
+    if (OK && NET.code.length === 4) NET.send({ t: 'join', code: NET.code });
+    return true;
+  }
+  if (code === 'Escape') { if (room) { NET.send({ t: 'leave' }); NET.room = null; return true; } return false; }
+  if (NET.status !== 'on') { if (OK) netConnect(); return OK; }
+  if (!room) {
+    if (U || D) NET.sel = (NET.sel + (D ? 1 : 2)) % 3;
+    if (OK) { if (NET.sel === 0) NET.send({ t: 'create' }); else if (NET.sel === 1) { NET.typing = true; NET.code = ''; NET.err = ''; } else { NET.naming = true; NET.nameBuf = netName(); } }
+    return true;
+  }
+  if (code.startsWith('Digit') && room.state === 'race') return true;
+  if (!isHost) return true;
+  if (U || D) NET.sel = (NET.sel + (D ? 1 : 3)) % 4;
+  const cupMode = room.omode === 1, busy = cupMode && room.cupRace > 0;
+  if (NET.sel === 0 && (L || R) && !busy) { netSet({ omode: cupMode ? 0 : 1, cupRace: 0 }); NET.cup = null; }
+  if (NET.sel === 1 && (L || R) && !busy) {
+    if (cupMode) { const c = ((room.cup || 0) + (R ? 1 : 7)) % 8; netSet({ cup: c }); ui.track = cupTrack(c, 0); }
+    else { ui.track = 1 + ((((room.track || 1) - 1) + (R ? 1 : 23)) % 24); netSet({ track: ui.track }); }
+    loadTrack(ui.track);
+  }
+  if (NET.sel === 2 && (L || R)) netSet({ bots: clamp((room.bots || 0) + (R ? 1 : -1), 0, Math.max(0, 6 - room.players.length)) });
+  if (NET.sel === 3 && (L || R)) netSet({ cls: ((room.cls == null ? 1 : room.cls) + (R ? 1 : 2)) % 3 });
+  if (OK && room.state === 'lobby') {
+    if (cupMode && NET.cup && NET.cup.done) { NET.cup = null; netSet({ cupRace: 0 }); return true; }
+    NET.send({ t: 'start', track: cupMode ? cupTrack(room.cup || 0, room.cupRace || 0) : room.track || 1 });
+  }
+  return true;
+}
+function drawOnline() {
+  const cx = W / 2, room = NET.room;
+  if (NET.status !== 'on') {
+    panel(cx - 140, 60, 280, 60);
+    text(NET.status === 'connecting' ? 'CONNECTING...' : 'NOT CONNECTED', cx, 70, 2, '#fff', 'c');
+    if (NET.err) text(NET.err, cx, 88, 1, '#ff8a8a', 'c');
+    if (NET.status === 'off') text('ENTER: TRY AGAIN   ESC: BACK', cx, 104, 1, '#cfe', 'c');
+    return;
+  }
+  if (!room) {
+    ['CREATE A ROOM', NET.typing ? 'ROOM CODE: ' + (NET.code + '____').slice(0, 4) : 'JOIN WITH A CODE', NET.naming ? 'NAME: ' + NET.nameBuf + (Math.floor(flick * 3) % 2 ? '-' : ' ') : 'NAME: ' + netName()].forEach((t, i) => {
+      panel(cx - 120, 44 + i * 32, 240, 26); text(t, cx, 53 + i * 32, 2, NET.sel === i ? '#ffd23a' : '#fff', 'c');
+    });
+    text(NET.typing ? 'TYPE THE 4 LETTERS, THEN ENTER' : NET.naming ? 'TYPE YOUR NAME, THEN ENTER' : 'ENTER: CHOOSE   ESC: BACK', cx, 146, 1, '#cfe', 'c');
+    if (NET.err) text(NET.err, cx, 158, 1, '#ff8a8a', 'c');
+    return;
+  }
+  const isHost = room.host === NET.id;
+  panel(cx - 150, 30, 300, 170);
+  text('ROOM ' + room.code, cx, 36, 3, '#ffd23a', 'c');
+  text('GIVE THIS CODE TO YOUR FRIENDS', cx, 58, 1, '#cfe', 'c');
+  room.players.forEach((p, i) => {
+    const y = 70 + i * 13;
+    face(p.char % 18, cx - 140, y - 2, 11);
+    text(p.name + (p.id === room.host ? '  (HOST)' : '') + (p.id === NET.id ? '  - YOU' : ''), cx - 124, y, 1, p.id === NET.id ? '#ffd23a' : '#fff');
+    text(CARS[p.car % 4].name, cx + 140, y, 1, '#cfe', 'r');
+  });
+  const cupMode = room.omode === 1, tr = TRACKS[room.track || 1], y0 = 142;
+  [['MODE', cupMode ? 'CUP (3 RACES)' : 'SINGLE RACE'], cupMode ? ['CUP', CUPS[room.cup || 0].name + '  -  RACE ' + ((room.cupRace || 0) + 1) + ' OF 3'] : ['TRACK', tr.name],
+   ['BOTS', String(room.bots || 0)], ['CLASS', CLASSES[room.cls == null ? 1 : room.cls].name]].forEach(([k, v], i) => {
+    const on = isHost && NET.sel === i;
+    text(k, cx - 140, y0 + i * 10, 1, on ? '#ffd23a' : '#99a'); text(v, cx + 140, y0 + i * 10, 1, on ? '#ffd23a' : '#fff', 'r');
+  });
+  // tussenstand van een online cup
+  if (NET.cup && Object.keys(NET.cup.pts).length) {
+    const rows = Object.entries(NET.cup.pts).sort((a, b) => b[1] - a[1]);
+    panel(cx + 156, 30, Math.min(120, W - cx - 160), 14 + rows.length * 10);
+    text(NET.cup.done ? 'FINAL' : 'STANDINGS', cx + 160, 34, 1, '#ffd23a');
+    rows.forEach(([k, v], i) => text((NET.cup.names[k] || '?').slice(0, 10) + ' ' + v, cx + 160, 46 + i * 10, 1, k == NET.id ? '#ffd23a' : '#fff'));
+  }
+  text(isHost ? (room.state === 'lobby' ? (cupMode && NET.cup && NET.cup.done ? 'ENTER: NEW CUP   ESC: LEAVE' : 'ENTER: START   ARROWS: CHANGE   ESC: LEAVE') : 'RACE IN PROGRESS') : 'WAITING FOR THE HOST   ESC: LEAVE', cx, H - 24, 1, '#fff', 'c');
+}
+
+// ---------------------------------------------------------------- menu's
+// title -> mode -> (cup -> class | track) -> char -> car -> race. Pijlen kiezen, Enter bevestigt, Esc gaat terug.
+const MODES = [['CUP RACE', 'Three races against five rivals, points per race'], ['TIME TRIAL', 'Alone against the clock and your own ghost'],
+  ['FREE RACE', 'Any track, five rivals, items on'], ['TEST TRACK', 'The 3D test track with bridge, bowl and water jump'], ['ONLINE', 'Race friends: make a room or join one with a code']];
+function menuGo(screen) { ui.back.push(ui.screen); ui.screen = screen; }
+function menuKey(code) {
+  if (ui.screen === 'online' && onlineKey(code)) return;
+  const sc = ui.screen, L = code === 'ArrowLeft' || code === 'KeyA', R = code === 'ArrowRight' || code === 'KeyD',
+    U = code === 'ArrowUp' || code === 'KeyW', D = code === 'ArrowDown' || code === 'KeyS', OK = code === 'Enter' || code === 'Space';
+  if (code === 'Escape') { if (ui.back.length) ui.screen = ui.back.pop(); return; }
+  if (sc === 'title') { if (OK) menuGo('mode'); return; }
+  if (sc === 'mode') {
+    if (U || D) ui.sel = (ui.sel + (D ? 1 : 4)) % 5;
+    if (OK) { G3.mode = ['cup', 'tt', 'free', 'test', 'online'][ui.sel]; menuGo(G3.mode === 'cup' ? 'cup' : G3.mode === 'test' || G3.mode === 'online' ? 'char' : 'track'); }
+  } else if (sc === 'cup') {
+    if (L || R) ui.cup = (ui.cup + (R ? 1 : 7)) % 8;
+    if (U || D) ui.cup = (ui.cup + 4) % 8;
+    if (L || R || U || D) { ui.track = cupTrack(ui.cup, 0); loadTrack(ui.track); }
+    if (OK) menuGo('class');
+  } else if (sc === 'class') {
+    if (L || R || U || D) ui.cls = (ui.cls + (R || D ? 1 : 2)) % 3;
+    if (OK) menuGo('char');
+  } else if (sc === 'track') {
+    if (L || R) { ui.track = 1 + ((ui.track - 1 + (R ? 1 : 23)) % 24); loadTrack(ui.track); }
+    if (U || D) { ui.track = 1 + ((ui.track - 1 + (D ? 3 : 21)) % 24); loadTrack(ui.track); }
+    if (OK) menuGo('char');
+  } else if (sc === 'char') {
+    if (L || R) ui.char = (ui.char + (R ? 1 : 17)) % 18;
+    if (U || D) ui.char = (ui.char + (D ? 6 : 12)) % 18;
+    if (OK) menuGo('car');
+  } else if (sc === 'car') {
+    if (L || R || U || D) ui.car = (ui.car + (R || D ? 1 : 3)) % 4;
+    if (OK) {
+      playerCar = ui.car; save.char = ui.char; save.car = ui.car; save.cls = ui.cls; store();
+      ui.back = [];
+      if (G3.mode === 'online') { menuGo('online'); netConnect(); NET.sel = 0; }
+      else if (G3.mode === 'cup') startCup();
+      else goRace(G3.mode === 'test' ? 'free' : G3.mode, G3.mode === 'test' ? 0 : ui.track);
+    }
+  }
+}
+function panel(x, y, w, h) { hx.fillStyle = 'rgba(16,10,28,0.82)'; hx.fillRect(x, y, w, h); hx.fillStyle = '#ffd23a'; hx.fillRect(x, y, w, 1); hx.fillRect(x, y + h - 1, w, 1); }
+function face(i, x, y, sz) { const im = FACE_IMG[i]; if (im && im.complete && im.naturalWidth) hx.drawImage(im, x, y, sz, sz); else { hx.fillStyle = '#334'; hx.fillRect(x, y, sz, sz); } }
+function bar(x, y, w, v, col) { hx.fillStyle = '#14101e'; hx.fillRect(x, y, w, 4); hx.fillStyle = col; hx.fillRect(x, y, Math.round(w * clamp(v, 0, 1)), 4); }
+function drawMenu() {
+  hx.clearRect(0, 0, W, H);
+  const cx = W / 2, sc = ui.screen;
+  if (sc === 'title') {
+    text('K.O.T.T.', cx, 50, 8, '#ffd23a', 'c');
+    text('KING OF THE TRACK', cx, 100, 3, '#fff', 'c');
+    text('3D EDITION', cx, 122, 2, '#7ff', 'c');
+    if (Math.floor(flick * 2) % 2) text('PRESS ENTER', cx, H - 60, 2, '#fff', 'c');
+    text('MUSIC BY RETRO BIT   -   O: OPTIONS', cx, H - 22, 1, '#cfe', 'c');
+    return;
+  }
+  const title = { online: 'ONLINE', mode: 'CHOOSE A MODE', cup: 'CHOOSE A CUP', class: 'CHOOSE A CLASS', track: 'CHOOSE A TRACK', char: 'CHOOSE YOUR RACER', car: 'CHOOSE YOUR VEHICLE' }[sc];
+  text(title, cx, 10, 2, '#ffd23a', 'c');
+  text('ARROWS: CHOOSE   ENTER: OK   ESC: BACK', cx, H - 10, 1, '#cfe', 'c');
+  if (sc === 'mode') {
+    MODES.forEach(([n, d], i) => {
+      const y = 38 + i * 36, on = i === ui.sel;
+      panel(cx - 140, y, 280, 32);
+      text(n, cx, y + 6, 2, on ? '#ffd23a' : '#fff', 'c');
+      text(d, cx, y + 21, 1, on ? '#fff' : '#99a', 'c');
+      if (on) { hx.fillStyle = '#ffd23a'; for (let q = 0; q < 5; q++) hx.fillRect(cx - 128 + q, y + 9 + q, 1, 10 - 2 * q); }
+    });
+  } else if (sc === 'online') {
+    drawOnline();
+  } else if (sc === 'cup') {
+    for (let i = 0; i < 8; i++) {
+      const col = i % 4, row = i >> 2, w = Math.min(110, (W - 40) / 4), x = cx - 2 * w + col * w + 2, y = 34 + row * 46, on = i === ui.cup;
+      panel(x, y, w - 4, 40);
+      const c = CUPS[i];
+      text(c.name, x + (w - 4) / 2, y + 6, 1, on ? '#ffd23a' : '#fff', 'c');
+      const best = save.cups[i + '-' + ui.cls];
+      if (best) text('BEST ' + best + (['ST', 'ND', 'RD'][best - 1] || 'TH'), x + (w - 4) / 2, y + 18, 1, best <= 3 ? MEDAL_COL[4 - best] : '#99a', 'c');
+      if (on) { hx.fillStyle = '#ffd23a'; hx.fillRect(x, y + 38, w - 4, 2); }
+    }
+    const c = CUPS[ui.cup];
+    panel(cx - 150, 134, 300, 46);
+    text(c.sub, cx, 140, 1, '#cfe', 'c');
+    [0, 1, 2].forEach(r => text((r + 1) + '. ' + TRACKS[cupTrack(ui.cup, r)].name, cx, 152 + r * 9, 1, '#fff', 'c'));
+  } else if (sc === 'class') {
+    CLASSES.forEach((c, i) => {
+      const y = 50 + i * 46, on = i === ui.cls;
+      panel(cx - 130, y, 260, 40);
+      text(c.name + '  ' + c.sub.toUpperCase(), cx, y + 6, 2, on ? '#ffd23a' : '#fff', 'c');
+      text(c.info.join('  -  '), cx, y + 26, 1, on ? '#fff' : '#99a', 'c');
+    });
+  } else if (sc === 'track') {
+    const t = TRACKS[ui.track], car = ui.car;
+    panel(cx - 150, 40, 300, 70);
+    text(t.name, cx, 48, 3, '#fff', 'c');
+    text(CUPS[t.cup].name + '  -  TRACK ' + (((ui.track - 1) % 3) + 1), cx, 72, 1, '#cfe', 'c');
+    if (G3.mode === 'tt') {
+      const best = save.rec[t.id + ':' + car];
+      const md = TR.idx === ui.track ? medalsFor(ui.track, car) : null, got = best && md ? md.reduce((m, t, i) => best <= t ? i + 1 : m, 0) : 0;
+      text('RECORD ' + (best ? fmt(best) : '-:--.--') + '  (' + CARS[car].name + ')' + (got ? '  ' + MEDAL_NAME[got] : ''), cx, 84, 1, got ? MEDAL_COL[got] : '#ffd23a', 'c');
+      if (md) { panel(cx - 150, 114, 300, 14); text('GOLD ' + fmt(md[2]) + '   SILVER ' + fmt(md[1]) + '   BRONZE ' + fmt(md[0]), cx, 118, 1, '#fff', 'c'); }
+    }
+    text('- ' + ui.track + ' / 24 -', cx, 98, 1, '#fff', 'c');
+  } else if (sc === 'char') {
+    const sz = Math.min(36, Math.floor((W - 40) / 6) - 6);
+    for (let i = 0; i < 18; i++) {
+      const col = i % 6, row = Math.floor(i / 6), x = cx - 3 * (sz + 6) + col * (sz + 6) + 3, y = 32 + row * (sz + 6);
+      if (i === ui.char) { hx.fillStyle = '#ffd23a'; hx.fillRect(x - 2, y - 2, sz + 4, sz + 4); }
+      face(i, x, y, sz);
+    }
+    const r = RIVALS[ui.char], y = 32 + 3 * (sz + 6) + 6;
+    panel(cx - 150, y, 300, 40);
+    text(r.name, cx, y + 5, 2, '#ffd23a', 'c');
+    text(r.kind + '  -  ' + r.title.toUpperCase(), cx, y + 22, 1, '#fff', 'c');
+  } else if (sc === 'car') {
+    const maxT = 1300, w = Math.min(120, (W - 30) / 4);
+    CARS.forEach((c, i) => {
+      const x = cx - 2 * w + i * w + 3, y = 40, on = i === ui.car;
+      panel(x, y, w - 6, 120);
+      hx.fillStyle = c.pal[2]; hx.fillRect(x + 8, y + 8, w - 22, 10); hx.fillStyle = c.pal[0]; hx.fillRect(x + 8, y + 18, w - 22, 4);
+      text(c.name, x + (w - 6) / 2, y + 28, 2, on ? '#ffd23a' : '#fff', 'c');
+      const st = [['SPEED', c.top / maxT], ['ACCEL', c.acc / 950], ['TURN', c.turn / 2.1], ['GRIP', c.grip / 8.5], ['BOOST', c.boostTop / 1700]];
+      st.forEach(([n, v], k) => { text(n, x + 6, y + 48 + k * 13, 1, '#cfe'); bar(x + 6, y + 55 + k * 13, w - 18, v, on ? '#ffd23a' : '#7ff'); });
+    });
+    panel(cx - 150, 168, 300, 16);
+    text(CARS[ui.car].desc.toUpperCase(), cx, 173, 1, '#fff', 'c');
+  }
+}
+// uitslag en tussenstand
+function drawResult() {
+  const R = S.result, cx = W / 2;
+  if (!R) return;
+  if (S.final && cupRun) {
+    const rows = cupStandings(), pos = rows.findIndex(r => r.k === 0) + 1;
+    panel(cx - 130, 20, 260, 200);
+    text(pos === 1 ? 'CHAMPION!' : 'FINAL STANDINGS', cx, 28, 3, pos === 1 ? '#ffd23a' : '#fff', 'c');
+    text(CUPS[cupRun.cup].name + '  ' + CLASSES[ui.cls].name, cx, 52, 1, '#cfe', 'c');
+    rows.forEach((r, i) => { const y = 66 + i * 22; face(r.face, cx - 110, y, 18); text((i + 1) + '. ' + r.name, cx - 86, y + 5, 2, r.k === 0 ? '#ffd23a' : '#fff'); text(r.pts + ' PTS', cx + 110, y + 5, 2, '#fff', 'r'); });
+    text('ENTER: BACK TO THE MENU', cx, 206, 1, '#fff', 'c');
+    return;
+  }
+  panel(cx - 140, 20, 280, 52 + R.order.length * 14 + (G3.mode === 'cup' ? 0 : 20));
+  text(G3.mode === 'tt' ? (R.newRecord ? 'NEW RECORD!' : 'FINISH!') : 'RESULTS', cx, 28, 3, '#ffd23a', 'c');
+  R.order.forEach((r, i) => {
+    const y = 54 + i * 14;
+    if (r.e.face != null) face(r.e.face, cx - 128, y - 2, 11); else if (r.e.rival != null) face(r.e.rival, cx - 128, y - 2, 11); else if (r.e.isPlayer) face(ui.char, cx - 128, y - 2, 11);
+    text((i + 1) + '. ' + r.name, cx - 112, y, 1, r.e.isPlayer ? '#ffd23a' : '#fff');
+    text(r.t != null ? fmt(r.t) : '--', cx + 60, y, 1, '#cfe', 'r');
+    if (r.pts != null) text('+' + r.pts, cx + 90, y, 1, '#7f7', 'r');
+    if (G3.mode === 'cup') { const k = r.e.isPlayer ? 0 : r.e.slot + 1; text(cupRun.points[k] + ' PTS', cx + 130, y, 1, '#fff', 'r'); }
+  });
+  const y2 = 58 + R.order.length * 14;
+  if (G3.mode === 'tt') {
+    if (R.medal) text(MEDAL_NAME[R.medal] + ' MEDAL', cx, y2, 2, MEDAL_COL[R.medal], 'c');
+    else if (S.medals) text('BRONZE AT ' + fmt(S.medals[0]), cx, y2, 1, '#99a', 'c');
+  }
+  if (S.t > 1) text(G3.mode === 'cup' ? (cupRun.done ? 'ENTER: FINAL STANDINGS' : 'ENTER: NEXT RACE') : G3.mode === 'online' ? 'ENTER: BACK TO THE ROOM' : 'ENTER: RACE AGAIN   ESC: MENU', cx, H - 24, 1, '#fff', 'c');
+}
+// intro: zwarte balken, cup en baan, en in een cup de vijf rivalen
+function drawIntro() {
+  const bh = Math.round(H * 0.13), cx = W / 2, u = S.t / INTRO_T;
+  hx.fillStyle = '#000'; hx.fillRect(0, 0, W, bh); hx.fillRect(0, H - bh, W, bh);
+  const cupName = TR.def.pts ? CUPS[TR.def.cup].name : 'TEST TRACK';
+  text(cupName + (G3.mode === 'cup' ? '  -  RACE ' + (cupRun.race + 1) + ' OF 3' : G3.mode === 'tt' ? '  -  TIME TRIAL' : ''), cx, Math.round(bh / 2) - 3, 1, '#cfe', 'c');
+  if (u > 0.08) text(TR.def.name, cx, H - bh - 30, 4, '#fff', 'c');
+  if (G3.mode === 'cup' && u > 0.3) cupRun.rivals.forEach((r, i) => {
+    const x = cx - 2.5 * 52 + i * 52 + 6, y = H - bh + 4;
+    face(r, x + 10, y, 20); text(RIVALS[r].name, x + 20, y + 22, 1, '#fff', 'c');
+  });
+  text('ENTER: SKIP', W - 8, 6, 1, '#99a', 'r');
+}
+// optiescherm (toets O): volume van effecten, muziek en stemmen, en muziek aan of uit
+const OPT = { open: false, sel: 0 };
+function optOpen() { OPT.open = !OPT.open; OPT.sel = 0; S.optPause = OPT.open; }
+function optKey(code) {
+  const rows = 4;
+  if (code === 'KeyO' || code === 'Escape' || code === 'Enter') { optOpen(); try { localStorage.setItem(VOL_KEY, JSON.stringify(vol)); } catch (e) {} return; }
+  if (code === 'ArrowUp' || code === 'KeyW') OPT.sel = (OPT.sel + rows - 1) % rows;
+  if (code === 'ArrowDown' || code === 'KeyS') OPT.sel = (OPT.sel + 1) % rows;
+  const d = code === 'ArrowRight' || code === 'KeyD' ? 1 : code === 'ArrowLeft' || code === 'KeyA' ? -1 : 0;
+  if (!d) return;
+  if (OPT.sel < 3) { const k = ['sfx', 'music', 'voice'][OPT.sel]; vol[k] = clamp(Math.round((vol[k] + d * 0.1) * 10) / 10, 0, 1); if (k === 'sfx') beep(660, 0.08, 'square', 0.06); if (k === 'voice' && RIVALS[0]) babble(ui.char, 'Hello there!'); }
+  else musicOn = !musicOn;
+}
+function drawOptions() {
+  if (!OPT.open) return;
+  const cx = W / 2, y = H / 2 - 55;
+  panel(cx - 110, y, 220, 110);
+  text('OPTIONS', cx, y + 8, 3, '#ffd23a', 'c');
+  [['EFFECTS', vol.sfx], ['MUSIC', vol.music], ['VOICES', vol.voice]].forEach(([n, v], i) => {
+    const yy = y + 34 + i * 16, on = OPT.sel === i;
+    text(n, cx - 96, yy, 2, on ? '#ffd23a' : '#fff');
+    bar(cx - 10, yy + 2, 100, v, on ? '#ffd23a' : '#7ff');
+    text(Math.round(v * 100) + '%', cx + 104, yy + 1, 1, '#cfe', 'r');
+  });
+  text('MUSIC ' + (musicOn ? 'ON' : 'OFF'), cx - 96, y + 82, 2, OPT.sel === 3 ? '#ffd23a' : '#fff');
+  text('ARROWS: CHANGE   O: CLOSE', cx, y + 100, 1, '#99a', 'c');
+}
+
+// boordradio in beeld: portret met tekst
+function drawRadio() {
+  const r = S.radio; if (!r) return;
+  const w = Math.min(300, W - 120), x = W / 2 - w / 2, y = H - 72;
+  panel(x, y, w, 30);
+  face(r.rival, x + 3, y + 3, 24);
+  text(RIVALS[r.rival].name, x + 32, y + 4, 1, '#ffd23a');
+  const words = r.text.toUpperCase().split(' '), max = Math.floor((w - 38) / 4), lines = [''];
+  for (const wd of words) { if ((lines[lines.length - 1] + ' ' + wd).trim().length > max) lines.push(wd); else lines[lines.length - 1] = (lines[lines.length - 1] + ' ' + wd).trim(); }
+  lines.slice(0, 2).forEach((l, i) => text(l, x + 32, y + 13 + i * 8, 1, '#fff'));
+}
+
 // ---------------------------------------------------------------- items
 // Rij door een itembox en je krijgt een item; wie achteraan rijdt, krijgt betere. Gebruiken met E of Ctrl.
 const ITEMS = {
@@ -878,11 +1654,12 @@ const ITEMS = {
 const IT = { boxes: [], slicks: [], zaps: [] };
 let msg = null;
 function showMsg(t, col, dur) { msg = { t, col, until: S.raceTime + dur }; }
-function liveOrder() { return S.ents.slice().sort((a, b) => placeOf(a) - placeOf(b)); }
+function liveOrder() { return S.ents.slice().sort((a, b) => (a.dnf ? 1 : 0) - (b.dnf ? 1 : 0) || (a.finished && b.finished ? a.finishT - b.finishT : a.finished ? -1 : b.finished ? 1 : b.progress - a.progress)); }
 const wrapDs = v => v - Math.round(v / TR.len) * TR.len;
 function itemsReset() {
   IT.boxes.length = IT.slicks.length = IT.zaps.length = 0;
   for (const e of S.ents) Object.assign(e, { item: null, itemN: 0, rollT: 0, shieldT: 0, spinT: 0, aiItemT: 0, itemKey: false });
+  if (G3.mode === 'tt' && G3.state !== 'menu') return;
   const busy = sv => TR.haz.some(h => sv > h.s0 - 250 && sv < h.s1 + 250) || TR.pads.some(p => Math.abs(wrapDs(p.s - sv)) < 320)
     || (TR.def.jump && gapPos(sv) > -900 && gapPos(sv) < TR.gapL + 300);
   for (const f of [0.15, 0.4, 0.65, 0.88]) {
@@ -897,6 +1674,7 @@ function rollItem(e) {
   let pool = f < 0.25 ? [['slick', 4], ['shield', 3], ['turbo', 3], ['zap', 1]]
     : f < 0.7 ? [['turbo', 3], ['zap', 3], ['slick', 2], ['shield', 2], ['triple', 1]]
     : [['triple', 4], ['turbo', 2], ['zap', 3], ['shield', 1], ['storm', f > 0.85 ? 1 : 0]];
+  if (G3.mode === 'online') pool = pool.filter(p => p[0] === 'turbo' || p[0] === 'triple' || p[0] === 'shield');
   pool = pool.filter(p => p[1] > 0);
   let r = Math.random() * pool.reduce((a, p) => a + p[1], 0);
   for (const [k, w] of pool) if ((r -= w) < 0) return k;
@@ -1042,17 +1820,127 @@ function whoosh() {
   g.gain.setValueAtTime(0.12, AC.currentTime); g.gain.exponentialRampToValueAtTime(0.001, AC.currentTime + 0.45);
   s.connect(f); f.connect(g); g.connect(sfxGain); s.start(); s.stop(AC.currentTime + 0.5);
 }
+const VOICES = [
+  { base: 520, type: 'sawtooth', step: 0.052, range: 5, len: 0.06, cut: 2600 },   // Fox: vlot en scherp
+  { base: 250, type: 'square',   step: 0.066, range: 3, len: 0.05, cut: 1500 },   // Raven: laag en afgemeten
+  { base: 330, type: 'sine',     step: 0.085, range: 2, len: 0.09, cut: 1800 },   // Lynx: kalm
+  { base: 760, type: 'triangle', step: 0.045, range: 7, len: 0.05, cut: 4200 },   // Otter: hoog en druk
+  { base: 165, type: 'sawtooth', step: 0.095, range: 3, len: 0.11, cut: 900 },    // Vulture: diep en traag
+  { base: 200, type: 'triangle', step: 0.075, range: 4, len: 0.10, cut: 1400 },   // Frog: loom en kwakend
+  { base: 300, type: 'sine',     step: 0.070, range: 4, len: 0.08, cut: 2000 },   // Owl: deftig
+  { base: 680, type: 'square',   step: 0.042, range: 6, len: 0.04, cut: 3600 },   // Rabbit: hoog en gejaagd
+  { base: 140, type: 'square',   step: 0.080, range: 2, len: 0.09, cut: 1000 },   // Shark: laag en grof
+  { base: 210, type: 'sine',     step: 0.100, range: 2, len: 0.12, cut: 1200 },   // Panda: slaperig
+  { base: 900, type: 'triangle', step: 0.040, range: 6, len: 0.04, cut: 5000 },   // Mouse: piepend
+  { base: 180, type: 'sawtooth', step: 0.060, range: 4, len: 0.07, cut: 1300 },   // Boar: knorrend
+  { base: 420, type: 'triangle', step: 0.070, range: 3, len: 0.07, cut: 2400 },   // Penguin: netjes
+  { base: 600, type: 'sawtooth', step: 0.055, range: 8, len: 0.05, cut: 3000 },   // Bat: schel en springerig
+  { base: 380, type: 'sine',     step: 0.080, range: 2, len: 0.10, cut: 1600 },   // Cat: vlak en verveeld
+  { base: 230, type: 'sawtooth', step: 0.070, range: 3, len: 0.09, cut: 1100 },   // Wolf: laag en rauw
+  { base: 480, type: 'square',   step: 0.050, range: 5, len: 0.05, cut: 2800 },   // Koala: vlot gekwebbel
+  { base: 120, type: 'triangle', step: 0.090, range: 3, len: 0.13, cut: 800 }     // Elephant: diep en zacht
+];
+const VOWEL = { a: 0, e: 4, i: 7, o: -3, u: -5, y: 5 };
+function babble(rival, str) {
+  if (!AC) return;
+  const v = VOICES[rival];
+  let t = AC.currentTime + 0.04;
+  for (const raw of str) {
+    const ch = raw.toLowerCase();
+    if (ch >= 'a' && ch <= 'z') {
+      const vowel = ch in VOWEL;
+      const semi = (vowel ? VOWEL[ch] : ((ch.charCodeAt(0) - 97) * 7) % 12 - 6) * v.range / 7 + (Math.random() - 0.5) * 0.8;
+      const f = v.base * Math.pow(2, semi / 12), len = v.len * (vowel ? 1.25 : 0.8);
+      const o = AC.createOscillator(), g = AC.createGain(), lp = AC.createBiquadFilter();
+      o.type = v.type;
+      o.frequency.setValueAtTime(f * 1.07, t);
+      o.frequency.exponentialRampToValueAtTime(f * 0.93, t + len);
+      lp.type = 'lowpass'; lp.frequency.value = v.cut; lp.Q.value = 3;
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.linearRampToValueAtTime(vowel ? 0.085 : 0.055, t + 0.006);
+      g.gain.exponentialRampToValueAtTime(0.0008, t + len);
+      o.connect(lp); lp.connect(g); g.connect(voiceGain);
+      o.start(t); o.stop(t + len + 0.02);
+      t += v.step;
+    } else if (ch === ' ') t += v.step * 0.5;
+    else t += v.step * 2.2;
+  }
+}
+// ingebouwde chiptune (uit komeet.html): speelt alleen als een eigen nummer ontbreekt of nog laadt
+const THEMES = [
+  { pal: [[1,.42,.22],[.42,.10,.36],[.05,.03,.16],[.01,.01,.05],[.035,.02,.085],[.10,.45,.60],[.095,.095,.13],[.135,.135,.18],[1,.72,.2],[1,.2,.5],[1,.95,.9],[1,.35,.55],[.55,.85,1],[.5,.38,.16]],
+    ui: '#ff4f8a', accent: '#ffb833', root: 45, scale: [0,2,3,5,7,8,10], prog: [0,5,2,6], bpm: 124, names: { ice: 'ice', slow: 'sand' } },
+  // Sakura: perzikkleurige ochtendlucht, gras, stenen pad, vermiljoenrode balustrades; "ijs" is hier water, de remstrook bloesem
+  { pal: [[1,.8,.72],[.98,.62,.7],[.55,.6,.88],[.25,.32,.62],[.2,.42,.24],[.3,.55,.3],[.33,.31,.36],[.38,.36,.41],[.95,.9,.8],[.78,.16,.18],[.96,.9,.82],[1,.6,.7],[.35,.72,.82],[.98,.68,.78]],
+    ui: '#ff8fb8', accent: '#ffe9a8', root: 38, scale: [0,2,3,7,8,12,14], prog: [0,3,1,4], bpm: 112,
+    names: { ice: 'water', slow: 'petals' } },
+  { pal: [[1,.34,.08],[.42,.08,.14],[.15,.05,.15],[.04,.02,.06],[.06,.035,.03],[1,.35,.05],[.2,.19,.24],[.25,.23,.29],[1,.6,.15],[.34,.31,.38],[.62,.1,.1],[1,.3,0],[.6,.8,.9],[.09,.05,.11]],
+    ui: '#ff5a1f', accent: '#ffd24a', root: 40, scale: [0,1,3,5,7,8,10], prog: [0,1,5,4], bpm: 132, names: { ice: 'ice', slow: 'tar pit' } },
+  { pal: [[.35,.2,.8],[.12,.05,.35],[.02,.01,.1],[0,0,.02],[.012,.01,.04],[.6,.3,1],[.08,.1,.16],[.11,.14,.22],[.4,1,.6],[.3,1,.7],[.6,.3,1],[.5,.3,1],[.6,.9,1],[.32,.12,.42]],
+    ui: '#a070ff', accent: '#7dffb0', root: 42, scale: [0,2,3,5,7,8,10], prog: [0,6,5,3], bpm: 138, names: { ice: 'frost', slow: 'gravity well' } }
+];
+const mtof = m => 440 * Math.pow(2, (m - 69) / 12);
+function note(th, deg, oct) {
+  return th.root + 12 * (oct + Math.floor(deg / 7)) + th.scale[((deg % 7) + 7) % 7];
+}
+function tone(type, freq, t, dur, vol, dest, attack) {
+  const o = AC.createOscillator(), g = AC.createGain();
+  o.type = type; o.frequency.value = freq;
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.linearRampToValueAtTime(vol, t + (attack || 0.005));
+  g.gain.exponentialRampToValueAtTime(0.0008, t + dur);
+  o.connect(g); g.connect(dest); o.start(t); o.stop(t + dur + 0.02);
+  return o;
+}
+function noiseHit(t, dur, vol, hp) {
+  const s = AC.createBufferSource(), f = AC.createBiquadFilter(), g = AC.createGain();
+  s.buffer = noiseBuf; f.type = 'highpass'; f.frequency.value = hp;
+  g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.0008, t + dur);
+  s.connect(f); f.connect(g); g.connect(musicGain); s.start(t); s.stop(t + dur + 0.02);
+}
+const BASS_PAT = [1, 0, 1, 1, 0, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0];
+const ARP_PAT = [0, 2, 4, 7, 4, 2, 7, 4, 0, 2, 4, 9, 7, 4, 2, 4];
+function scheduleStep(step, t, stepDur) {
+  const th = THEMES[MUSIC.theme], s16 = step % 16, bar = Math.floor(step / 16) % 4, deg = th.prog[bar];
+  const hi = MUSIC.intensity > 0;
+  if (s16 === 0) {
+    for (const dd of [0, 2, 4]) {
+      const f = mtof(note(th, deg + dd, 1));
+      tone('sawtooth', f * 1.004, t, stepDur * 16, hi ? 0.022 : 0.03, musicFilt, 0.25);
+      tone('sawtooth', f * 0.996, t, stepDur * 16, hi ? 0.022 : 0.03, musicFilt, 0.25);
+    }
+  }
+  if (s16 % 2 === 0 || hi) tone(hi ? 'square' : 'triangle', mtof(note(th, deg + ARP_PAT[s16], 2)), t, stepDur * 1.6, hi ? 0.022 : 0.03, delayNode);
+  if (!hi) return;
+  if (BASS_PAT[s16]) tone('sawtooth', mtof(note(th, deg, 0)), t, stepDur * 0.95, 0.11, musicFilt);
+  if (s16 % 4 === 0) {
+    const o = AC.createOscillator(), g = AC.createGain();
+    o.frequency.setValueAtTime(150, t); o.frequency.exponentialRampToValueAtTime(42, t + 0.12);
+    g.gain.setValueAtTime(0.42, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.2);
+    o.connect(g); g.connect(musicGain); o.start(t); o.stop(t + 0.22);
+  }
+  if (s16 % 8 === 4) noiseHit(t, 0.14, 0.11, 1500);
+  if (s16 % 4 === 2 || (MUSIC.fast && s16 % 2 === 1)) noiseHit(t, 0.04, 0.05, 7000);
+}
+
 // motorgeluid (zoals updateAudio in komeet.html, zonder de ingebouwde chiptune: de eigen nummers spelen)
 function engineSync(speed, throttle, boosting, active) {
   if (!AC) return;
   const t = AC.currentTime;
   masterGain.gain.setTargetAtTime(muted ? 0 : 0.6, t, 0.03);
+  sfxGain.gain.setTargetAtTime(vol.sfx / 0.8, t, 0.03);
+  voiceGain.gain.setTargetAtTime(vol.voice / 0.8, t, 0.03);
   const f = 52 + speed * 0.13;
   osc1.frequency.setTargetAtTime(f, t, 0.04);
   osc2.frequency.setTargetAtTime(f * 0.5 + 1.5, t, 0.04);
   filt.frequency.setTargetAtTime(350 + speed * 1.6 + (boosting ? 900 : 0), t, 0.05);
   engGain.gain.setTargetAtTime(active ? 0.03 + 0.035 * throttle + (boosting ? 0.025 : 0) : 0, t, 0.08);
-  musicGain.gain.setTargetAtTime(0, t, 0.2);
+  musicGain.gain.setTargetAtTime(musicOn && !fileMusic && !muted ? 0.5 * vol.music / 0.8 : 0, t, 0.2);
+  MUSIC.theme = (TR.def.cup || 0) % 4; MUSIC.intensity = active ? 1 : 0;
+  musicFilt.frequency.setTargetAtTime(MUSIC.intensity > 0 ? 900 + speed * 2.6 : 1500, t, 0.1);
+  const stepDur = 60 / THEMES[MUSIC.theme].bpm / 4;
+  if (MUSIC.next < t - 0.3) MUSIC.next = t + 0.05;
+  while (MUSIC.next < t + 0.15) { if (musicOn && !fileMusic) scheduleStep(MUSIC.step, MUSIC.next, stepDur); MUSIC.step++; MUSIC.next += stepDur; }
 }
 function splash() {
   if (!AC) return;
@@ -1138,6 +2026,7 @@ function musicSync(dt) {
 }
 // welk nummer nu: per cup en baan zoals in komeet.html; de testbaan krijgt het titelnummer
 function songsWanted() {
+  if (G3.state === 'menu') return ui.screen === 'title' ? [SONGS.title, SONGS.menu] : [SONGS.menu, SONGS.title];
   if (S.phase === 'done') return [placeOf(S.player) <= 3 ? SONGS.raceResult : SONGS.defeat, SONGS.raceResult];
   if (!TR.def.pts) return [SONGS.title];
   return [SONGS.cups[TR.def.cup % SONGS.cups.length][(TR.idx - 1) % 3]];
@@ -1271,6 +2160,72 @@ const COL = {
   chevA: hex('#ff8a2a'), chevB: hex('#20202c'), water: hex('#1fa8c8'), waterL: hex('#7fe0e8'), foam: hex('#f0fbf8')
 };
 let roadMesh, decor = [], isBridge;
+// stijlen van de poorten (uit komeet.html)
+const GATE = {
+  start: { h: 150, pw: 10, post: '#d8d8e0', postD: '#8c8ca0', kind: 'checker' },
+  torii: { h: 170, pw: 13, post: '#e8402c', postD: '#9a1c1c', kind: 'torii' },
+  crane: { h: 235, pw: 15, post: '#f0b020', postD: '#a87010', kind: 'truss' },
+  lights: { h: 150, pw: 5, post: '#5a3a62', postD: '#2a1a30', kind: 'lights' },
+  bunting: { h: 130, pw: 5, post: '#f4f0e0', postD: '#b0a890', kind: 'bunting' },
+  neon: { h: 190, pw: 9, post: '#4a4478', postD: '#1c1838', kind: 'neon' },
+  stone: { h: 180, pw: 24, post: '#6a6078', postD: '#3a3248', kind: 'crenel' },
+  ring: { h: 200, pw: 6, post: '#4ff0e0', postD: '#2a90b0', kind: 'hoop' }
+};
+const LIGHTS = ['#ffe060', '#ff5a8a', '#4fe0ff', '#7dffb0'];
+
+// een poort in 3D op afstand sv: twee palen en een balk, met per soort iets erbij
+function gate3d(out, sv, style) {
+  const g = GATE[style]; if (!g) return;
+  const Qg = at(sv, {}), T = norm([Qg.tx, Qg.ty, Qg.tz]), Rr = [Qg.rx, Qg.ry, Qg.rz], U = [Qg.ux, Qg.uy, Qg.uz];
+  const P = (d, up, f) => [Qg.px + Rr[0] * d + U[0] * up + T[0] * f, Qg.py + Rr[1] * d + U[1] * up + T[1] * f, Qg.pz + Rr[2] * d + U[2] * up + T[2] * f];
+  const pc = hex(g.post), pd = hex(g.postD), h = g.h, off = HW + 16, pw = g.pw / 2;
+  // blok van (d0, u0) tot (d1, u1), dikte f langs de baan
+  const box = (d0, d1, u0, u1, f, col, colSide) => {
+    const c = [[d0, u0], [d1, u0], [d1, u1], [d0, u1]];
+    pushQuad(out, P(d0, u0, -f), P(d1, u0, -f), P(d1, u1, -f), P(d0, u1, -f), lit(col, scale(T, -1)));
+    pushQuad(out, P(d0, u0, f), P(d1, u0, f), P(d1, u1, f), P(d0, u1, f), lit(col, T));
+    pushQuad(out, P(d0, u1, -f), P(d1, u1, -f), P(d1, u1, f), P(d0, u1, f), lit(colSide || col, U));
+    pushQuad(out, P(d0, u0, -f), P(d0, u1, -f), P(d0, u1, f), P(d0, u0, f), lit(colSide || col, scale(Rr, -1)));
+    pushQuad(out, P(d1, u0, -f), P(d1, u1, -f), P(d1, u1, f), P(d1, u0, f), lit(colSide || col, Rr));
+  };
+  if (g.kind === 'hoop') {
+    // ring: een boog van blokjes over de weg
+    for (let k = 0; k < 14; k++) {
+      const a0 = k / 14 * Math.PI, a1 = (k + 1) / 14 * Math.PI, r0 = off, r1 = off + 12;
+      const q = (a, r, f) => P(-Math.cos(a) * r, Math.sin(a) * r * 1.1, f);
+      const col = k & 1 ? pc : pd;
+      pushQuad(out, q(a0, r0, -6), q(a1, r0, -6), q(a1, r1, -6), q(a0, r1, -6), lit(col, scale(T, -1)));
+      pushQuad(out, q(a0, r0, 6), q(a1, r0, 6), q(a1, r1, 6), q(a0, r1, 6), lit(col, T));
+      pushQuad(out, q(a0, r1, -6), q(a1, r1, -6), q(a1, r1, 6), q(a0, r1, 6), lit(col, U));
+    }
+    return;
+  }
+  for (const sd of [-1, 1]) box(sd * off - pw, sd * off + pw, -ROAD_T, h, pw, pc, pd);
+  const bw = g.kind === 'torii' ? off + 26 : off + pw;
+  if (g.kind === 'torii') {
+    box(-bw, bw, h - 4, h + 10, 9, pc, pd); box(-bw - 10, bw + 10, h + 10, h + 16, 10, hex('#2a1418'));
+    box(-off, off, h - 34, h - 26, 6, pc, pd);
+  } else if (g.kind === 'truss') {
+    box(-bw, bw, h - 22, h, 10, pc, pd);
+    for (let d = -bw + 10; d < bw - 10; d += 26) box(d, d + 10, h - 20, h - 2, 11, hex('#20202c'));
+  } else if (g.kind === 'crenel') {
+    box(-bw, bw, h - 26, h, 14, pc, pd);
+    for (let d = -bw; d < bw - 10; d += 34) box(d, d + 18, h, h + 16, 14, pc, pd);
+  } else if (g.kind === 'neon') {
+    box(-bw, bw, h - 14, h, 7, pc, pd);
+    box(-bw + 6, bw - 6, h - 10, h - 5, 8, hex(LIGHTS[1])); box(-bw + 6, bw - 6, h - 4, h - 1, 8, hex(LIGHTS[2]));
+  } else {
+    // lichtjes en vlaggetjes: een dunne lijn met gekleurde blokjes of driehoekjes eraan
+    box(-bw, bw, h - 4, h, 3, pc, pd);
+    let n = 0;
+    for (let d = -bw + 12; d < bw - 8; d += 22, n++) {
+      const col = hex(g.kind === 'lights' ? LIGHTS[n % 4] : ['#ff4f6a', '#ffd23a', '#4fc3ff', '#7dffb0'][n % 4]);
+      const sag = Math.sin((d + bw) / (2 * bw) * Math.PI) * 14;
+      if (g.kind === 'lights') box(d - 3, d + 3, h - 10 - sag, h - 4 - sag, 4, col);
+      else { pushTri(out, P(d - 8, h - 4 - sag, 0), P(d + 8, h - 4 - sag, 0), P(d, h - 22 - sag, 0), lit(col, scale(T, -1), 0.9)); }
+    }
+  }
+}
 // grond per cup: tegels A en B, plekjes A en B, rand, water
 const GROUND = [
   [[.96, .86, .6], [.92, .8, .54], [.42, .72, .32], [.36, .64, .28], [.98, .93, .74], [.15, .72, .8]],     // kust
@@ -1386,6 +2341,11 @@ function buildRoadMesh() {
     rect(f0, f1, -HW - 280, HW + 280, 2, COL.water);
     for (let k = 0; k < 9; k++) { const f = f0 + 30 + k * (f1 - f0 - 60) / 8, d = ((k * 137) % 360) - 180; rect(f, f + 12, d - 60, d + 60, 3, COL.waterL); }
   }
+  }
+  // poorten uit DRESS: palen naast de vangrail en een balk erover, per stijl
+  if (TR.idx > 0) for (const op of DRESS[TR.idx - 1]) {
+    if (op[0] === 'gate' && op[2] !== 'start') gate3d(out, op[1] * TR.len, op[2]);
+    else if (op[0] === 'gates') for (let sv = op[1] * TR.len; sv < op[2] * TR.len; sv += op[3]) gate3d(out, sv, op[4]);
   }
   // startpoort
   const gi = 1, gh = 175;
@@ -1699,6 +2659,18 @@ function updateCamera(dt) {
   // kijk vooral langs de baan, een beetje mee met de neus van het schip
   const want = norm(add(scale(fr.f, 0.55), scale(fr.T, 0.45)));
   if (!camInit) { cam.f = want; cam.u = fr.u; camInit = true; }
+  if (G3.state === 'menu' && !cam.free) {
+    const a = flick * 0.06, c = TR.center, r = c[2] * 0.75;
+    cam.pos = [c[0] + Math.cos(a) * r, 1500, c[1] + Math.sin(a) * r]; cam.look = [c[0], 100, c[1]]; cam.u = [0, 1, 0];
+    return;
+  }
+  if (S.phase === 'intro' && G3.state !== 'menu') {
+    const u0 = Math.min(1, S.t / INTRO_T), u = u0 * u0 * (3 - 2 * u0), a = Math.PI * (1 - u);
+    const R = 190 + 420 * (1 - u), Hh = 62 + 230 * (1 - u);
+    cam.pos = add(add(fr.pos, scale(add(scale(fr.f, -Math.cos(a)), scale(fr.r, Math.sin(a) * 0.6)), R)), scale(fr.u, Hh));
+    cam.look = add(fr.pos, scale(fr.u, 18)); cam.u = fr.u;
+    return;
+  }
   if (cam.free) { cam.pos = cam.free.pos; cam.look = cam.free.look; cam.u = [0, 1, 0]; return; }
   cam.f = norm(add(cam.f, scale(sub(want, cam.f), kf)));
   cam.u = norm(add(cam.u, scale(sub(fr.u, cam.u), ku)));
@@ -1740,8 +2712,8 @@ function render(dt) {
   gl.bindVertexArray(ground.vao); gl.drawArrays(gl.TRIANGLES, 0, ground.count);
   common(PM); gl.uniform3f(PM.u.uFlame, 1, 0.6, 0.2);
   gl.bindVertexArray(roadMesh.vao); gl.drawArrays(gl.TRIANGLES, 0, roadMesh.count);
-  // schepen en hun schaduw
-  for (const e of S.ents) {
+  // schepen en hun schaduw (de ghost in ghostkleuren, zonder schaduw)
+  for (const e of (S.ghost && S.phase !== 'count' ? S.ents.concat([S.ghost.ent]) : S.ents)) {
     const fr = entFrame(e, {});
     const roll = -e.steer * 0.32 * Math.min(1, e.speed / 500) + (e.in.drift ? -e.steer * 0.15 : 0);
     const cr = Math.cos(roll), sr = Math.sin(roll);
@@ -1754,6 +2726,7 @@ function render(dt) {
     gl.uniformMatrix4fv(PM.u.uM, false, M);
     const sm = shipCache.get(e.car.id + e.pal.join());
     gl.bindVertexArray(sm.vao); gl.drawArrays(gl.TRIANGLES, 0, sm.count);
+    if (S.ghost && e === S.ghost.ent) continue;
     // schaduw plat op het wegdek (niet boven het gat)
     const gpos = gapPos(e.s);
     if (gpos > 0 && gpos < TR.gapL) continue;
@@ -1860,31 +2833,96 @@ const FONT = {
   ':': '000010000010000', '.': '000000000000010', '/': '001001010100100', '-': '000000111000000', '!': '010010010000010',
   '?': '110001010000010', "'": '010010000000000', '+': '000010111010000', '%': '101001010100101', ',': '000000000010100'
 };
-function text(str, x, y, sc, col, align) {
-  str = String(str).toUpperCase();
-  const w = str.length * 4 * sc - sc;
-  if (align === 'c') x -= w / 2; else if (align === 'r') x -= w;
-  x = Math.round(x); y = Math.round(y);
-  for (const pass of [0, 1]) {
-    hx.fillStyle = pass ? col : '#14101e';
-    const o = pass ? 0 : sc;
-    for (let i = 0; i < str.length; i++) {
-      const g = FONT[str[i]];
-      if (!g) continue;
-      for (let p = 0; p < 15; p++) if (g[p] === '1') hx.fillRect(x + i * 4 * sc + (p % 3) * sc + o, y + Math.floor(p / 3) * sc + o, sc, sc);
+// de pixellettertypes van komeet.html
+function makeFont(w, src) {
+  const g = {};
+  for (const part of src.trim().split(/\s+/)) {
+    const ch = part[0], rows = part.slice(2).split('/').map(r => parseInt(r, 2));
+    g[ch === '_' ? ' ' : ch] = rows;
+  }
+  return { w, h: src.trim().split(/\s+/)[0].slice(2).split('/').length, g };
+}
+const FONT_BIG = makeFont(5, `
+A=01110/10001/10001/11111/10001/10001/10001 B=11110/10001/10001/11110/10001/10001/11110 C=01110/10001/10000/10000/10000/10001/01110
+D=11110/10001/10001/10001/10001/10001/11110 E=11111/10000/10000/11110/10000/10000/11111 F=11111/10000/10000/11110/10000/10000/10000
+G=01110/10001/10000/10111/10001/10001/01111 H=10001/10001/10001/11111/10001/10001/10001 I=01110/00100/00100/00100/00100/00100/01110
+J=00111/00010/00010/00010/00010/10010/01100 K=10001/10010/10100/11000/10100/10010/10001 L=10000/10000/10000/10000/10000/10000/11111
+M=10001/11011/10101/10101/10001/10001/10001 N=10001/11001/10101/10011/10001/10001/10001 O=01110/10001/10001/10001/10001/10001/01110
+P=11110/10001/10001/11110/10000/10000/10000 Q=01110/10001/10001/10001/10101/10010/01101 R=11110/10001/10001/11110/10100/10010/10001
+S=01111/10000/10000/01110/00001/00001/11110 T=11111/00100/00100/00100/00100/00100/00100 U=10001/10001/10001/10001/10001/10001/01110
+V=10001/10001/10001/10001/10001/01010/00100 W=10001/10001/10001/10101/10101/11011/10001 X=10001/10001/01010/00100/01010/10001/10001
+Y=10001/10001/01010/00100/00100/00100/00100 Z=11111/00001/00010/00100/01000/10000/11111
+0=01110/10001/10011/10101/11001/10001/01110 1=00100/01100/00100/00100/00100/00100/01110 2=01110/10001/00001/00010/00100/01000/11111
+3=11110/00001/00001/01110/00001/00001/11110 4=00010/00110/01010/10010/11111/00010/00010 5=11111/10000/11110/00001/00001/10001/01110
+6=00110/01000/10000/11110/10001/10001/01110 7=11111/00001/00010/00100/01000/01000/01000 8=01110/10001/10001/01110/10001/10001/01110
+9=01110/10001/10001/01111/00001/00010/01100
+.=00000/00000/00000/00000/00000/01100/01100 ,=00000/00000/00000/00000/01100/00100/01000 :=00000/01100/01100/00000/01100/01100/00000
+!=00100/00100/00100/00100/00100/00000/00100 ?=01110/10001/00001/00010/00100/00000/00100 '=00100/00100/01000/00000/00000/00000/00000
+"=01010/01010/00000/00000/00000/00000/00000 -=00000/00000/00000/11111/00000/00000/00000 +=00000/00100/00100/11111/00100/00100/00000
+/=00001/00001/00010/00100/01000/10000/10000 (=00010/00100/01000/01000/01000/00100/00010 )=01000/00100/00010/00010/00010/00100/01000
+%=11001/11001/00010/00100/01000/10011/10011 _=00000/00000/00000/00000/00000/00000/00000
+`);
+const FONT_SMALL = makeFont(3, `
+A=010/101/111/101/101 B=110/101/110/101/110 C=011/100/100/100/011 D=110/101/101/101/110 E=111/100/110/100/111 F=111/100/110/100/100
+G=011/100/101/101/011 H=101/101/111/101/101 I=111/010/010/010/111 J=001/001/001/101/010 K=101/110/100/110/101 L=100/100/100/100/111
+M=101/111/111/101/101 N=110/101/101/101/101 O=010/101/101/101/010 P=110/101/110/100/100 Q=010/101/101/111/011 R=110/101/110/101/101
+S=011/100/010/001/110 T=111/010/010/010/010 U=101/101/101/101/111 V=101/101/101/101/010 W=101/101/111/111/101 X=101/101/010/101/101
+Y=101/101/010/010/010 Z=111/001/010/100/111
+0=111/101/101/101/111 1=010/110/010/010/111 2=110/001/010/100/111 3=110/001/010/001/110 4=101/101/111/001/001
+5=111/100/110/001/110 6=011/100/111/101/111 7=111/001/010/010/010 8=111/101/111/101/111 9=111/101/111/001/110
+.=000/000/000/000/010 ,=000/000/000/010/100 :=000/010/000/010/000 !=010/010/010/000/010 ?=110/001/010/000/010
+'=010/010/000/000/000 "=101/101/000/000/000 -=000/000/111/000/000 +=000/010/111/010/000 /=001/001/010/100/100
+(=001/010/010/010/001 )=100/010/010/010/100 %=101/001/010/100/101 _=000/000/000/000/000
+`);
+function drawGlyphs(str, x, y, f, k) {
+  const adv = (f.w + 1) * k;
+  for (let c = 0; c < str.length; c++) {
+    const rows = f.g[str[c]];
+    if (rows) {
+      for (let r = 0; r < f.h; r++) {
+        const bits = rows[r];
+        if (!bits) continue;
+        // aaneengesloten pixels in een rij als één rechthoek
+        let run = -1;
+        for (let b = 0; b <= f.w; b++) {
+          const on = b < f.w && (bits >> (f.w - 1 - b)) & 1;
+          if (on && run < 0) run = b;
+          else if (!on && run >= 0) { hx.fillRect(x + (c * (f.w + 1) + run) * k, y + r * k, (b - run) * k, k); run = -1; }
+        }
+      }
     }
   }
+  return str.length * adv - k;
+}
+
+// tekst met de linkerbovenhoek op (x, y); sc 1 = klein (3x5), 2 = gewoon (5x7), groter = het 5x7-lettertype vergroot
+function text(str, x, y, sc, col, align) {
+  str = String(str).toUpperCase();
+  const f = sc <= 1 ? FONT_SMALL : FONT_BIG, k = sc <= 2 ? 1 : Math.max(2, Math.round(sc * 5 / 7));
+  const w = str.length * (f.w + 1) * k - k;
+  if (align === 'c') x -= w / 2; else if (align === 'r') x -= w;
+  x = Math.round(x); y = Math.round(y);
+  hx.fillStyle = 'rgba(0,0,0,0.6)'; drawGlyphs(str, x + k, y + k, f, k);
+  hx.fillStyle = col || '#fff'; drawGlyphs(str, x, y, f, k);
 }
 const fmt = t => { const m = Math.floor(t / 60), s = t - m * 60; return m + ':' + (s < 10 ? '0' : '') + s.toFixed(2); };
 let mapPts = null;
 function drawHud() {
+  if (G3.state === 'menu') { drawMenu(); drawOptions(); return; }
   hx.clearRect(0, 0, W, H);
+  if (S.phase === 'intro') { drawIntro(); drawOptions(); return; }
   const p = S.player, place = placeOf(p);
   text('LAP ' + Math.min(LAPS, Math.max(1, p.lap - 1)) + '/' + LAPS, 8, 8, 2, '#fff');
   text(fmt(S.raceTime), 8, 22, 2, '#ffd23a');
-  if (p.best) text('BEST ' + fmt(p.best), 8, 36, 1, '#cfe');
-  text(place + (['ST', 'ND', 'RD'][place - 1] || 'TH'), W - 8, 8, 3, place === 1 ? '#ffd23a' : '#fff', 'r');
-  text('/' + S.ents.length, W - 8, 28, 1, '#cfe', 'r');
+  if (p.best && S.ents.length < 2) text('BEST ' + fmt(p.best), 8, 36, 1, '#cfe');
+  if (S.ents.length > 1) { text(place + (['ST', 'ND', 'RD'][place - 1] || 'TH'), W - 8, 8, 3, place === 1 ? '#ffd23a' : '#fff', 'r'); text('/' + S.ents.length, W - 8, 28, 1, '#cfe', 'r'); }
+  // klassement: wie waar rijdt
+  if (S.ents.length > 1 && S.phase !== 'done') liveOrder().forEach((e, i) => {
+    const y = 50 + i * 10, col = e.isPlayer ? '#ffd23a' : '#fff';
+    const f = e.isPlayer ? ui.char : e.face != null ? e.face : e.rival;
+    if (f != null) face(f, 8, y - 1, 8);
+    text((i + 1) + ' ' + nameOf(e), 19, y, 1, e.dnf ? '#776' : col);
+  });
   // snelheid en boost
   text(Math.round(p.speed * 0.2) + ' KM/H', 8, H - 26, 2, '#fff');
   hx.fillStyle = '#14101e'; hx.fillRect(8, H - 11, 82, 6);
@@ -1894,7 +2932,7 @@ function drawHud() {
   if (p.slip && Math.abs(TR.bank[at(p.s, Q2).i]) > 40) text('TOO SLOW - SLIDING!', W / 2, H - 40, 1, '#f86', 'c');
   if (p.splashT > 0) text('SPLASH! TOO SLOW FOR THE JUMP', W / 2, H / 2 - 20, 2, '#7ef', 'c');
   // itemvak bovenaan in het midden
-  if (S.phase !== 'count') {
+  if (S.phase !== 'count' && G3.mode !== 'tt') {
     hx.fillStyle = '#14101e'; hx.fillRect(W / 2 - 40, 18, 80, 16);
     let name = '', col = '#556';
     if (p.rollT > 0) { const ks = Object.keys(ITEMS); const k = ks[Math.floor(flick * 14) % ks.length]; name = ITEMS[k].name; col = '#889'; }
@@ -1924,22 +2962,26 @@ function drawHud() {
   if (S.phase === 'count') {
     const n = 3 - Math.floor(S.t);
     text(n, W / 2, H / 2 - 30, 6, '#ffd23a', 'c');
-    text('ARROWS / WASD: DRIVE   SPACE: BOOST   SHIFT: DRIFT', W / 2, H - 50, 1, '#fff', 'c');
-    text('E: ITEM   C: SHIP   N / B: TRACK   R: RESTART   M: MUSIC   P: AUTOPILOT', W / 2, H - 42, 1, '#cfe', 'c');
+    text('ARROWS / WASD: DRIVE   SPACE: BOOST   SHIFT: DRIFT   O: OPTIONS', W / 2, H - 50, 1, '#fff', 'c');
+    text(G3.mode === 'free' ? 'E: ITEM   N / B: TRACK   R: RESTART   M: MUSIC   ESC: MENU' : G3.mode === 'tt' ? 'R: RESTART   M: MUSIC   ESC: MENU' : 'E: ITEM   M: MUSIC   ESC: MENU', W / 2, H - 42, 1, '#cfe', 'c');
+    if (G3.mode === 'cup') text('RACE ' + (cupRun.race + 1) + ' OF 3  -  ' + CLASSES[ui.cls].name, W / 2, H / 2 + 44, 1, '#cfe', 'c');
     text(TR.def.name, W / 2, H / 2 + 24, 2, '#fff', 'c');
   } else if (S.phase === 'race' && S.t < 1) text('GO!', W / 2, H / 2 - 30, 6, '#7f7', 'c');
   if (S.phase === 'race' && p.lastLap && p.lapT < 2.5) text('LAP ' + fmt(p.lastLap), W / 2, 40, 2, '#fff', 'c');
-  if (S.phase === 'done') {
-    text('FINISH!', W / 2, H / 2 - 50, 5, '#ffd23a', 'c');
-    text('PLACE ' + place + '   TIME ' + fmt(p.finishT), W / 2, H / 2 - 16, 2, '#fff', 'c');
-    if (p.best) text('BEST LAP ' + fmt(p.best), W / 2, H / 2, 1, '#cfe', 'c');
-    text('PRESS R TO RACE AGAIN', W / 2, H / 2 + 14, 1, '#fff', 'c');
+  drawRadio();
+  if (G3.mode === 'online') {
+    const now = performance.now(); NET.feed = (NET.feed || []).filter(f => f.until > now);
+    NET.feed.forEach((f, i) => text(f.text, W - 8, 40 + i * 10, 1, '#7ff', 'r'));
+    if (S.phase === 'count') text('1-4: GG!  NICE!  WOW!  OOPS!', W / 2, H - 58, 1, '#7ff', 'c');
   }
+  if (S.phase === 'done') drawResult();
+  drawOptions();
+  if (G3.mode === 'tt' && S.medals && S.phase !== 'done') { const rk = save.rec[recKey()]; text('GOLD ' + fmt(S.medals[2]) + (rk ? '  RECORD ' + fmt(rk) : ''), 8, 48, 1, '#ffd24a'); if (p.best) text('BEST LAP ' + fmt(p.best), 8, 58, 1, '#cfe'); }
 }
 
 // ---------------------------------------------------------------- start
 // een baan laden: lint, decor en lucht opnieuw opbouwen
-function loadTrack(idx) {
+function loadTrack(idx, intro) {
   idx = (idx + TRACKS.length) % TRACKS.length;
   buildTrack(TRACKS[idx], idx);
   let cx = 0, cz = 0, rr = 0;
@@ -1953,24 +2995,24 @@ function loadTrack(idx) {
   TR.haz = []; TR.pads = [];
   if (TR.def.pts) placeHaz3d();
   buildRoadMesh(); buildDecor(); buildSky();
-  startRace();
+  startRace(intro);
 }
 ground = groundMesh();
 resize();
-loadTrack(0);
+loadTrack(ui.track);
 let last = performance.now(), accT = 0;
 function frame(now) {
   const dt = Math.min(0.1, (now - last) / 1000); last = now;
   accT += dt;
-  while (accT >= DT) { if (!S.paused) tick(); accT -= DT; }
+  while (accT >= DT) { if (!S.paused && !(S.optPause && G3.state !== 'menu')) tick(); accT -= DT; }
   render(dt);
   musicSync(dt);
-  engineSync(S.player.speed, S.player.in.acc ? 1 : 0, S.player.boosting, S.phase !== 'done');
+  engineSync(S.player.speed, S.player.in.acc ? 1 : 0, S.player.boosting, S.phase !== 'done' && G3.state !== 'menu');
   requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);
 // voor testen in de console
-window.K3 = { S, TR, tick, startRace, at, loadTrack, snapCam: () => { camInit = false; }, cam };
+window.K3 = { S, TR, tick, startRace, at, loadTrack, G3, ui, menuKey, raceKey, NET, snapCam: () => { camInit = false; }, cam };
 </script>
 </body>
 </html>
