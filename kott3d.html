@@ -27,7 +27,7 @@ const DT = 1 / 120;          // physics-stap, zoals in komeet.html
 const GRAV = 800;            // zwaartekracht (eenheden/s^2)
 const ADH = 260;             // anti-zwaartekracht-magneet van de schepen: drukt ze een beetje op de weg
 const MU = 1.6;              // wrijving: hoeveel van de druk op de weg zijwaarts houvast geeft
-const HW = 150;              // halve wegbreedte (zoals de banen in komeet.html)
+let HW = 150;                          // halve wegbreedte (zoals de banen in komeet.html)
 const STEP = 16;             // afstand tussen twee punten van het lint
 const LAPS = 3, SHIP_R = 22, HOVER = 5, SHIP_SIZE = 1.2;
 const WALL_H = 26, WALL_T = 10, ROAD_T = 16;
@@ -117,30 +117,129 @@ const CP = [
   [-350, -4150, 205, 80], [-1350, -3300, 195, 66], [-1550, -2000, 100, 22], [-1000, -900, 20, 0]
 ];
 
+// ---------------------------------------------------------------- de 24 banen uit komeet.html (letterlijk gekopieerd)
+// pts zijn x, y op de kaart; hier wordt y de z-as. Hoogte en kanteling komen er automatisch bij (autoTrack).
+const TRACK_DEFS = [
+  { id: 'k1', name: 'Palm Beach', cup: 0, hw: 150, haz: { pads: 6, wave: 2, chain: 1, bank: 1 },
+    pts: [[1500,4200],[1500,2300],[2600,1300],[4400,1200],[6200,1500],[7000,2800],[6600,4200],[5200,4700],[4800,5800],[5600,6800],[4600,7300],[2800,7000],[1700,6000]] },
+  { id: 'k2', name: 'Night Harbour', cup: 0, hw: 150, haz: { pads: 7, wave: 2, slow: 1, bank: 1, bumps: 1 },
+    pts: [[1200,5200],[1200,3000],[1500,1500],[2800,1000],[4000,1500],[4300,2700],[3400,3500],[3800,4500],[5200,4300],[5800,3000],[5600,1600],[6600,1000],[7300,1900],[7200,4200],[6900,6000],[5800,7000],[4200,6600],[3200,7200],[1900,6900]] },
+  { id: 'k3', name: 'Funfair Pier', cup: 0, hw: 150, haz: { pads: 7, wave: 1, slow: 1, chain: 2, bank: 2, bumps: 1, launch: 1 },
+    pts: [[1000,6800],[1000,1600],[1800,900],[2700,1500],[2700,4600],[3500,5400],[4400,4700],[4400,1800],[5300,900],[6500,1100],[7200,2200],[7000,4000],[6000,5000],[6300,6300],[5500,7200],[3000,7300],[1700,7400]] },
+  { id: 'p1', minR: 430, name: 'Blossom Lane', cup: 1, hw: 150, haz: { pads: 6, ice: 2, chain: 2, bank: 1 },
+    pts: [[1200,4400],[1200,2400],[2200,1200],[4200,1000],[6200,1200],[7300,2200],[7300,3800],[6400,4800],[6600,6200],[5600,7200],[3600,7200],[2000,6800],[1200,5800]] },
+  { id: 'p2', minR: 430, name: 'Bamboo Rain', cup: 1, hw: 150, haz: { pads: 7, ice: 4, bank: 1, bumps: 1 },
+    pts: [[1100,3600],[1100,2000],[2000,1100],[4000,1000],[6400,1000],[7300,1900],[7300,3400],[6400,4300],[4800,4400],[4000,5200],[4000,6400],[3100,7300],[1900,7200],[1100,6200],[1100,4800]] },
+  { id: 'p3', minR: 430, name: 'Neon Crossing', cup: 1, hw: 150, haz: { pads: 7, ice: 2, slow: 1, chain: 2, bank: 2 },
+    pts: [[1200,2600],[1800,1300],[3400,1000],[6000,1000],[7100,1500],[7400,2400],[7100,3300],[6000,3800],[4200,3800],[3000,3900],[2500,4600],[3000,5300],[4200,5400],[6000,5400],[6900,5600],[7400,6400],[6900,7200],[6000,7400],[4000,7400],[1900,7300],[1100,6400],[1100,4400]] },
+  { id: 'v1', minR: 430, name: 'Lava Moat', cup: 2, hw: 150, haz: { pads: 6, gap: 2, slow: 1, bank: 1 },
+    pts: [[1200,3200],[1700,1700],[3200,1000],[5400,1000],[6900,1600],[7400,3000],[6800,4300],[5400,4700],[4600,5600],[4700,6700],[3800,7400],[2400,7200],[1300,6200],[1100,4600]] },
+  { id: 'v2', name: 'Dungeon Run', cup: 2, hw: 145, haz: { pads: 7, gap: 1, jump: 1, bumps: 2, bank: 1, launch: 1 },
+    pts: [[1000,1800],[2200,1000],[6000,1000],[7200,1800],[7000,3200],[5600,3400],[2800,3000],[1900,3900],[2700,4900],[5600,4800],[7100,5300],[7200,6700],[6000,7300],[2400,7300],[1200,6600],[900,4600]] },
+  { id: 'v3', minR: 430, name: 'Tyrant Keep', cup: 2, hw: 145, haz: { pads: 6, gap: 2, slow: 1, bank: 2, chain: 1 },
+    pts: [[1000,4200],[1000,2200],[1900,1100],[3600,1000],[6000,1000],[7200,1900],[7300,3600],[7300,5600],[6600,7000],[5200,7300],[4300,6500],[4300,4800],[4300,3400],[3600,2800],[2900,3400],[2900,5200],[2900,6600],[2000,7300],[1200,6600],[1000,5400]] },
+  { id: 's1', minR: 430, name: 'Meteor Field', cup: 3, hw: 150, haz: { pads: 6, jump: 2, bumps: 2, bank: 1, launch: 1 }, grav: 0.55,
+    pts: [[1100,4000],[1100,2200],[1900,1100],[3200,1100],[3900,2000],[3900,4000],[3900,5400],[4700,6300],[5700,5600],[5700,3800],[5700,2000],[6500,1100],[7300,1900],[7300,4000],[7300,6200],[6500,7300],[4400,7400],[2400,7400],[1300,6800],[1100,5400]] },
+  { id: 's2', minR: 430, name: 'Ring Road', cup: 3, hw: 145, haz: { pads: 6, jump: 2, bumps: 1, ice: 1, bank: 1, launch: 1 }, grav: 0.55,
+    pts: [[1000,4100],[1000,2300],[1500,1400],[2400,1000],[4100,1000],[5800,1000],[6700,1400],[7200,2300],[7200,4000],[6700,5200],[5600,5700],[4900,6500],[4000,7300],[2600,7300],[1500,6800],[1000,5800]] },
+  { id: 's3', minR: 430, name: 'Supernova', cup: 3, hw: 145, haz: { pads: 7, jump: 2, bumps: 2, bank: 2, chain: 1, launch: 2, cannon: 1 }, grav: 0.55,
+    pts: [[1000,4600],[1000,2800],[1300,1700],[2000,1100],[2800,1100],[3300,1900],[3500,2700],[4100,3200],[4700,2700],[4900,1900],[5400,1100],[6200,1100],[6900,1700],[7200,2800],[7200,4600],[7200,5800],[6700,6900],[5600,7400],[4100,7400],[2600,7400],[1500,6900],[1000,5800]] },
+  { id: 'd1', name: 'Oasis Run', cup: 4, hw: 150, minR: 430, haz: { pads: 6, bumps: 3, slow: 2 },
+    pts: [[1200,4300],[1200,2600],[1900,1400],[3400,1000],[5400,1100],[6800,1800],[7300,3200],[7000,4800],[6000,5600],[5600,6600],[4600,7300],[3000,7300],[1700,6700],[1200,5600]] },
+  { id: 'd2', name: 'Caravan Bazaar', cup: 4, hw: 150, minR: 430, haz: { pads: 7, bumps: 2, slow: 2, chain: 1, bank: 1 },
+    pts: [[1100,4000],[1100,2200],[1900,1100],[3600,1000],[5600,1000],[6900,1500],[7400,2700],[6900,3900],[5600,4300],[4800,5000],[4900,6200],[4200,7200],[2800,7400],[1600,6800],[1100,5600]] },
+  { id: 'd3', name: 'Canyon Port', cup: 4, hw: 150, minR: 430, haz: { pads: 7, bumps: 2, jump: 1, slow: 1, bank: 2, launch: 1 },
+    pts: [[1000,3000],[1500,1600],[2900,1000],[4400,1500],[5200,2800],[6200,3400],[7200,2800],[7400,4200],[7000,5800],[6000,7000],[4400,7400],[2600,7200],[1400,6400],[1000,4800]] },
+  { id: 'l1', name: 'Marigold Road', cup: 5, hw: 150, minR: 430, haz: { pads: 8, chain: 2, bank: 1, launch: 1 },
+    pts: [[1300,4000],[1300,2400],[2200,1300],[3800,1000],[5200,1400],[5800,2600],[6800,3000],[7400,4200],[7200,5800],[6200,7000],[4600,7400],[3000,7000],[2400,5800],[1500,5200]] },
+  { id: 'l2', name: 'Monsoon Jungle', cup: 5, hw: 150, minR: 430, haz: { pads: 7, chain: 2, ice: 2, bank: 1 },
+    pts: [[1100,2800],[1900,1400],[3600,1000],[5400,1300],[6200,2400],[6000,3800],[6800,4800],[7400,6000],[6600,7200],[5000,7400],[3600,6800],[3000,5600],[1900,5200],[1100,4200]] },
+  { id: 'l3', name: 'Festival of Lights', cup: 5, hw: 150, minR: 430, haz: { pads: 7, chain: 3, bank: 2, slow: 1 },
+    pts: [[1100,4200],[1100,2400],[1900,1200],[3600,1000],[5600,1000],[7000,1600],[7400,3000],[6600,4000],[5000,4200],[4200,5000],[4600,6000],[6000,6200],[7200,6600],[6800,7400],[5000,7400],[2800,7400],[1500,6800],[1100,5600]] },
+  { id: 'f1', name: 'Glacier Moat', cup: 6, hw: 150, minR: 430, haz: { pads: 6, ice: 3, jump: 1, bank: 2 }, grip: 0.78,
+    pts: [[1200,5600],[1200,3600],[2000,2000],[3600,1100],[5400,1000],[6800,1600],[7400,3000],[7000,4600],[5800,5600],[4600,6400],[3400,7200],[2000,7000]] },
+  { id: 'f2', name: 'Crystal Crypt', cup: 6, hw: 150, minR: 430, haz: { pads: 7, ice: 3, jump: 1, bank: 1 }, grip: 0.78,
+    pts: [[1000,4200],[1000,2200],[1800,1100],[3800,1000],[6200,1000],[7300,1800],[7300,3400],[6400,4300],[6400,5600],[7200,6600],[6400,7400],[4200,7400],[2200,7400],[1100,6600],[1000,5400]] },
+  { id: 'f3', name: 'Frozen Throne', cup: 6, hw: 150, minR: 430, haz: { pads: 7, ice: 3, bank: 2, bumps: 1 }, grip: 0.78,
+    pts: [[1000,4000],[1000,2000],[1900,1000],[3200,1100],[3700,2200],[3700,4000],[4400,5000],[5400,4400],[5400,2400],[6000,1200],[7000,1100],[7400,2200],[7400,4400],[7400,6200],[6600,7300],[4400,7400],[2400,7400],[1200,6600],[1000,5200]] },
+  { id: 'g1', name: 'Aurora Gate', cup: 7, hw: 150, minR: 430, haz: { pads: 6, jump: 1, gap: 1, chain: 1, bank: 1, launch: 1, cannon: 1 }, grav: 0.8,
+    pts: [[1200,4200],[1200,2400],[2100,1200],[4000,1000],[5800,1300],[7000,2200],[7400,3800],[6900,5400],[5600,6200],[4000,6000],[3200,6800],[2200,7200],[1300,6400]] },
+  { id: 'g2', name: 'Titan Ring', cup: 7, hw: 150, minR: 430, haz: { pads: 7, wave: 2, chain: 2, bank: 2, cannon: 1 }, grav: 0.8,
+    pts: [[1000,4100],[1300,2500],[2500,1300],[4100,1000],[5700,1300],[6900,2500],[7200,4100],[6900,5700],[5700,6900],[4100,7200],[2500,6900],[1300,5700]] },
+  { id: 'g3', name: 'Big Bang', cup: 7, hw: 150, minR: 430, haz: { pads: 7, gap: 1, wave: 1, ice: 1, chain: 2, bank: 2, bumps: 1, cannon: 1 }, grav: 0.8,
+    pts: [[1000,4400],[1000,2400],[1700,1200],[3000,1000],[3800,1800],[4000,3200],[4800,3900],[5800,3300],[6000,1900],[6600,1100],[7300,1700],[7400,3400],[7400,5400],[6800,6800],[5400,7400],[3600,7400],[2000,7000],[1100,6000]] }
+];
+const TRACKS = [{ id: 't0', name: 'Test Track', cup: 0, hw: 150, cp: CP, jump: true }].concat(TRACK_DEFS);
+
 const TR = {};
-function buildTrack() {
-  const n = CP.length, SUB = 96, dense = [];
-  const cr = (a, b, c, d, t) => 0.5 * (2 * b + (-a + c) * t + (2 * a - 5 * b + 4 * c - d) * t * t + (-a + 3 * b - 3 * c + d) * t * t * t);
-  for (let i = 0; i < n; i++) {
-    const a = CP[(i - 1 + n) % n], b = CP[i], c = CP[(i + 1) % n], d = CP[(i + 2) % n];
-    for (let k = 0; k < SUB; k++) {
-      const t = k / SUB, q = [0, 1, 2, 3].map(j => cr(a[j], b[j], c[j], d[j], t));
-      dense.push([q[0], q[2], q[1], q[3]]);   // x, y(hoogte), z, kanteling
-    }
-  }
-  dense.push(dense[0]);
+const crom = (a, b, c, d, t) => 0.5 * (2 * b + (-a + c) * t + (2 * a - 5 * b + 4 * c - d) * t * t + (-a + 3 * b - 3 * c + d) * t * t * t);
+// gesloten lijn van [x, y, z, kanteling] opnieuw verdelen in gelijke stukjes van ongeveer STEP
+function resample(dense) {
+  dense = dense.concat([dense[0]]);
   const cum = [0];
   for (let i = 1; i < dense.length; i++) cum.push(cum[i - 1] + Math.hypot(dense[i][0] - dense[i - 1][0], dense[i][1] - dense[i - 1][1], dense[i][2] - dense[i - 1][2]));
-  const len = cum[cum.length - 1], N = Math.round(len / STEP), step = len / N;
-  const P = new Float32Array(N * 3), bankMag = new Float32Array(N);
+  const len = cum[cum.length - 1], N = Math.round(len / STEP), step = len / N, out = [];
   let k = 0;
   for (let i = 0; i < N; i++) {
     const s = i * step;
     while (cum[k + 1] < s) k++;
     const t = (s - cum[k]) / (cum[k + 1] - cum[k] || 1), A = dense[k], B = dense[k + 1];
-    for (let j = 0; j < 3; j++) P[i * 3 + j] = A[j] + (B[j] - A[j]) * t;
-    bankMag[i] = A[3] + (B[3] - A[3]) * t;
+    out.push([0, 1, 2, 3].map(j => A[j] + (B[j] - A[j]) * t));
   }
+  return { pts: out, len, N, step };
+}
+const smoothArr = (a, w) => { const n = a.length; return a.map((_, i) => { let s = 0; for (let j = -w; j <= w; j++) s += a[(i + j + n) % n]; return s / (2 * w + 1); }); };
+// kleinste bochtstraal van een gesloten lijn (alleen x en z)
+function minRadius(pts) {
+  const n = pts.length; let mr = 1e9;
+  for (let i = 0; i < n; i++) {
+    const a = pts[(i - 2 + n) % n], b = pts[i], c = pts[(i + 2) % n];
+    const ux = b[0] - a[0], uz = b[2] - a[2], vx = c[0] - b[0], vz = c[2] - b[2];
+    const cr = Math.abs(ux * vz - uz * vx), l = Math.hypot(ux, uz) * Math.hypot(vx, vz) * Math.hypot(c[0] - a[0], c[2] - a[2]);
+    if (cr > 1e-6) mr = Math.min(mr, l / (2 * cr));
+  }
+  return mr;
+}
+// een vlakke baan uit komeet.html krijgt heuvels, kantelingen in de bochten en afgeronde krappe bochten
+function autoTrack(def, idx) {
+  const n = def.pts.length, cp = def.pts.map(([x, y], i) => [x, y, 70 + 170 * (0.5 + 0.5 * Math.sin(i * 1.7 + idx * 2.3)), 0]);
+  let dense = [];
+  for (let i = 0; i < n; i++) {
+    const a = cp[(i - 1 + n) % n], b = cp[i], c = cp[(i + 1) % n], d = cp[(i + 2) % n];
+    for (let k = 0; k < 40; k++) { const t = k / 40, q = [0, 1, 2, 3].map(j => crom(a[j], b[j], c[j], d[j], t)); dense.push([q[0], q[2], q[1], 0]); }
+  }
+  let r = resample(dense);
+  const minR = def.minR || def.hw + 150;
+  for (let w = 0; w <= 60 && minRadius(r.pts) < minR; w += 3) {
+    const xs = smoothArr(smoothArr(r.pts.map(p => p[0]), w), w), zs = smoothArr(smoothArr(r.pts.map(p => p[2]), w), w);
+    r = resample(r.pts.map((p, i) => [xs[i], p[1], zs[i], 0]));
+  }
+  // kanteling naar de krapte van de bocht (tot 50 graden), daarna optillen zodat de lage rand boven de grond blijft
+  const N = r.N, pts = r.pts, c = new Array(N);
+  for (let i = 0; i < N; i++) {
+    const a = pts[(i - 3 + N) % N], b = pts[i], d = pts[(i + 3) % N];
+    const ux = b[0] - a[0], uz = b[2] - a[2], vx = d[0] - b[0], vz = d[2] - b[2];
+    c[i] = Math.abs(Math.atan2(ux * vz - uz * vx, ux * vx + uz * vz)) / (3 * r.step);
+  }
+  const bank = smoothArr(smoothArr(c.map(k => Math.min(50, k * 26000)), 12), 12);
+  const need = bank.map(b => def.hw * Math.sin(b * Math.PI / 180) + 25);
+  const lift = smoothArr(smoothArr(need.map((nd, i) => { let m = 0; for (let j = -30; j <= 30; j++) { const q = (i + j + N) % N; m = Math.max(m, need[q] - pts[q][1]); } return Math.max(0, m); }), 25), 25);
+  return pts.map((p, i) => [p[0], p[1] + lift[i], p[2], bank[i]]);
+}
+function buildTrack(def, idx) {
+  HW = def.hw;
+  let r;
+  if (def.cp) {
+    const CPd = def.cp, n = CPd.length, dense = [];
+    for (let i = 0; i < n; i++) {
+      const a = CPd[(i - 1 + n) % n], b = CPd[i], c = CPd[(i + 1) % n], d = CPd[(i + 2) % n];
+      for (let k = 0; k < 96; k++) { const t = k / 96, q = [0, 1, 2, 3].map(j => crom(a[j], b[j], c[j], d[j], t)); dense.push([q[0], q[2], q[1], q[3]]); }
+    }
+    r = resample(dense);
+  } else r = resample(autoTrack(def, idx));
+  const { N, len, step } = r;
+  const P = new Float32Array(N * 3), bankMag = new Float32Array(N);
+  r.pts.forEach((p, i) => { P[i * 3] = p[0]; P[i * 3 + 1] = p[1]; P[i * 3 + 2] = p[2]; bankMag[i] = p[3]; });
   const v = i => { i = (i + N) % N; return [P[i * 3], P[i * 3 + 1], P[i * 3 + 2]]; };
   const T = [], R0 = [];
   for (let i = 0; i < N; i++) {
@@ -164,10 +263,10 @@ function buildTrack() {
     kg0.push(dot(dT, R[i])); kn0.push(dot(dT, U[i]));
   }
   const smooth = (a, w) => a.map((_, i) => { let s = 0; for (let j = -w; j <= w; j++) s += a[(i + j + N) % N]; return s / (2 * w + 1); });
-  // schans en gat: het lintpunt het dichtst bij JUMP_AT (rand van de schans) en LAND_AT (begin van de landing)
+  // schans en gat (alleen op de testbaan): het lintpunt het dichtst bij JUMP_AT en LAND_AT
   const near = (x, z) => { let b = 0, bd = 1e18; for (let i = 0; i < N * 0.45; i++) { const d = (P[i * 3] - x) ** 2 + (P[i * 3 + 2] - z) ** 2; if (d < bd) { bd = d; b = i; } } return b; };
-  const lipI = near(JUMP_AT[0], JUMP_AT[1]), landI = near(LAND_AT[0], LAND_AT[1]);
-  Object.assign(TR, { lipI, landI, lipS: lipI * step, gapL: (landI - lipI) * step, N, len, step, P, T, R, U, kg: smooth(kg0, 4), kn: smooth(kn0, 4), bank: Array.from(bankMag, (m, i) => m * sgn[i]) });
+  const lipI = def.jump ? near(JUMP_AT[0], JUMP_AT[1]) : -1, landI = def.jump ? near(LAND_AT[0], LAND_AT[1]) : -1;
+  Object.assign(TR, { def, idx, lipI, landI, lipS: def.jump ? lipI * step : NaN, gapL: def.jump ? (landI - lipI) * step : 0, N, len, step, P, T, R, U, kg: smooth(kg0, 4), kn: smooth(kn0, 4), bank: Array.from(bankMag, (m, i) => m * sgn[i]) });
 }
 
 // punt op de baan op afstand s (lineair tussen twee lintpunten)
@@ -382,6 +481,8 @@ const keys = {};
 addEventListener('keydown', e => {
   keys[e.code] = true;
   if (e.code === 'KeyR') startRace();
+  if (e.code === 'KeyN') loadTrack(TR.idx + 1);
+  if (e.code === 'KeyB') loadTrack(TR.idx - 1);
   if (e.code === 'KeyC') { playerCar = (playerCar + 1) % 4; startRace(); }
   if (e.code === 'KeyP' && S.player) S.player.ai = !S.player.ai;
   if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space'].includes(e.code)) e.preventDefault();
@@ -458,18 +559,19 @@ precision highp float; in vec3 vW; flat in vec3 vC; uniform vec3 uFlame; out vec
 ${GLSL_COMMON}
 void main(){ vec3 c = vC.r < 0.0 ? uFlame : vC; o = vec4(fog(c, vW), 1.0); }`;
 const FS_GROUND = `#version 300 es
-precision highp float; in vec3 vW; flat in vec3 vC; out vec4 o;
+precision highp float; in vec3 vW; flat in vec3 vC; uniform vec3 uG[6]; uniform vec3 uCenter; out vec4 o;
 ${GLSL_COMMON}
+// uG: twee tegelkleuren, twee kleuren voor plekjes, de rand, en het water (of de leegte) eromheen
 void main(){
-  vec2 p = vW.xz - vec2(0.0, 700.0);
-  float r = length(p * vec2(1.0, 0.8));
+  vec2 p = vW.xz - uCenter.xy;
+  float r = length(p);
   vec2 t = floor(vW.xz / 320.0);
   float h = hash(t);
-  vec3 c = mod(t.x + t.y, 2.0) < 1.0 ? vec3(0.96, 0.86, 0.6) : vec3(0.92, 0.8, 0.54);
+  vec3 c = mod(t.x + t.y, 2.0) < 1.0 ? uG[0] : uG[1];
   vec2 t2 = floor(vW.xz / 80.0);
-  if (h > 0.72) c = hash(t2) > 0.5 ? vec3(0.42, 0.72, 0.32) : vec3(0.36, 0.64, 0.28);
-  if (r > 7000.0) c = vec3(0.98, 0.93, 0.74);
-  if (r > 7350.0) c = mod(floor(r / 90.0 + hash(floor(vW.xz / 400.0)) * 0.6), 5.0) < 1.0 ? vec3(0.55, 0.92, 0.92) : vec3(0.15, 0.72, 0.8);
+  if (h > 0.72) c = hash(t2) > 0.5 ? uG[2] : uG[3];
+  if (r > uCenter.z) c = uG[4];
+  if (r > uCenter.z + 350.0) c = mod(floor(r / 90.0 + hash(floor(vW.xz / 400.0)) * 0.6), 5.0) < 1.0 ? mix(uG[5], vec3(1.0), 0.45) : uG[5];
   o = vec4(fog(c, vW), 1.0);
 }`;
 const VS_SKY = `#version 300 es
@@ -542,7 +644,21 @@ const COL = {
   chevA: hex('#ff8a2a'), chevB: hex('#20202c'), water: hex('#1fa8c8'), waterL: hex('#7fe0e8'), foam: hex('#f0fbf8')
 };
 let roadMesh, decor = [], isBridge;
+// grond per cup: tegels A en B, plekjes A en B, rand, water
+const GROUND = [
+  [[.96, .86, .6], [.92, .8, .54], [.42, .72, .32], [.36, .64, .28], [.98, .93, .74], [.15, .72, .8]],     // kust
+  [[.46, .7, .36], [.42, .64, .32], [.95, .72, .82], [.88, .62, .74], [.8, .75, .6], [.2, .5, .72]],       // sakura
+  [[.36, .5, .3], [.32, .45, .27], [.5, .48, .45], [.44, .42, .4], [.3, .3, .32], [.15, .25, .38]],       // kasteel
+  [[.13, .11, .24], [.11, .09, .2], [.3, .2, .5], [.22, .15, .4], [.06, .05, .12], [.03, .02, .08]],       // sterren
+  [[.92, .72, .45], [.88, .66, .4], [.8, .55, .3], [.74, .5, .28], [.95, .8, .55], [.15, .6, .62]],       // duin
+  [[.55, .68, .3], [.5, .62, .27], [1, .6, .15], [.95, .45, .1], [.8, .6, .4], [.2, .55, .6]],            // lotus
+  [[.92, .95, 1], [.86, .9, .97], [.7, .82, .95], [.62, .75, .9], [.95, .97, 1], [.3, .5, .75]],          // ijs
+  [[.2, .15, .35], [.16, .12, .3], [.5, .3, .7], [.4, .22, .6], [.1, .08, .2], [.05, .03, .12]]          // legende
+];
 function buildRoadMesh() {
+  // kleur van de hellingen per cup (gras, zand, sneeuw of sterrenstof)
+  const SL = [['#5cb04a', '#4c9c40'], ['#5cb04a', '#4c9c40'], ['#4e8a3e', '#437a36'], ['#4a3a78', '#3c2e66'], ['#e0b070', '#d4a062'], ['#7aa040', '#6a8e36'], ['#e8f0fa', '#d4e2f2'], ['#4a3a78', '#3c2e66']][TR.def.cup];
+  COL.grassA = hex(SL[0]); COL.grassB = hex(SL[1]);
   const { N, P, R, U, T } = TR, out = [];
   const pos = (i, d, up) => { i = (i + N) % N; return [P[i * 3] + R[i][0] * d + U[i][0] * up, P[i * 3 + 1] + R[i][1] * d + U[i][1] * up, P[i * 3 + 2] + R[i][2] * d + U[i][2] * up]; };
   // waar loopt er een ander stuk baan (veel lager) onder? daar pilaren in plaats van een talud
@@ -603,6 +719,7 @@ function buildRoadMesh() {
       }
     }
   }
+  if (TR.def.jump) {
   // schans: een geel-zwarte wig op de weg tot aan de rand
   const rampN = Math.round(RAMP_L / TR.step), rh = i => RAMP_H * clamp((i - (TR.lipI - rampN)) / rampN, 0, 1);
   for (let i = TR.lipI - rampN; i < TR.lipI; i++) {
@@ -641,6 +758,7 @@ function buildRoadMesh() {
     rect(f0 - 40, f1 + 40, -HW - 320, HW + 320, 1, COL.foam);
     rect(f0, f1, -HW - 280, HW + 280, 2, COL.water);
     for (let k = 0; k < 9; k++) { const f = f0 + 30 + k * (f1 - f0 - 60) / 8, d = ((k * 137) % 360) - 180; rect(f, f + 12, d - 60, d + 60, 3, COL.waterL); }
+  }
   }
   // startpoort
   const gi = 1, gh = 175;
@@ -721,6 +839,14 @@ function texFrom(src, wrap) {
   return info;
 }
 // soort: [naam, hoogte in de wereld, kans]
+const DECOR_BY_CUP = [null,
+  [['cherry', 280, 5], ['bamboo', 320, 3], ['pagoda', 520, 0.6], ['lantern', 150, 1], ['bonsai', 120, 1], ['kimono', 110, 1], ['maple', 280, 2], ['koipond', 80, 0.6], ['torii', 280, 0.6]],
+  [['tower', 520, 0.8], ['knight', 120, 1], ['banner', 230, 1.5], ['torch', 150, 2], ['gargoyle', 160, 1], ['ruinwall', 200, 1.5], ['catapult', 200, 0.6], ['deadtree', 280, 3], ['tombstone', 80, 1], ['witch', 120, 0.5]],
+  [['crystal', 220, 3], ['pylon', 300, 2], ['radar', 300, 1], ['rocket', 520, 0.6], ['astro', 110, 1], ['robot', 130, 1], ['alien', 120, 1], ['monolith', 320, 1], ['starpillar', 420, 1], ['dish', 260, 1]],
+  [['dpalm', 300, 5], ['cactus', 180, 3], ['camel', 200, 1], ['dtent', 180, 1], ['obelisk', 460, 0.6], ['hoodoo', 360, 1.5], ['merchant', 110, 1], ['spices', 90, 1], ['pots', 80, 1], ['well', 120, 0.6]],
+  [['banyan', 400, 3], ['elephant', 260, 1], ['gopuram', 620, 0.5], ['lotuspond', 80, 1], ['peacock', 120, 1], ['monk', 110, 1], ['mango', 280, 3], ['paintedele', 260, 0.6], ['oillamps', 80, 1]],
+  [['snowpine', 320, 6], ['icespire', 420, 1], ['igloo', 140, 1], ['snowman', 130, 1], ['penguins', 90, 1], ['yeti', 220, 0.6], ['icerock', 160, 2], ['polarbear', 150, 0.6], ['icelamp', 200, 1], ['sled', 90, 0.6]],
+  [['nebulapillar', 460, 1], ['floatrock', 300, 2], ['startree', 380, 3], ['titanhead', 520, 0.4], ['stargate', 460, 0.5], ['orrery', 300, 1], ['moonshard', 260, 2], ['crystaldragon', 420, 0.4], ['guardian', 300, 1]]];
 const DECOR_KINDS = [['palm', 300, 7], ['parasol', 120, 2], ['beachA', 110, 1], ['beachB', 110, 1], ['flags', 190, 1], ['lifeguard', 260, 0.6],
   ['sandcastle', 70, 0.8], ['towels', 50, 0.6], ['surfer', 120, 0.6], ['crab', 40, 0.6], ['icecream', 150, 0.5], ['pierlamp', 200, 0.6]];
 let rng = 7;
@@ -738,7 +864,9 @@ function buildDecor() {
     }
     return true;
   };
-  const tot = DECOR_KINDS.reduce((a, k) => a + k[2], 0);
+  rng = 7 + TR.idx * 131;
+  const KINDS = (DECOR_BY_CUP[TR.def.cup] || DECOR_KINDS).filter(k => ART.obj[k[0]]);
+  const tot = KINDS.reduce((a, k) => a + k[2], 0);
   for (let i = 0; i < N; i += 7) {
     for (const sd of [-1, 1]) {
       if (rnd() < 0.35) continue;
@@ -747,8 +875,8 @@ function buildDecor() {
       const hr = norm([R[i][0], 0, R[i][2]]);
       const x = P[i * 3] + hr[0] * off * sd, z = P[i * 3 + 2] + hr[2] * off * sd;
       if (!freeAt(x, z, 40)) continue;
-      let pick = rnd() * tot, kind = DECOR_KINDS[0];
-      for (const k of DECOR_KINDS) { pick -= k[2]; if (pick <= 0) { kind = k; break; } }
+      let pick = rnd() * tot, kind = KINDS[0];
+      for (const k of KINDS) { pick -= k[2]; if (pick <= 0) { kind = k; break; } }
       add(kind[0], x, GROUND_Y, z, kind[1] * (0.85 + rnd() * 0.3));
     }
   }
@@ -759,8 +887,10 @@ function buildDecor() {
     const x = P[i * 3] + hr[0] * off * sd, z = P[i * 3 + 2] + hr[2] * off * sd;
     if (freeAt(x, z, 20)) add('cheer', x, GROUND_Y, z, 120);
   }
+  if (TR.def.jump) {
   add('lighthouse', 4300, GROUND_Y, 1200, 900); add('ferris', -4200, GROUND_Y, 2600, 760); add('lighthouse', -3800, GROUND_Y, -5200, 700);
   add('harbourcrane', 4200, GROUND_Y, -3800, 650); add('boat', 7600, GROUND_Y, 3200, 260); add('boat', -7400, GROUND_Y, -1800, 220); add('buoy', 7900, GROUND_Y, -2600, 90);
+  }
   for (const name in groups) {
     const list = groups[name], t1 = texFrom(ART.obj[name]), t2 = ART.obj[name + '2'] ? texFrom(ART.obj[name + '2']) : null;
     const g = { name, list, tex: [t1, t2].filter(Boolean), vao: null, count: 0 };
@@ -787,8 +917,9 @@ function buildDecor() {
 // ---------------------------------------------------------------- lucht
 let skyTex = null, FOG = [0.62, 0.86, 0.95];
 function buildSky() {
-  if (!ART.sky.k1) return;
-  skyTex = texFrom(ART.sky.k1, gl.MIRRORED_REPEAT);
+  const src = ART.sky[TR.def.id] || ART.sky.k1;
+  if (!src) return;
+  skyTex = texFrom(src, gl.MIRRORED_REPEAT);
   skyTex.onready = () => {
     // mistkleur = de nevel net boven de horizon van het plaatje
     const c = document.createElement('canvas'); c.width = skyTex.w; c.height = skyTex.h;
@@ -882,7 +1013,8 @@ function render(dt) {
     if (pr.u.uM) gl.uniformMatrix4fv(pr.u.uM, false, I4);
     gl.uniform3fv(pr.u.uCam, cam.pos); gl.uniform3fv(pr.u.uFog, FOG); gl.uniform2f(pr.u.uFogR, 2600, 11000);
   };
-  common(PG); gl.bindVertexArray(ground.vao); gl.drawArrays(gl.TRIANGLES, 0, ground.count);
+  common(PG); gl.uniform3fv(PG.u['uG[0]'], GROUND[TR.def.cup].flat()); gl.uniform3fv(PG.u.uCenter, TR.center);
+  gl.bindVertexArray(ground.vao); gl.drawArrays(gl.TRIANGLES, 0, ground.count);
   common(PM); gl.uniform3f(PM.u.uFlame, 1, 0.6, 0.2);
   gl.bindVertexArray(roadMesh.vao); gl.drawArrays(gl.TRIANGLES, 0, roadMesh.count);
   // schepen en hun schaduw
@@ -991,7 +1123,8 @@ function drawHud() {
     const n = 3 - Math.floor(S.t);
     text(n, W / 2, H / 2 - 30, 6, '#ffd23a', 'c');
     text('ARROWS / WASD: DRIVE   SPACE: BOOST   SHIFT: DRIFT', W / 2, H - 50, 1, '#fff', 'c');
-    text('C: CHANGE SHIP   R: RESTART   P: AUTOPILOT', W / 2, H - 42, 1, '#cfe', 'c');
+    text('C: CHANGE SHIP   N / B: NEXT / PREVIOUS TRACK   R: RESTART   P: AUTOPILOT', W / 2, H - 42, 1, '#cfe', 'c');
+    text(TR.def.name, W / 2, H / 2 + 24, 2, '#fff', 'c');
   } else if (S.phase === 'race' && S.t < 1) text('GO!', W / 2, H / 2 - 30, 6, '#7f7', 'c');
   if (S.phase === 'race' && p.lastLap && p.lapT < 2.5) text('LAP ' + fmt(p.lastLap), W / 2, 40, 2, '#fff', 'c');
   if (S.phase === 'done') {
@@ -1003,13 +1136,24 @@ function drawHud() {
 }
 
 // ---------------------------------------------------------------- start
-buildTrack();
-buildRoadMesh();
+// een baan laden: lint, decor en lucht opnieuw opbouwen
+function loadTrack(idx) {
+  idx = (idx + TRACKS.length) % TRACKS.length;
+  buildTrack(TRACKS[idx], idx);
+  let cx = 0, cz = 0, rr = 0;
+  for (let i = 0; i < TR.N; i++) { cx += TR.P[i * 3] / TR.N; cz += TR.P[i * 3 + 2] / TR.N; }
+  for (let i = 0; i < TR.N; i++) rr = Math.max(rr, Math.hypot(TR.P[i * 3] - cx, TR.P[i * 3 + 2] - cz));
+  TR.center = [cx, cz, rr + 1400];
+  if (roadMesh) gl.deleteVertexArray(roadMesh.vao);
+  for (const g of decor) { if (g.vao) gl.deleteVertexArray(g.vao); for (const t of g.tex) gl.deleteTexture(t.tex); }
+  if (skyTex) gl.deleteTexture(skyTex.tex);
+  decor = []; mapPts = null;
+  buildRoadMesh(); buildDecor(); buildSky();
+  startRace();
+}
 ground = groundMesh();
-buildDecor();
-buildSky();
 resize();
-startRace();
+loadTrack(0);
 let last = performance.now(), accT = 0;
 function frame(now) {
   const dt = Math.min(0.1, (now - last) / 1000); last = now;
@@ -1020,7 +1164,7 @@ function frame(now) {
 }
 requestAnimationFrame(frame);
 // voor testen in de console
-window.K3 = { S, TR, tick, startRace, at, snapCam: () => { camInit = false; }, cam };
+window.K3 = { S, TR, tick, startRace, at, loadTrack, snapCam: () => { camInit = false; }, cam };
 </script>
 </body>
 </html>
