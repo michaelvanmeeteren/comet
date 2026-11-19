@@ -432,7 +432,7 @@ function resample(dense) {
     const s = i * step;
     while (cum[k + 1] < s) k++;
     const t = (s - cum[k]) / (cum[k + 1] - cum[k] || 1), A = dense[k], B = dense[k + 1];
-    out.push([0, 1, 2, 3].map(j => A[j] + (B[j] - A[j]) * t));
+    out.push(A.map((a, j) => a + ((B[j] == null ? a : B[j]) - a) * t));
   }
   return { pts: out, len, N, step };
 }
@@ -449,6 +449,39 @@ function minRadius(pts) {
   return mr;
 }
 // een vlakke baan uit komeet.html krijgt heuvels, kantelingen in de bochten en afgeronde krappe bochten
+// Looping op deze banen, op het langste rechte stuk. De weg schuift er eerst opzij voor, draait een cirkel (straal LOOP_R)
+// en komt aan de andere kant naast de ingang weer uit. Vijfde onderdeel van een punt = 1 in de looping.
+const LOOP_TRACKS = ['k3', 's2', 'g2'], LOOP_R = 380;
+function addLoop(pts, curv, step, def) {
+  const N = pts.length;
+  // langste stuk met (bijna) geen bocht
+  let best = -1, bestLen = 0, run = 0;
+  for (let k = 0; k < N * 2; k++) { const i = k % N; if (curv[i] < 1 / 4000) { run++; if (run > bestLen && run < N) { bestLen = run; best = i; } } else run = 0; }
+  if (bestLen * step < 1300) return pts;
+  const m = (best - Math.floor(bestLen / 2) + N) % N;
+  const pa = pts[(m - 1 + N) % N], pb = pts[(m + 1) % N], t = norm([pb[0] - pa[0], 0, pb[2] - pa[2]]), side = [-t[2], 0, t[0]];
+  const S = 2 * def.hw + 40, ramp = Math.round(700 / step), sm = x => x * x * (3 - 2 * x);
+  const shift = (p, off) => [p[0] + side[0] * off, p[1], p[2] + side[2] * off, p[3] * 0, 0];
+  // ervoor: geleidelijk opzij naar -S/2; erna: van +S/2 geleidelijk terug
+  const before = [], after = [];
+  for (let k = 0; k < N; k++) {
+    const i = (m + 1 + k) % N, back = N - 1 - k;   // k = 0 is net na de looping
+    let p = pts[i];
+    if (k < ramp) p = shift(p, S / 2 * (1 - sm(k / ramp)));
+    else if (back < ramp) p = shift(p, -S / 2 * sm((ramp - back) / ramp));
+    after.push(k < ramp || back < ramp ? p : p.slice());
+  }
+  const base = pts[m], loop = [];
+  const n = Math.round(2 * Math.PI * LOOP_R / step);
+  for (let q = 0; q <= n; q++) {
+    const th = q / n * 2 * Math.PI, off = -S / 2 + S * sm(q / n);
+    loop.push([base[0] + t[0] * LOOP_R * Math.sin(th) + side[0] * off, base[1] + LOOP_R * (1 - Math.cos(th)), base[2] + t[2] * LOOP_R * Math.sin(th) + side[2] * off, 0, q > 0 && q < n ? 1 : 0]);
+  }
+  def._loopSide = side;
+  // de looping begint en eindigt op de plek van punt m; de start (punt 0) blijft vooraan staan
+  const k0 = (N - m - 1) % N;
+  return after.slice(k0).concat(loop, after.slice(0, k0));
+}
 const FLOW_MIN_R = 900, FLOW_R = 1500, FLOW_BANK_MAX = 62;
 function autoTrack(def, idx) {
   const n = def.pts.length, cp = def.pts.map(([x, y], i) => [x, y, 70 + 170 * (0.5 + 0.5 * Math.sin(i * 1.7 + idx * 2.3)), 0]);
@@ -479,7 +512,9 @@ function autoTrack(def, idx) {
   const ys = smoothArr(smoothArr(pts.map(p => p[1]), 36), 36);
   const need = bank.map(b => def.hw * Math.sin(b * Math.PI / 180) + 25);
   const lift = smoothArr(smoothArr(need.map((nd, i) => { let m = 0; for (let j = -45; j <= 45; j++) { const q = (i + j + N) % N; m = Math.max(m, need[q] - ys[q]); } return Math.max(0, m); }), 36), 36);
-  return pts.map((p, i) => [p[0], ys[i] + lift[i], p[2], bank[i]]);
+  let out = pts.map((p, i) => [p[0], ys[i] + lift[i], p[2], bank[i], 0]);
+  if (LOOP_TRACKS.includes(def.id)) out = addLoop(out, c, r.step, def);
+  return out;
 }
 const BANK_RATE = 1.3;   // graden per lintpunt (16 eenheden): ongeveer 25 graden per 300 eenheden
 function buildTrack(def, idx) {
@@ -495,20 +530,21 @@ function buildTrack(def, idx) {
   } else r = resample(autoTrack(def, idx));
   const { N, len, step } = r;
   const P = new Float32Array(N * 3), bankMag = new Float32Array(N);
-  r.pts.forEach((p, i) => { P[i * 3] = p[0]; P[i * 3 + 1] = p[1]; P[i * 3 + 2] = p[2]; bankMag[i] = p[3]; });
+  const loop = new Uint8Array(N);
+  r.pts.forEach((p, i) => { P[i * 3] = p[0]; P[i * 3 + 1] = p[1]; P[i * 3 + 2] = p[2]; bankMag[i] = p[3]; loop[i] = p[4] > 0.5 ? 1 : 0; });
   const v = i => { i = (i + N) % N; return [P[i * 3], P[i * 3 + 1], P[i * 3 + 2]]; };
   const T = [], R0 = [];
   for (let i = 0; i < N; i++) {
     const t = norm(sub(v(i + 1), v(i - 1)));
-    T.push(t); R0.push(norm([-t[2], 0, t[0]]));
+    T.push(t); R0.push(loop[i] && def._loopSide ? def._loopSide.slice() : norm([-t[2], 0, t[0]]));
   }
   // richting van de bocht (rechts = +), uitgesmeerd zodat de kanteling niet verspringt
-  const curv = T.map((t, i) => dot(sub(T[(i + 1) % N], T[(i - 1 + N) % N]), R0[i]));
+  const curv = T.map((t, i) => loop[i] ? 0 : dot(sub(T[(i + 1) % N], T[(i - 1 + N) % N]), R0[i]));
   const sgn = new Float32Array(N);
   for (let i = 0; i < N; i++) { let a = 0; for (let j = -12; j <= 12; j++) a += curv[(i + j + N) % N]; sgn[i] = Math.tanh(a / 25 * 160); }
   // kanteling met teken; daarna begrensd hoe snel hij mag veranderen (BANK_RATE graden per lintpunt), heen en terug,
   // zodat twee steile bochten na elkaar geleidelijk via vlak van de ene naar de andere kant gaan
-  const bs = Array.from(bankMag, (m, i) => m * sgn[i]);
+  const bs = Array.from(bankMag, (m, i) => loop[i] ? 0 : m * sgn[i]);
   for (let pass = 0; pass < 3; pass++) {
     for (let i = 1; i < N * 2; i++) { const a = bs[(i - 1) % N], k = i % N; bs[k] = clamp(bs[k], a - BANK_RATE, a + BANK_RATE); }
     for (let i = N * 2; i > 0; i--) { const a = bs[i % N], k = (i - 1) % N; bs[k] = clamp(bs[k], a - BANK_RATE, a + BANK_RATE); }
@@ -516,7 +552,7 @@ function buildTrack(def, idx) {
   const R = [], U = [];
   for (let i = 0; i < N; i++) {
     const b = bs[i] * Math.PI / 180, u0 = cross(R0[i], T[i]);
-    const r = norm(add(scale(R0[i], Math.cos(b)), scale(u0, -Math.sin(b))));
+    const r = loop[i] ? norm(sub(R0[i], scale(T[i], dot(R0[i], T[i])))) : norm(add(scale(R0[i], Math.cos(b)), scale(u0, -Math.sin(b))));
     R.push(r); U.push(cross(r, T[i]));
   }
   // kromming in het wegvlak (kg, stuurt je mee) en loodrecht erop (kn, drukt je op de weg)
@@ -530,7 +566,11 @@ function buildTrack(def, idx) {
   const near = (x, z) => { let b = 0, bd = 1e18; for (let i = 0; i < N * 0.45; i++) { const d = (P[i * 3] - x) ** 2 + (P[i * 3 + 2] - z) ** 2; if (d < bd) { bd = d; b = i; } } return b; };
   const lipI = def.jump ? near(JUMP_AT[0], JUMP_AT[1]) : -1, landI = def.jump ? near(LAND_AT[0], LAND_AT[1]) : -1;
   const kh = smooth(curv.map(c => c / (2 * step)), 6);
-  Object.assign(TR, { kh, def, idx, lipI, landI, lipS: def.jump ? lipI * step : NaN, gapL: def.jump ? (landI - lipI) * step : 0, N, len, step, P, T, R, U, kg: smooth(kg0, 4), kn: smooth(kn0, 4), bank: bs });
+  // stuk baan van de looping (voor gevaren, items en physics)
+  let l0 = -1, l1 = -1;
+  for (let i = 0; i < N; i++) if (loop[i]) { if (l0 < 0) l0 = i; l1 = i; }
+  const loopS = l0 >= 0 ? [l0 * step, l1 * step] : null;
+  Object.assign(TR, { loop, loopS, kh, def, idx, lipI, landI, lipS: def.jump ? lipI * step : NaN, gapL: def.jump ? (landI - lipI) * step : 0, N, len, step, P, T, R, U, kg: smooth(kg0, 4), kn: smooth(kn0, 4), bank: bs });
 }
 
 // Gevaren en boostpads op passende plekken, vast per baan (zelfde regels als placeHazards in komeet.html).
@@ -538,6 +578,7 @@ function buildTrack(def, idx) {
 function mulberry32(a) { return function () { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
 function placeHaz3d() {
   const def = TR.def, rnd = mulberry32(1337 + (TR.idx - 1) * 7919), L = TR.len, hw = HW, haz = [], pads = [], occ = [];
+  if (TR.loopS) { occ.push([TR.loopS[0] - 1300, TR.loopS[1] + 900]); haz.push({ type: 'loop', s0: TR.loopS[0], s1: TR.loopS[1] }); for (const o of [900, 520]) pads.push({ s: (TR.loopS[0] - o + L) % L, d: 0 }); }
   const want = def.haz || {};
   const kAt = sv => TR.kh[Math.floor((((sv % L) + L) % L) / TR.step) % TR.N];
   const kStat = (a, b) => { let mx = 0, sum = 0, sg = 0, cnt = 0; for (let sv = a; sv <= b; sv += 20) { const k = kAt(sv); mx = Math.max(mx, Math.abs(k)); sum += Math.abs(k); sg += k; cnt++; } return { mx, mean: sum / cnt, sign: sg >= 0 ? 1 : -1 }; };
@@ -583,7 +624,7 @@ function at(s, o) {
   o.tx = T[i][0] * w + T[j][0] * t; o.ty = T[i][1] * w + T[j][1] * t; o.tz = T[i][2] * w + T[j][2] * t;
   o.rx = R[i][0] * w + R[j][0] * t; o.ry = R[i][1] * w + R[j][1] * t; o.rz = R[i][2] * w + R[j][2] * t;
   o.ux = U[i][0] * w + U[j][0] * t; o.uy = U[i][1] * w + U[j][1] * t; o.uz = U[i][2] * w + U[j][2] * t;
-  o.kg = kg[i] * w + kg[j] * t; o.kn = kn[i] * w + kn[j] * t; o.i = i;
+  o.kg = kg[i] * w + kg[j] * t; o.kn = kn[i] * w + kn[j] * t; o.i = i; o.loop = TR.loop ? TR.loop[i] : 0;
   return o;
 }
 // kleine vectorhulp
@@ -642,10 +683,12 @@ function stepEnt(e) {
   if (inp.drift && !air) vf -= vf * 0.12 * DT;
 
   // zwaartekracht in het wegvlak, omgerekend naar de richting van het schip
-  const gT = -GRAV * Q.ty * 0.85, gR = -GRAV * Q.ry;
+  const gT = -GRAV * Q.ty * (Q.loop ? 0.35 : 0.85), gR = -GRAV * Q.ry;
+  // de looping duwt mee: wie te langzaam gaat, wordt opgestuwd (nooit blijven hangen of terugrollen)
+  if (Q.loop && vf < 650) vf += 1600 * DT;
   vf += (gT * cs + gR * sn) * DT;
   const gl = -gT * sn + gR * cs;
-  const N = GRAV * Q.uy + e.vT * e.vT * Q.kn + ADH;   // druk op de weg (als versnelling)
+  const N = GRAV * Q.uy + e.vT * e.vT * Q.kn + ADH + (Q.loop ? 2500 : 0);   // druk op de weg (als versnelling)
   e.load = N;
   // ondergrond: ijs en modder (vorige positie)
   const sm = ((e.s % TR.len) + TR.len) % TR.len;
@@ -1012,7 +1055,7 @@ const POINTS = [10, 7, 5, 3, 2, 1];
 const MEDAL_COL = ['#4a4860', '#c8793a', '#cfd6e0', '#ffd24a'], MEDAL_NAME = ['', 'BRONZE', 'SILVER', 'GOLD'];
 const PAL_GHOST = ['#9ff', '#7de', '#5cd', '#4bc', '#268', '#aff', '#dff'];
 // opslag: keuzes, records met ghost per baan en voertuig, beste cupresultaat per cup en klasse
-const SAVE3 = 'kott3d.save.v3';   // opgehoogd: de banen kregen ruimere bochten (records, ghosts en medailletijden kloppen niet meer)
+const SAVE3 = 'kott3d.save.v4';   // opgehoogd: de banen kregen ruimere bochten (records, ghosts en medailletijden kloppen niet meer)
 const save = (() => { try { return Object.assign({ char: 0, car: 0, cls: 1, rec: {}, ghost: {}, cups: {} }, JSON.parse(localStorage.getItem(SAVE3)) || {}); } catch (e) { return { char: 0, car: 0, cls: 1, rec: {}, ghost: {}, cups: {} }; } })();
 function store() { try { localStorage.setItem(SAVE3, JSON.stringify(save)); } catch (e) {} }
 // spelstatus buiten de race: menu of race, en welke modus
@@ -2194,7 +2237,8 @@ function buildRoadMesh() {
     }
     pushQuad(out, pos(i, -HW - WALL_T, -ROAD_T), pos(j, -HW - WALL_T, -ROAD_T), pos(j, HW + WALL_T, -ROAD_T), pos(i, HW + WALL_T, -ROAD_T), lit(COL.under, scale(Ui, -1), 0.4));
     // talud naar de grond (een heuvel), of pilaren bij een brug
-    if (!isBridge[i] && !isBridge[j]) {
+    if (TR.loop[i] || TR.loop[j]) { /* looping: vrij in de lucht */ }
+    else if (!isBridge[i] && !isBridge[j]) {
       for (const sd of [-1, 1]) {
         const a = pos(i, sd * (HW + WALL_T), -ROAD_T), b = pos(j, sd * (HW + WALL_T), -ROAD_T);
         if (a[1] < GROUND_Y + 2 && b[1] < GROUND_Y + 2) continue;
@@ -2969,6 +3013,7 @@ const KUI = (() => {
   let G = {}, T = {};
   function trackTip(tr) {
   const n = t => tr.haz.filter(h => h.type === t).length;
+  if (n('loop')) return 'LOOP THE LOOP - KEEP YOUR SPEED UP';
   if (n('cannon')) return 'HIT THE CANNON AND FLY';
   if (n('gap')) return 'JUMP THE GAPS - TOO SLOW AND YOU FALL IN';
   if (n('wave')) return 'WATCH OUT FOR THE WAVES';
@@ -3711,6 +3756,7 @@ function buildDistMap() {
   const n = 384, half = TR.center[2] + 600, x0 = TR.center[0] - half, z0 = TR.center[1] - half, cell = 2 * half / n;
   const d = new Float32Array(n * n).fill(1e9);
   for (let i = 0; i < TR.N; i++) {
+    if (TR.loop[i]) continue;
     const foot = HW + WALL_T + Math.max(0, TR.P[i * 3 + 1] - GROUND_Y) * 1.1;   // tot waar de helling reikt
     const r = Math.ceil(foot / cell) + 1, cx = (TR.P[i * 3] - x0) / cell, cz = (TR.P[i * 3 + 2] - z0) / cell;
     for (let y = Math.max(0, Math.floor(cz - r)); y <= Math.min(n - 1, Math.ceil(cz + r)); y++)
