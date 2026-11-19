@@ -3230,18 +3230,53 @@ function drawMenu(u) {
   const hint = 'arrows: select      Enter: continue      Esc: back';
   if (ui.screen === 'mode') {
     header(u, 'CHOOSE A MODE', hint + '      T: 3D test track');
-    const gap = 30 * u, cw = Math.min(330 * u, (W - 60 * u - 2 * gap) / 3), ch = 300 * u, x0 = W / 2 - (cw * 3 + gap * 2) / 2, y0 = H * 0.26;
+    // drie kaarten, elk met een eigen kleur en een plaatje; de gekozen kaart komt omhoog, de andere zakken weg in het donker
+    const gap = 30 * u, cw = Math.min(330 * u, (W - 60 * u - 2 * gap) / 3), ch = 430 * u, x0 = W / 2 - (cw * 3 + gap * 2) / 2, y0 = H * 0.19;
     const items = [
-      ['TIME TRIAL', 'Just you against the clock.', ['3 laps on any track', 'Race your own ghost', 'Bronze, silver or gold']],
-      ['CUP', 'Three races, five rivals.', ['Points: 10-7-5-3-2-1', 'You start at the back', 'Win the trophy']],
-      ['ONLINE', 'Race your friends.', ['Up to 6 players', 'Share a room code', 'Add computer racers']]
+      ['TIME TRIAL', 'Just you against the clock.', ['3 laps on any track', 'Race your own ghost', 'Bronze, silver or gold'], '#7de8ff'],
+      ['CUP', 'Three races, five rivals.', ['Points: 10-7-5-3-2-1', 'You start at the back', 'Win the trophy'], '#ffb833'],
+      ['ONLINE', 'Race your friends.', ['Up to 6 players', 'Share a room code', 'Add computer racers'], '#7dffb0']
     ];
     items.forEach((it, i) => {
-      const x = x0 + i * (cw + gap);
-      card(x, y0, cw, ch, ui.mode === i);
-      text(it[0], x + cw / 2, y0 + 70 * u, 40 * u, ui.mode === i ? '#ffb833' : '#fff', 'center', 900);
-      text(it[1], x + cw / 2, y0 + 110 * u, 14 * u, '#fff', 'center', 600, false);
-      it[2].forEach((l, k) => text(l, x + cw / 2, y0 + (164 + 32 * k) * u, 13 * u, '#cfd3ff', 'center', 500, false));
+      const sel = ui.mode === i, col = it[3], x = x0 + i * (cw + gap), y = y0 - (sel ? Math.round((8 + Math.sin(G.time * 3) * 3) * u) : 0);
+      const cx = x + cw / 2, iy = y + 168 * u;   // midden van het plaatje
+      card(x, y, cw, ch, sel, col);
+      // kleurband bovenaan met een rasterovergang naar de kaart
+      ctx.fillStyle = col; ctx.fillRect(Math.round(x + 2), Math.round(y + 2), Math.round(cw - 4), Math.round(8 * u));
+      for (let yy = 0; yy < 10 * u; yy++) for (let xx = 0; xx < cw - 4; xx += 1) if (1 - yy / (10 * u) > SPR_BAYER[((yy | 0) & 3) * 4 + ((xx | 0) & 3)]) ctx.fillRect(Math.round(x + 2 + xx), Math.round(y + 2 + 8 * u + yy), 1, 1);
+      text(it[0], cx, y + 70 * u, 40 * u, sel ? col : '#fff', 'center', 900);
+      // plaatje: een lichtcirkel erachter
+      ctx.fillStyle = sel ? 'rgba(255,255,255,0.07)' : 'rgba(255,255,255,0.03)'; fillDisc(cx, iy, 62 * u);
+      if (i === 0) {
+        // je schip met zijn ghost erachter, en een lopende stopwatch
+        const sway = Math.sin(G.time * 1.6) * 10 * u;
+        drawCarTop(cx - 36 * u + sway * 0.5, iy + 30 * u, 1.5 * u, CARS[ui.car], PAL_GHOST);
+        drawCarTop(cx + 14 * u + sway, iy + 8 * u, 1.5 * u, CARS[ui.car], RIVALS[ui.char].pal);
+        const sx = cx + 46 * u, sy = iy - 38 * u, sr = 22 * u, a = G.time * 2.4;
+        ctx.fillStyle = '#16101a'; fillDisc(sx, sy, sr + 3 * u); ctx.fillStyle = '#f4f2f8'; fillDisc(sx, sy, sr); ctx.fillStyle = '#16101a'; ctx.fillRect(Math.round(sx - 4 * u), Math.round(sy - sr - 9 * u), Math.round(8 * u), Math.round(6 * u));
+        for (let k = 0; k < 12; k++) { const t = k / 12 * 6.283; ctx.fillStyle = k % 3 ? '#9a96b0' : '#16101a'; ctx.fillRect(Math.round(sx + Math.sin(t) * sr * 0.78) - 1, Math.round(sy - Math.cos(t) * sr * 0.78) - 1, 2, 2); }
+        ctx.fillStyle = '#ff4f8a'; for (let k = 0; k < sr * 0.75; k++) ctx.fillRect(Math.round(sx + Math.sin(a) * k) - 1, Math.round(sy - Math.cos(a) * k) - 1, 2, 2);
+        text(fmt(G.time % 60).slice(0, -1), cx, iy + 78 * u, 15 * u, col, 'center', 800);
+      } else if (i === 1) {
+        // de trofee, met vallende confetti
+        for (let k = 0; k < 14; k++) {
+          const fx = ((k * 53) % 100) / 100, sp = 0.35 + (k % 5) * 0.08, fy = ((G.time * sp + k * 0.137) % 1);
+          ctx.fillStyle = ['#ff4f8a', '#ffd24a', '#7de8ff', '#7dffb0'][k % 4];
+          ctx.fillRect(Math.round(cx - 60 * u + fx * 120 * u + Math.sin(G.time * 3 + k) * 4 * u), Math.round(iy - 70 * u + fy * 140 * u), Math.max(2, Math.round(3 * u)), Math.max(2, Math.round(5 * u)));
+        }
+        const tro = ART_OBJ.trophy;
+        if (tro) { const ts = Math.round(120 * u / tro.height) || 1, bob = Math.round(Math.sin(G.time * 2.2) * 4 * u); ctx.drawImage(tro, Math.round(cx - tro.width * ts / 2), Math.round(iy - tro.height * ts / 2) + bob, tro.width * ts, tro.height * ts); }
+        text('10 PT', cx, iy + 78 * u, 15 * u, col, 'center', 800);
+      } else {
+        // drie racers naast elkaar, met een kamercode die van letters wisselt
+        const trio = [ui.char, (ui.char + 5) % RIVALS.length, (ui.char + 11) % RIVALS.length];
+        trio.forEach((f, k) => drawFace(f, cx + (k - 1) * 58 * u, iy - 4 * u + Math.round(Math.sin(G.time * 3 + k * 2) * 3 * u)));
+        const L = 'ABCDEFGHJKLMNPQRSTUVWXYZ', code = [0, 1, 2, 3].map(k => L[Math.floor(G.time * 2 + k * 7) % L.length]).join('');
+        text('ROOM ' + code, cx, iy + 78 * u, 15 * u, col, 'center', 800);
+      }
+      text(it[1], cx, y + 288 * u, 14 * u, '#fff', 'center', 600, false);
+      it[2].forEach((l, k) => text(l, cx, y + (330 + 30 * k) * u, 13 * u, sel ? '#fff' : '#cfd3ff', 'center', 500, false));
+      if (!sel) { ctx.fillStyle = 'rgba(5,3,12,0.38)'; ctx.fillRect(Math.round(x), Math.round(y), Math.round(cw), Math.round(ch)); }
     });
     return;
   }
