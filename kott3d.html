@@ -455,29 +455,35 @@ function minRadius(pts) {
 // Wandrit op deze banen: de weg draait een kwartslag (90 graden), je rijdt een stuk zijwaarts tegen een wand, en hij draait terug.
 // ondersteboven rijden bleek onbestuurbaar: geen kurkentrekkers meer (de code blijft voor als je er een wilt, zet dan een baan in LOOP_TRACKS)
 const LOOP_TRACKS = [], CORK_L = 1700, CORK_R = 250;
-const WALL_TRACKS = ['k3', 'p1', 'v2', 's2', 'd2', 'l2', 'f1', 'g1', 'g2'], WALL_IN = 520, WALL_HOLD = 1000, WALL_R = 240;
+const WALL_TRACKS = ['k3', 'p1', 'v2', 's2', 'd2', 'l2', 'f1', 'g1', 'g2'], WALL_IN = 950, WALL_HOLD = 900, WALL_R = 240;
 // rolhoek (radialen) langs een draai, f van 0 tot 1
 function twistRoll(kind, f) {
   const sm = x => x * x * (3 - 2 * x);
   if (kind === 'cork') return 2 * Math.PI * sm(f);
   const L = 2 * WALL_IN + WALL_HOLD, a = WALL_IN / L;
-  return Math.PI / 2 * (f < a ? sm(f / a) : f > 1 - a ? sm((1 - f) / a) : 1);
+  const sm5 = x => x * x * x * (x * (x * 6 - 15) + 10);   // zachter begin en einde dan smoothstep
+  return Math.PI / 2 * (f < a ? sm5(f / a) : f > 1 - a ? sm5((1 - f) / a) : 1);
 }
 function addLoop(pts, curv, step, def) {
-  const kind = LOOP_TRACKS.includes(def.id) ? 'cork' : 'wall', CL = kind === 'cork' ? CORK_L : 2 * WALL_IN + WALL_HOLD, CR = kind === 'cork' ? CORK_R : WALL_R;
+  const kind = LOOP_TRACKS.includes(def.id) ? 'cork' : 'wall';
+  let CL = kind === 'cork' ? CORK_L : 2 * WALL_IN + WALL_HOLD, CR = kind === 'cork' ? CORK_R : WALL_R;
   def._twist = kind;
   const N = pts.length;
   // langste stuk met (bijna) geen bocht
   let best = -1, bestLen = 0, run = 0;
   for (let k = 0; k < N * 2; k++) { const i = k % N, nearStart = i * step < 900 || i * step > N * step - 1600; if (curv[i] < 1 / 2500 && !nearStart) { run++; if (run > bestLen && run < N) { bestLen = run; best = i; } } else run = 0; }
-  if (bestLen * step < CL + 200) { def._twist = null; return pts; }
+  if (kind === 'wall') CL = Math.min(CL, bestLen * step - 200);   // korter op een kort recht stuk (de verhouding in- en uitdraaien blijft)
+  if (CL < 2000 || bestLen * step < CL + 200) { def._twist = null; return pts; }
   const len = Math.round(CL / step), m = (best - Math.floor(bestLen / 2) - Math.floor(len / 2) + N * 2) % N, m2 = (m + len) % N;
   const pa = pts[m], pb = pts[m2], t = norm([pb[0] - pa[0], 0, pb[2] - pa[2]]), side = [-t[2], 0, t[0]];
+  // wandrit: kantelen naar de buitenkant, met het wegdek naar het midden van de baan (dan blijf je de baan zien)
+  let cx = 0, cz = 0; for (const p of pts) { cx += p[0] / N; cz += p[2] / N; }
+  const dir = kind === 'wall' && ((cx - pa[0]) * side[0] + (cz - pa[2]) * side[2]) > 0 ? -1 : 1;
   const sm = x => x * x * (3 - 2 * x), cork = [];
   for (let q = 0; q <= len; q++) {
-    const f = q / len, th = twistRoll(kind, f), y = pa[1] + (pb[1] - pa[1]) * f;
+    const f = q / len, th = dir * twistRoll(kind, f), y = pa[1] + (pb[1] - pa[1]) * f;
     // wandrit: alleen draaien om de middenlijn (geen bocht), en recht omhoog zodat de lage rand boven de grond blijft
-    const lat = kind === 'wall' ? 0 : CR * Math.sin(th), up = kind === 'wall' ? (def.hw + 30) * Math.sin(th) : CR * (1 - Math.cos(th));
+    const lat = kind === 'wall' ? 0 : CR * Math.sin(th), up = kind === 'wall' ? (def.hw + 30) * Math.abs(Math.sin(th)) : CR * (1 - Math.cos(th));
     cork.push([pa[0] + (pb[0] - pa[0]) * f + side[0] * lat, y + up, pa[2] + (pb[2] - pa[2]) * f + side[2] * lat, 0,
       q > 0 && q < len ? 1 : 0, -side[0] * Math.sin(th), Math.cos(th), -side[2] * Math.sin(th)]);
   }
@@ -1065,7 +1071,7 @@ const POINTS = [10, 7, 5, 3, 2, 1];
 const MEDAL_COL = ['#4a4860', '#c8793a', '#cfd6e0', '#ffd24a'], MEDAL_NAME = ['', 'BRONZE', 'SILVER', 'GOLD'];
 const PAL_GHOST = ['#9ff', '#7de', '#5cd', '#4bc', '#268', '#aff', '#dff'];
 // opslag: keuzes, records met ghost per baan en voertuig, beste cupresultaat per cup en klasse
-const SAVE3 = 'kott3d.save.v8';   // opgehoogd: de banen kregen ruimere bochten (records, ghosts en medailletijden kloppen niet meer)
+const SAVE3 = 'kott3d.save.v9';   // opgehoogd: de banen kregen ruimere bochten (records, ghosts en medailletijden kloppen niet meer)
 const save = (() => { try { return Object.assign({ char: 0, car: 0, cls: 1, rec: {}, ghost: {}, cups: {} }, JSON.parse(localStorage.getItem(SAVE3)) || {}); } catch (e) { return { char: 0, car: 0, cls: 1, rec: {}, ghost: {}, cups: {} }; } })();
 function store() { try { localStorage.setItem(SAVE3, JSON.stringify(save)); } catch (e) {} }
 // spelstatus buiten de race: menu of race, en welke modus
@@ -2478,6 +2484,8 @@ function buildDecor() {
     const put = (sv, k, side, off) => {
       if (!ART.obj[k]) return false;
       const i = Math.floor((((sv % L) + L) % L) / TR.step) % N;
+      // geen decor vlak naast een wandrit: de wegrand staat daar hoog in de lucht
+      if (TR.loop) for (let k2 = -50; k2 <= 50; k2 += 5) if (TR.loop[(i + k2 + N) % N]) return false;
       const hr = norm([R[i][0], 0, R[i][2]]);
       const x = P[i * 3] + hr[0] * off * side, z = P[i * 3 + 2] + hr[2] * off * side;
       if (!clearOf(x, z, i, base + 30)) return false;
