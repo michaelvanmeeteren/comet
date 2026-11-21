@@ -455,14 +455,18 @@ function minRadius(pts) {
 // Wandrit op deze banen: de weg draait een kwartslag (90 graden), je rijdt een stuk zijwaarts tegen een wand, en hij draait terug.
 // ondersteboven rijden bleek onbestuurbaar: geen kurkentrekkers meer (de code blijft voor als je er een wilt, zet dan een baan in LOOP_TRACKS)
 const LOOP_TRACKS = [], CORK_L = 1700, CORK_R = 250;
-const WALL_TRACKS = ['k3', 'p1', 'v2', 's2', 'd2', 'l2', 'f1', 'g1', 'g2'], WALL_IN = 950, WALL_HOLD = 900, WALL_R = 240;
+// hoek van de wandrit per baan (graden): niet overal een volle kwartslag
+const WALL_DEG = { k3: 90, p1: 60, v2: 75, s2: 90, d2: 65, l2: 70, f1: 80, g1: 85 };
+// wielerbaan: de hele baan helt naar binnen, steil in de bochten en licht op de rechte stukken (zoals een velodroom)
+const VELODROME = ['g2'];
+const WALL_TRACKS = Object.keys(WALL_DEG), WALL_IN = 950, WALL_HOLD = 900, WALL_R = 240;
 // rolhoek (radialen) langs een draai, f van 0 tot 1
-function twistRoll(kind, f) {
+function twistRoll(kind, f, deg) {
   const sm = x => x * x * (3 - 2 * x);
   if (kind === 'cork') return 2 * Math.PI * sm(f);
   const L = 2 * WALL_IN + WALL_HOLD, a = WALL_IN / L;
   const sm5 = x => x * x * x * (x * (x * 6 - 15) + 10);   // zachter begin en einde dan smoothstep
-  return Math.PI / 2 * (f < a ? sm5(f / a) : f > 1 - a ? sm5((1 - f) / a) : 1);
+  return (deg || 90) * Math.PI / 180 * (f < a ? sm5(f / a) : f > 1 - a ? sm5((1 - f) / a) : 1);
 }
 function addLoop(pts, curv, step, def) {
   const kind = LOOP_TRACKS.includes(def.id) ? 'cork' : 'wall';
@@ -481,7 +485,7 @@ function addLoop(pts, curv, step, def) {
   const dir = kind === 'wall' && ((cx - pa[0]) * side[0] + (cz - pa[2]) * side[2]) > 0 ? -1 : 1;
   const sm = x => x * x * (3 - 2 * x), cork = [];
   for (let q = 0; q <= len; q++) {
-    const f = q / len, th = dir * twistRoll(kind, f), y = pa[1] + (pb[1] - pa[1]) * f;
+    const f = q / len, th = dir * twistRoll(kind, f, WALL_DEG[def.id]), y = pa[1] + (pb[1] - pa[1]) * f;
     // wandrit: alleen draaien om de middenlijn (geen bocht), en recht omhoog zodat de lage rand boven de grond blijft
     const lat = kind === 'wall' ? 0 : CR * Math.sin(th), up = kind === 'wall' ? (def.hw + 30) * Math.abs(Math.sin(th)) : CR * (1 - Math.cos(th));
     cork.push([pa[0] + (pb[0] - pa[0]) * f + side[0] * lat, y + up, pa[2] + (pb[2] - pa[2]) * f + side[2] * lat, 0,
@@ -521,7 +525,9 @@ function autoTrack(def, idx) {
   // kanteling zo dat de bocht in het wegvlak minstens zo ruim is als FLOW_R (kg = kromming x cos kanteling); door de hele bocht vasthouden
   const want = c.map(k => k > 1e-6 ? Math.min(FLOW_BANK_MAX, Math.acos(Math.min(1, 1 / (k * FLOW_R))) * 180 / Math.PI) : 0);
   const held = want.map((_, i) => { let m = 0; for (let j = -14; j <= 14; j++) m = Math.max(m, want[(i + j + N) % N]); return m; });
-  const bank = smoothArr(smoothArr(held, 10), 10);
+  // wielerbaan: overal minstens 22 graden, in de bochten tot ongeveer 50
+  const velo = VELODROME.includes(def.id);
+  const bank = smoothArr(smoothArr(velo ? held.map((b, i) => Math.max(b, 22 + 28 * Math.min(1, c[i] * 1900))) : held, 10), 10);
   // heuvels geleidelijk: hoogte uitgesmeerd over ruim 1000 eenheden, zodat geen top of dal je van de weg trekt
   const ys = smoothArr(smoothArr(pts.map(p => p[1]), 36), 36);
   const need = bank.map(b => def.hw * Math.sin(b * Math.PI / 180) + 25);
@@ -1071,7 +1077,7 @@ const POINTS = [10, 7, 5, 3, 2, 1];
 const MEDAL_COL = ['#4a4860', '#c8793a', '#cfd6e0', '#ffd24a'], MEDAL_NAME = ['', 'BRONZE', 'SILVER', 'GOLD'];
 const PAL_GHOST = ['#9ff', '#7de', '#5cd', '#4bc', '#268', '#aff', '#dff'];
 // opslag: keuzes, records met ghost per baan en voertuig, beste cupresultaat per cup en klasse
-const SAVE3 = 'kott3d.save.v9';   // opgehoogd: de banen kregen ruimere bochten (records, ghosts en medailletijden kloppen niet meer)
+const SAVE3 = 'kott3d.save.v10';   // opgehoogd: de banen kregen ruimere bochten (records, ghosts en medailletijden kloppen niet meer)
 const save = (() => { try { return Object.assign({ char: 0, car: 0, cls: 1, rec: {}, ghost: {}, cups: {} }, JSON.parse(localStorage.getItem(SAVE3)) || {}); } catch (e) { return { char: 0, car: 0, cls: 1, rec: {}, ghost: {}, cups: {} }; } })();
 function store() { try { localStorage.setItem(SAVE3, JSON.stringify(save)); } catch (e) {} }
 // spelstatus buiten de race: menu of race, en welke modus
