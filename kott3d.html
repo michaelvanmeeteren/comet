@@ -458,7 +458,7 @@ function minRadius(pts) {
 // ondersteboven rijden bleek onbestuurbaar: geen kurkentrekkers meer (de code blijft voor als je er een wilt, zet dan een baan in LOOP_TRACKS)
 const LOOP_TRACKS = [], CORK_L = 1700, CORK_R = 250;
 // hoek van de wandrit per baan (graden): niet overal een volle kwartslag
-const WALL_DEG = { p1: 60, v2: 75, s2: 90, d2: 65, l2: 70, f1: 80, g1: 85 };
+const WALL_DEG = { p1: 60, v2: 75, s2: 75, d2: 65, l2: 70, f1: 70, g1: 72 };   // niets boven de 75 graden
 // wielerbaan: de hele baan helt naar binnen, steil in de bochten en licht op de rechte stukken (zoals een velodroom)
 // Karakter per baan (level design): bepaalt het hoogteverloop en de kanteling
 //   coaster   achtbaan: op rechte stukken hoge bulten waar je even van loskomt
@@ -1155,7 +1155,7 @@ const POINTS = [10, 7, 5, 3, 2, 1];
 const MEDAL_COL = ['#4a4860', '#c8793a', '#cfd6e0', '#ffd24a'], MEDAL_NAME = ['', 'BRONZE', 'SILVER', 'GOLD'];
 const PAL_GHOST = ['#9ff', '#7de', '#5cd', '#4bc', '#268', '#aff', '#dff'];
 // opslag: keuzes, records met ghost per baan en voertuig, beste cupresultaat per cup en klasse
-const SAVE3 = 'kott3d.save.v13';   // opgehoogd: de banen kregen ruimere bochten (records, ghosts en medailletijden kloppen niet meer)
+const SAVE3 = 'kott3d.save.v14';   // opgehoogd: de banen kregen ruimere bochten (records, ghosts en medailletijden kloppen niet meer)
 const save = (() => { try { return Object.assign({ char: 0, car: 0, cls: 1, rec: {}, ghost: {}, cups: {} }, JSON.parse(localStorage.getItem(SAVE3)) || {}); } catch (e) { return { char: 0, car: 0, cls: 1, rec: {}, ghost: {}, cups: {} }; } })();
 function store() { try { localStorage.setItem(SAVE3, JSON.stringify(save)); } catch (e) {} }
 // spelstatus buiten de race: menu of race, en welke modus
