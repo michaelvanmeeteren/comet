@@ -534,8 +534,11 @@ function addLoop(pts, curv, step, def) {
   return out;
 }
 const FLOW_MIN_R = 900, FLOW_R = 1500, FLOW_BANK_MAX = 62;
+const MAP_SCALE = 1.6;
 function autoTrack(def, idx) {
-  const n = def.pts.length, cp = def.pts.map(([x, y], i) => [x, y, 70 + 170 * (0.5 + 0.5 * Math.sin(i * 1.7 + idx * 2.3)), 0]);
+  // banen groter dan in komeet.html (MAP_SCALE): meer ruimte voor heuvels, sprongen en rechte stukken
+  const n = def.pts.length, mx = def.pts.reduce((a, p) => a + p[0], 0) / n, mz = def.pts.reduce((a, p) => a + p[1], 0) / n;
+  const cp = def.pts.map(([x, y], i) => [mx + (x - mx) * MAP_SCALE, mz + (y - mz) * MAP_SCALE, 70 + 170 * (0.5 + 0.5 * Math.sin(i * 1.7 + idx * 2.3)), 0]);
   let dense = [];
   for (let i = 0; i < n; i++) {
     const a = cp[(i - 1 + n) % n], b = cp[i], c = cp[(i + 1) % n], d = cp[(i + 2) % n];
@@ -576,18 +579,18 @@ function autoTrack(def, idx) {
   else if (style === 'skyway') raw = raw.map((y, i) => 440 + 70 * Math.sin(i * r.step / 2600 * 2 * Math.PI));
   else if (style === 'summit') raw = raw.map((y, i) => 70 + 540 * Math.pow(Math.sin(Math.PI * i / N), 2));
   else if (style === 'bobsled') raw = raw.map((y, i) => { const f = i / N; return f < 0.22 ? 60 + 500 * sm(f / 0.22) : 60 + 500 * (1 - (f - 0.22) / 0.78); });
-  else if (style === 'dunes') { raw = raw.map((y, i) => 70 + 70 * flatW[i] * Math.pow(Math.sin(i * r.step / 950 * Math.PI), 2)); win = 10; }
-  else if (style === 'rolling') raw = raw.map((y, i) => 90 + 140 * Math.pow(Math.sin(i * r.step / 3600 * Math.PI), 2));
+  else if (style === 'dunes') { raw = raw.map((y, i) => 70 + 85 * flatW[i] * Math.pow(Math.sin(i * r.step / 1700 * Math.PI), 2)); win = 12; }
+  else if (style === 'rolling') raw = raw.map((y, i) => 90 + 140 * Math.pow(Math.sin(i * r.step / 5200 * Math.PI), 2));
   else if (style === 'flat') raw = raw.map(() => 30);
   else if (style === 'terraces') raw = raw.map((y, i) => { const f = i / N; if (f >= 0.7) return 60 + 440 * sm(1 - (f - 0.7) / 0.3); const seg = f / 0.7 * 4, k = Math.floor(seg), fr = seg - k; return 60 + 110 * (k + sm(Math.max(0, (fr - 0.65) / 0.35))); });
-  else if (style === 'arches') { raw = raw.map((y, i) => 50 + 260 * Math.pow(Math.max(0, Math.sin(i * r.step / 2600 * Math.PI)), 6)); win = 14; }
+  else if (style === 'arches') { raw = raw.map((y, i) => 50 + 260 * Math.pow(Math.max(0, Math.sin(i * r.step / 4200 * Math.PI)), 6)); win = 16; }
   else if (style === 'tower') raw = raw.map((y, i) => { const f = i / N; return f < 0.72 ? 70 + 560 * f / 0.72 : 70 + 560 * sm(1 - (f - 0.72) / 0.28); });
-  else if (style === 'hops') { const straight = smoothArr(c.map(k => k < 1 / 2500 ? 1 : 0), 30); raw = raw.map((y, i) => 70 + 80 * flatW[i] * Math.max(0, straight[i] - 0.3) / 0.7 * Math.pow(Math.sin(i * r.step / 850 * Math.PI), 2)); win = 5; }
-  else if (style === 'waves') raw = raw.map((y, i) => 80 + (50 + 230 * i / N) * Math.pow(Math.sin(i * r.step / 1900 * Math.PI), 2));
+  else if (style === 'hops') { const straight = smoothArr(c.map(k => k < 1 / 2500 ? 1 : 0), 30); raw = raw.map((y, i) => 70 + 80 * flatW[i] * Math.max(0, straight[i] - 0.3) / 0.7 * Math.pow(Math.sin(i * r.step / 1400 * Math.PI), 2)); win = 6; }
+  else if (style === 'waves') raw = raw.map((y, i) => 80 + (50 + 230 * i / N) * Math.pow(Math.sin(i * r.step / 2800 * Math.PI), 2));
   else if (style === 'plateau') raw = raw.map((y, i) => { const f = i / N; return 70 + 320 * (f < 0.12 ? 0 : f < 0.2 ? sm((f - 0.12) / 0.08) : f < 0.62 ? 1 : f < 0.7 ? sm((0.7 - f) / 0.08) : 0); });
   else if (style === 'descent') raw = raw.map((y, i) => { const f = i / N; return f < 0.78 ? 620 - 550 * f / 0.78 : 70 + 550 * sm((f - 0.78) / 0.22); });
   else if (style === 'aurora') raw = raw.map((y, i) => 300 + 130 * Math.sin(i * r.step / 3200 * 2 * Math.PI));
-  else if (style === 'chaos') { raw = raw.map((y, i) => 70 + 60 * flatW[i] * Math.pow(Math.sin(i * r.step / 950 * Math.PI), 2) + 300 * Math.pow(Math.sin(Math.PI * i / N), 2)); win = 10; }
+  else if (style === 'chaos') { raw = raw.map((y, i) => 70 + 70 * flatW[i] * Math.pow(Math.sin(i * r.step / 1700 * Math.PI), 2) + 300 * Math.pow(Math.sin(Math.PI * i / N), 2)); win = 10; }
   else if (style === 'figure8') {
     // waar kruist de baan zichzelf? daar komt de tweede doorgang hoog over een brug
     let bi = 0, bj = 0, bd = 1e18;
@@ -597,7 +600,7 @@ function autoTrack(def, idx) {
   else if (style === 'coaster') {
     // bulten alleen op (bijna) rechte stukken; de rechtheid zacht uitgesmeerd zodat ze rustig beginnen
     const straight = smoothArr(c.map(k => k < 1 / 2500 ? 1 : 0), 30);
-    raw = raw.map((y, i) => 70 + 125 * flatW[i] * Math.max(0, straight[i] - 0.3) / 0.7 * Math.pow(Math.sin(i * r.step / 1500 * Math.PI), 2));
+    raw = raw.map((y, i) => 70 + 125 * flatW[i] * Math.max(0, straight[i] - 0.3) / 0.7 * Math.pow(Math.sin(i * r.step / 2300 * Math.PI), 2));
     win = 6;
   }
   const ys = smoothArr(smoothArr(raw, win), win);
@@ -637,7 +640,10 @@ function buildTrack(def, idx) {
   for (let i = 0; i < N; i++) { let a = 0; for (let j = -12; j <= 12; j++) a += curv[(i + j + N) % N]; sgn[i] = Math.tanh(a / 25 * 160); }
   // kanteling met teken; daarna begrensd hoe snel hij mag veranderen (BANK_RATE graden per lintpunt), heen en terug,
   // zodat twee steile bochten na elkaar geleidelijk via vlak van de ene naar de andere kant gaan
-  const bs = Array.from(bankMag, (m, i) => loop[i] ? 0 : m * sgn[i]);
+  // vlak voor en na een draai geen gewone kanteling: anders verspringen de assen bij de overgang
+  const nearLoop = new Uint8Array(N);
+  for (let i = 0; i < N; i++) if (loop[i]) for (let k = -40; k <= 40; k++) nearLoop[(i + k + N) % N] = 1;
+  const bs = Array.from(bankMag, (m, i) => nearLoop[i] ? 0 : m * sgn[i]);
   for (let pass = 0; pass < 3; pass++) {
     for (let i = 1; i < N * 2; i++) { const a = bs[(i - 1) % N], k = i % N; bs[k] = clamp(bs[k], a - BANK_RATE, a + BANK_RATE); }
     for (let i = N * 2; i > 0; i--) { const a = bs[i % N], k = (i - 1) % N; bs[k] = clamp(bs[k], a - BANK_RATE, a + BANK_RATE); }
@@ -652,7 +658,8 @@ function buildTrack(def, idx) {
   const kg0 = [], kn0 = [];
   for (let i = 0; i < N; i++) {
     const dT = scale(sub(T[(i + 1) % N], T[(i - 1 + N) % N]), 1 / (2 * step));
-    kg0.push(loop[i] ? 0 : dot(dT, R[i])); kn0.push(dot(dT, U[i]));   // in de kurkentrekker volgt het schip de weg vanzelf
+    let lp = 0; for (let k = -6; k <= 6; k++) lp |= loop[(i + k + N) % N];   // ook vlak bij de overgang van een draai
+    kg0.push(lp ? 0 : dot(dT, R[i])); kn0.push(dot(dT, U[i]));   // in de kurkentrekker volgt het schip de weg vanzelf
   }
   const smooth = (a, w) => a.map((_, i) => { let s = 0; for (let j = -w; j <= w; j++) s += a[(i + j + N) % N]; return s / (2 * w + 1); });
   // schans en gat (alleen op de testbaan): het lintpunt het dichtst bij JUMP_AT en LAND_AT
@@ -688,7 +695,7 @@ function placeHaz3d() {
       }
     }
   };
-  scan(want.jump || 0, 950, 200, (k, p) => k.mx < [1 / 1900, 1 / 1300, 1 / 900][p], sv => haz.push({ type: 'jump', s0: sv + 60, s1: sv + 100 }));
+  scan(want.jump || 0, 1900, 200, (k, p) => k.mx < [1 / 1900, 1 / 1300, 1 / 900][p], sv => haz.push({ type: 'jump', s0: sv + 60, s1: sv + 100 }));
   scan(want.ice || 0, 560, 260, (k, p) => k.mx < 1 / 430 && (p > 0 || k.mean > 1 / 4000), sv => haz.push({ type: 'ice', s0: sv, s1: sv + 560 }));
   scan(want.slow || 0, 320, 220, (k, p) => k.mx < 1 / 470 && (p > 0 || k.mean > 1 / 1900),
     (sv, k) => haz.push({ type: 'slow', s0: sv, s1: sv + 320, d0: k.sign > 0 ? -0.05 * hw : -hw, d1: k.sign > 0 ? hw : 0.05 * hw }));
@@ -697,11 +704,11 @@ function placeHaz3d() {
     const off = [-0.42, 0, 0.42][Math.floor(rnd() * 3)] * hw;
     for (let i = 0; i < 3; i++) pads.push({ s: sv + 90 + i * 260, d: off });
   });
-  scan(want.gap || 0, 760, 400, (k, p) => k.mx < [1 / 2000, 1 / 1400, 1 / 1000][p],
+  scan(want.gap || 0, 1700, 400, (k, p) => k.mx < [1 / 2000, 1 / 1400, 1 / 1000][p],
     sv => { haz.push({ type: 'jump', s0: sv + 60, s1: sv + 100, gap: true }); haz.push({ type: 'gap', s0: sv + 150, s1: sv + 150 + GAP_L }); });
   scan(want.wave || 0, 700, 300, (k, p) => k.mx < [1 / 900, 1 / 600, 1 / 430][p], sv => haz.push({ type: 'wave', s0: sv, s1: sv + 700, ph: rnd() * WAVE_P, dir: rnd() < 0.5 ? -1 : 1 }));
   scan(want.bumps || 0, 720, 260, (k, p) => k.mx < [1 / 1300, 1 / 900, 1 / 600][p], sv => { for (let i = 0; i < 4; i++) haz.push({ type: 'bump', s0: sv + 60 + i * 180, s1: sv + 96 + i * 180 }); });
-  scan(want.launch || 0, 760, 300, (k, p) => k.mx < [1 / 2200, 1 / 1600, 1 / 1100][p], sv => {
+  scan(want.launch || 0, 2000, 300, (k, p) => k.mx < [1 / 2200, 1 / 1600, 1 / 1100][p], sv => {
     for (const o of [60, 320]) pads.push({ s: sv + o, d: 0 });
     haz.push({ type: 'jump', s0: sv + 560, s1: sv + 600, launch: true });
   });
@@ -1148,7 +1155,7 @@ const POINTS = [10, 7, 5, 3, 2, 1];
 const MEDAL_COL = ['#4a4860', '#c8793a', '#cfd6e0', '#ffd24a'], MEDAL_NAME = ['', 'BRONZE', 'SILVER', 'GOLD'];
 const PAL_GHOST = ['#9ff', '#7de', '#5cd', '#4bc', '#268', '#aff', '#dff'];
 // opslag: keuzes, records met ghost per baan en voertuig, beste cupresultaat per cup en klasse
-const SAVE3 = 'kott3d.save.v12';   // opgehoogd: de banen kregen ruimere bochten (records, ghosts en medailletijden kloppen niet meer)
+const SAVE3 = 'kott3d.save.v13';   // opgehoogd: de banen kregen ruimere bochten (records, ghosts en medailletijden kloppen niet meer)
 const save = (() => { try { return Object.assign({ char: 0, car: 0, cls: 1, rec: {}, ghost: {}, cups: {} }, JSON.parse(localStorage.getItem(SAVE3)) || {}); } catch (e) { return { char: 0, car: 0, cls: 1, rec: {}, ghost: {}, cups: {} }; } })();
 function store() { try { localStorage.setItem(SAVE3, JSON.stringify(save)); } catch (e) {} }
 // spelstatus buiten de race: menu of race, en welke modus
