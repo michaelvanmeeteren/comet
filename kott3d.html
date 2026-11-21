@@ -456,9 +456,17 @@ function minRadius(pts) {
 // ondersteboven rijden bleek onbestuurbaar: geen kurkentrekkers meer (de code blijft voor als je er een wilt, zet dan een baan in LOOP_TRACKS)
 const LOOP_TRACKS = [], CORK_L = 1700, CORK_R = 250;
 // hoek van de wandrit per baan (graden): niet overal een volle kwartslag
-const WALL_DEG = { k3: 90, p1: 60, v2: 75, s2: 90, d2: 65, l2: 70, f1: 80, g1: 85 };
+const WALL_DEG = { p1: 60, v2: 75, s2: 90, d2: 65, l2: 70, f1: 80, g1: 85 };
 // wielerbaan: de hele baan helt naar binnen, steil in de bochten en licht op de rechte stukken (zoals een velodroom)
-const VELODROME = ['g2'];
+// Karakter per baan (level design): bepaalt het hoogteverloop en de kanteling
+//   coaster   achtbaan: op rechte stukken hoge bulten waar je even van loskomt
+//   docks     kade: plat en laag langs het water, nauwelijks kanteling
+//   skyway    ruimteweg: zweeft hoog op pilaren, zonder hellingen eronder
+//   bobsled   bobslee: één lange klim, daarna een lange afdaling met diep gekantelde bochten
+//   summit    bergtop: klimt naar één hoge top en daalt weer af
+//   velodrome wielerbaan: overal naar binnen gekanteld, steil in de bochten
+const TRACK_STYLE = { k3: 'coaster', k2: 'docks', s2: 'skyway', f1: 'bobsled', f3: 'summit', g2: 'velodrome' };
+const VELODROME = Object.keys(TRACK_STYLE).filter(k => TRACK_STYLE[k] === 'velodrome');
 const WALL_TRACKS = Object.keys(WALL_DEG), WALL_IN = 950, WALL_HOLD = 900, WALL_R = 240;
 // rolhoek (radialen) langs een draai, f van 0 tot 1
 function twistRoll(kind, f, deg) {
@@ -526,10 +534,26 @@ function autoTrack(def, idx) {
   const want = c.map(k => k > 1e-6 ? Math.min(FLOW_BANK_MAX, Math.acos(Math.min(1, 1 / (k * FLOW_R))) * 180 / Math.PI) : 0);
   const held = want.map((_, i) => { let m = 0; for (let j = -14; j <= 14; j++) m = Math.max(m, want[(i + j + N) % N]); return m; });
   // wielerbaan: overal minstens 22 graden, in de bochten tot ongeveer 50
-  const velo = VELODROME.includes(def.id);
-  const bank = smoothArr(smoothArr(velo ? held.map((b, i) => Math.max(b, 22 + 28 * Math.min(1, c[i] * 1900))) : held, 10), 10);
+  const velo = VELODROME.includes(def.id), style = TRACK_STYLE[def.id];
+  const styled = held.map((b, i) => velo ? Math.max(b, 22 + 28 * Math.min(1, c[i] * 1900))
+    : style === 'bobsled' ? Math.max(b, Math.min(60, 28 + c[i] * 25000))
+    : style === 'docks' ? Math.min(b, 22) : b);
+  const bank = smoothArr(smoothArr(styled, 10), 10);
   // heuvels geleidelijk: hoogte uitgesmeerd over ruim 1000 eenheden, zodat geen top of dal je van de weg trekt
-  const ys = smoothArr(smoothArr(pts.map(p => p[1]), 36), 36);
+  // hoogteverloop volgens het karakter van de baan
+  const sm = x => x * x * (3 - 2 * x);
+  let raw = pts.map(p => p[1]), win = 36;
+  if (style === 'docks') raw = raw.map(() => 25);
+  else if (style === 'skyway') raw = raw.map((y, i) => 440 + 70 * Math.sin(i * r.step / 2600 * 2 * Math.PI));
+  else if (style === 'summit') raw = raw.map((y, i) => 70 + 540 * Math.pow(Math.sin(Math.PI * i / N), 2));
+  else if (style === 'bobsled') raw = raw.map((y, i) => { const f = i / N; return f < 0.22 ? 60 + 500 * sm(f / 0.22) : 60 + 500 * (1 - (f - 0.22) / 0.78); });
+  else if (style === 'coaster') {
+    // bulten alleen op (bijna) rechte stukken; de rechtheid zacht uitgesmeerd zodat ze rustig beginnen
+    const straight = smoothArr(c.map(k => k < 1 / 2500 ? 1 : 0), 30);
+    raw = raw.map((y, i) => 70 + 125 * Math.max(0, straight[i] - 0.3) / 0.7 * Math.pow(Math.sin(i * r.step / 1500 * Math.PI), 2));
+    win = 6;
+  }
+  const ys = smoothArr(smoothArr(raw, win), win);
   const need = bank.map(b => def.hw * Math.sin(b * Math.PI / 180) + 25);
   const lift = smoothArr(smoothArr(need.map((nd, i) => { let m = 0; for (let j = -45; j <= 45; j++) { const q = (i + j + N) % N; m = Math.max(m, need[q] - ys[q]); } return Math.max(0, m); }), 36), 36);
   let out = pts.map((p, i) => [p[0], ys[i] + lift[i], p[2], bank[i], 0]);
@@ -1077,7 +1101,7 @@ const POINTS = [10, 7, 5, 3, 2, 1];
 const MEDAL_COL = ['#4a4860', '#c8793a', '#cfd6e0', '#ffd24a'], MEDAL_NAME = ['', 'BRONZE', 'SILVER', 'GOLD'];
 const PAL_GHOST = ['#9ff', '#7de', '#5cd', '#4bc', '#268', '#aff', '#dff'];
 // opslag: keuzes, records met ghost per baan en voertuig, beste cupresultaat per cup en klasse
-const SAVE3 = 'kott3d.save.v10';   // opgehoogd: de banen kregen ruimere bochten (records, ghosts en medailletijden kloppen niet meer)
+const SAVE3 = 'kott3d.save.v11';   // opgehoogd: de banen kregen ruimere bochten (records, ghosts en medailletijden kloppen niet meer)
 const save = (() => { try { return Object.assign({ char: 0, car: 0, cls: 1, rec: {}, ghost: {}, cups: {} }, JSON.parse(localStorage.getItem(SAVE3)) || {}); } catch (e) { return { char: 0, car: 0, cls: 1, rec: {}, ghost: {}, cups: {} }; } })();
 function store() { try { localStorage.setItem(SAVE3, JSON.stringify(save)); } catch (e) {} }
 // spelstatus buiten de race: menu of race, en welke modus
@@ -2262,7 +2286,7 @@ function buildRoadMesh() {
     pushQuad(out, pos(i, -HW - WALL_T, -ROAD_T), pos(j, -HW - WALL_T, -ROAD_T), pos(j, HW + WALL_T, -ROAD_T), pos(i, HW + WALL_T, -ROAD_T), lit(COL.under, scale(Ui, -1), 0.4));
     // talud naar de grond (een heuvel), of pilaren bij een brug
     if (TR.loop[i] || TR.loop[j]) { /* looping: vrij in de lucht */ }
-    else if (!isBridge[i] && !isBridge[j]) {
+    else if (!isBridge[i] && !isBridge[j] && TRACK_STYLE[TR.def.id] !== 'skyway') {
       for (const sd of [-1, 1]) {
         const a = pos(i, sd * (HW + WALL_T), -ROAD_T), b = pos(j, sd * (HW + WALL_T), -ROAD_T);
         if (a[1] < GROUND_Y + 2 && b[1] < GROUND_Y + 2) continue;
@@ -2273,7 +2297,7 @@ function buildRoadMesh() {
         const gc = (Math.floor(i / 8) & 1) ? COL.grassA : COL.grassB;
         pushQuad(out, a, b, fb, fa, lit(gc, n));
       }
-    } else if (i % 22 === 0 && P[i * 3 + 1] > 60) {
+    } else if (i % (TRACK_STYLE[TR.def.id] === 'skyway' ? 30 : 22) === 0 && P[i * 3 + 1] > 60) {
       const c = pos(i, 0, -ROAD_T), w = 22, top = c[1] + 4;
       // staat er hier geen lagere baan onder?
       let free = true;
@@ -2497,7 +2521,7 @@ function buildDecor() {
       if (!clearOf(x, z, i, base + 30)) return false;
       // op de helling: de rand van de weg min de afstand tot de rand gedeeld door de helling
       const edgeY = P[i * 3 + 1] + R[i][1] * side * (HW + WALL_T) - ROAD_T;
-      const y = isBridge[i] ? GROUND_Y : Math.max(GROUND_Y, edgeY - Math.max(0, off - HW - WALL_T) / 1.1);
+      const y = isBridge[i] || TRACK_STYLE[TR.def.id] === 'skyway' ? GROUND_Y : Math.max(GROUND_Y, edgeY - Math.max(0, off - HW - WALL_T) / 1.1);
       const oh = OBJ_H[k] || 200;   // [hoogte, zweefhoogte] voor vliegende dingen
       add(k, x, y + (Array.isArray(oh) ? oh[1] : 0), z, Array.isArray(oh) ? oh[0] : oh);
       return true;
