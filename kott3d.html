@@ -476,7 +476,8 @@ function addLoop(pts, curv, step, def) {
   const sm = x => x * x * (3 - 2 * x), cork = [];
   for (let q = 0; q <= len; q++) {
     const f = q / len, th = twistRoll(kind, f), y = pa[1] + (pb[1] - pa[1]) * f;
-    const lat = CR * Math.sin(th), up = CR * (1 - Math.cos(th));
+    // wandrit: alleen draaien om de middenlijn (geen bocht), en recht omhoog zodat de lage rand boven de grond blijft
+    const lat = kind === 'wall' ? 0 : CR * Math.sin(th), up = kind === 'wall' ? (def.hw + 30) * Math.sin(th) : CR * (1 - Math.cos(th));
     cork.push([pa[0] + (pb[0] - pa[0]) * f + side[0] * lat, y + up, pa[2] + (pb[2] - pa[2]) * f + side[2] * lat, 0,
       q > 0 && q < len ? 1 : 0, -side[0] * Math.sin(th), Math.cos(th), -side[2] * Math.sin(th)]);
   }
@@ -1064,7 +1065,7 @@ const POINTS = [10, 7, 5, 3, 2, 1];
 const MEDAL_COL = ['#4a4860', '#c8793a', '#cfd6e0', '#ffd24a'], MEDAL_NAME = ['', 'BRONZE', 'SILVER', 'GOLD'];
 const PAL_GHOST = ['#9ff', '#7de', '#5cd', '#4bc', '#268', '#aff', '#dff'];
 // opslag: keuzes, records met ghost per baan en voertuig, beste cupresultaat per cup en klasse
-const SAVE3 = 'kott3d.save.v7';   // opgehoogd: de banen kregen ruimere bochten (records, ghosts en medailletijden kloppen niet meer)
+const SAVE3 = 'kott3d.save.v8';   // opgehoogd: de banen kregen ruimere bochten (records, ghosts en medailletijden kloppen niet meer)
 const save = (() => { try { return Object.assign({ char: 0, car: 0, cls: 1, rec: {}, ghost: {}, cups: {} }, JSON.parse(localStorage.getItem(SAVE3)) || {}); } catch (e) { return { char: 0, car: 0, cls: 1, rec: {}, ghost: {}, cups: {} }; } })();
 function store() { try { localStorage.setItem(SAVE3, JSON.stringify(save)); } catch (e) {} }
 // spelstatus buiten de race: menu of race, en welke modus
@@ -2728,7 +2729,8 @@ function render(dt) {
   gl.activeTexture(gl.TEXTURE0); gl.uniform1i(PB.u.uTex, 0);
   for (const g of decor) {
     if (!g.vao) continue;
-    const t = g.tex[g.tex.length > 1 && g.tex[1].ready ? Math.floor(flick * 3) % 2 : 0];
+    const t = (g.tex.length > 1 && g.tex[1].ready && (Math.floor(flick * 3) & 1) ? g.tex[1] : g.tex[0]);
+    if (!t || t.dead) continue;
     gl.bindTexture(gl.TEXTURE_2D, t.tex);
     gl.bindVertexArray(g.vao); gl.drawArrays(gl.TRIANGLES, 0, g.count);
   }
