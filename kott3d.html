@@ -453,8 +453,9 @@ function minRadius(pts) {
 // rijdt (een schroef met straal CORK_R over CORK_L vooruit). Je kijkt steeds vooruit; het beeld rolt alleen mee.
 // Een punt in de kurkentrekker heeft als vijfde onderdeel 1 en daarna de richting "boven" (naar de as van de schroef).
 // Wandrit op deze banen: de weg draait een kwartslag (90 graden), je rijdt een stuk zijwaarts tegen een wand, en hij draait terug.
-const LOOP_TRACKS = ['k3', 's2', 'g2'], CORK_L = 1700, CORK_R = 250;
-const WALL_TRACKS = ['p1', 'v2', 'd2', 'l2', 'f1', 'g1'], WALL_IN = 520, WALL_HOLD = 1000, WALL_R = 240;
+// ondersteboven rijden bleek onbestuurbaar: geen kurkentrekkers meer (de code blijft voor als je er een wilt, zet dan een baan in LOOP_TRACKS)
+const LOOP_TRACKS = [], CORK_L = 1700, CORK_R = 250;
+const WALL_TRACKS = ['k3', 'p1', 'v2', 's2', 'd2', 'l2', 'f1', 'g1', 'g2'], WALL_IN = 520, WALL_HOLD = 1000, WALL_R = 240;
 // rolhoek (radialen) langs een draai, f van 0 tot 1
 function twistRoll(kind, f) {
   const sm = x => x * x * (3 - 2 * x);
@@ -1063,7 +1064,7 @@ const POINTS = [10, 7, 5, 3, 2, 1];
 const MEDAL_COL = ['#4a4860', '#c8793a', '#cfd6e0', '#ffd24a'], MEDAL_NAME = ['', 'BRONZE', 'SILVER', 'GOLD'];
 const PAL_GHOST = ['#9ff', '#7de', '#5cd', '#4bc', '#268', '#aff', '#dff'];
 // opslag: keuzes, records met ghost per baan en voertuig, beste cupresultaat per cup en klasse
-const SAVE3 = 'kott3d.save.v6';   // opgehoogd: de banen kregen ruimere bochten (records, ghosts en medailletijden kloppen niet meer)
+const SAVE3 = 'kott3d.save.v7';   // opgehoogd: de banen kregen ruimere bochten (records, ghosts en medailletijden kloppen niet meer)
 const save = (() => { try { return Object.assign({ char: 0, car: 0, cls: 1, rec: {}, ghost: {}, cups: {} }, JSON.parse(localStorage.getItem(SAVE3)) || {}); } catch (e) { return { char: 0, car: 0, cls: 1, rec: {}, ghost: {}, cups: {} }; } })();
 function store() { try { localStorage.setItem(SAVE3, JSON.stringify(save)); } catch (e) {} }
 // spelstatus buiten de race: menu of race, en welke modus
