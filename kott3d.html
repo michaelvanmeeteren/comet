@@ -449,38 +449,44 @@ function minRadius(pts) {
   return mr;
 }
 // een vlakke baan uit komeet.html krijgt heuvels, kantelingen in de bochten en afgeronde krappe bochten
-// Looping op deze banen, op het langste rechte stuk. De weg schuift er eerst opzij voor, draait een cirkel (straal LOOP_R)
-// en komt aan de andere kant naast de ingang weer uit. Vijfde onderdeel van een punt = 1 in de looping.
-const LOOP_TRACKS = ['k3', 's2', 'g2'], LOOP_R = 380;
+// Kurkentrekker op deze banen, op het langste rechte stuk: de weg draait één keer om zijn eigen as terwijl je rechtdoor
+// rijdt (een schroef met straal CORK_R over CORK_L vooruit). Je kijkt steeds vooruit; het beeld rolt alleen mee.
+// Een punt in de kurkentrekker heeft als vijfde onderdeel 1 en daarna de richting "boven" (naar de as van de schroef).
+// Wandrit op deze banen: de weg draait een kwartslag (90 graden), je rijdt een stuk zijwaarts tegen een wand, en hij draait terug.
+const LOOP_TRACKS = ['k3', 's2', 'g2'], CORK_L = 1700, CORK_R = 250;
+const WALL_TRACKS = ['p1', 'v2', 'd2', 'l2', 'f1', 'g1'], WALL_IN = 520, WALL_HOLD = 1000, WALL_R = 240;
+// rolhoek (radialen) langs een draai, f van 0 tot 1
+function twistRoll(kind, f) {
+  const sm = x => x * x * (3 - 2 * x);
+  if (kind === 'cork') return 2 * Math.PI * sm(f);
+  const L = 2 * WALL_IN + WALL_HOLD, a = WALL_IN / L;
+  return Math.PI / 2 * (f < a ? sm(f / a) : f > 1 - a ? sm((1 - f) / a) : 1);
+}
 function addLoop(pts, curv, step, def) {
+  const kind = LOOP_TRACKS.includes(def.id) ? 'cork' : 'wall', CL = kind === 'cork' ? CORK_L : 2 * WALL_IN + WALL_HOLD, CR = kind === 'cork' ? CORK_R : WALL_R;
+  def._twist = kind;
   const N = pts.length;
   // langste stuk met (bijna) geen bocht
   let best = -1, bestLen = 0, run = 0;
-  for (let k = 0; k < N * 2; k++) { const i = k % N; if (curv[i] < 1 / 4000) { run++; if (run > bestLen && run < N) { bestLen = run; best = i; } } else run = 0; }
-  if (bestLen * step < 1300) return pts;
-  const m = (best - Math.floor(bestLen / 2) + N) % N;
-  const pa = pts[(m - 1 + N) % N], pb = pts[(m + 1) % N], t = norm([pb[0] - pa[0], 0, pb[2] - pa[2]]), side = [-t[2], 0, t[0]];
-  const S = 2 * def.hw + 40, ramp = Math.round(700 / step), sm = x => x * x * (3 - 2 * x);
-  const shift = (p, off) => [p[0] + side[0] * off, p[1], p[2] + side[2] * off, p[3] * 0, 0];
-  // ervoor: geleidelijk opzij naar -S/2; erna: van +S/2 geleidelijk terug
-  const before = [], after = [];
-  for (let k = 0; k < N; k++) {
-    const i = (m + 1 + k) % N, back = N - 1 - k;   // k = 0 is net na de looping
-    let p = pts[i];
-    if (k < ramp) p = shift(p, S / 2 * (1 - sm(k / ramp)));
-    else if (back < ramp) p = shift(p, -S / 2 * sm((ramp - back) / ramp));
-    after.push(k < ramp || back < ramp ? p : p.slice());
+  for (let k = 0; k < N * 2; k++) { const i = k % N, nearStart = i * step < 900 || i * step > N * step - 1600; if (curv[i] < 1 / 2500 && !nearStart) { run++; if (run > bestLen && run < N) { bestLen = run; best = i; } } else run = 0; }
+  if (bestLen * step < CL + 200) { def._twist = null; return pts; }
+  const len = Math.round(CL / step), m = (best - Math.floor(bestLen / 2) - Math.floor(len / 2) + N * 2) % N, m2 = (m + len) % N;
+  const pa = pts[m], pb = pts[m2], t = norm([pb[0] - pa[0], 0, pb[2] - pa[2]]), side = [-t[2], 0, t[0]];
+  const sm = x => x * x * (3 - 2 * x), cork = [];
+  for (let q = 0; q <= len; q++) {
+    const f = q / len, th = twistRoll(kind, f), y = pa[1] + (pb[1] - pa[1]) * f;
+    const lat = CR * Math.sin(th), up = CR * (1 - Math.cos(th));
+    cork.push([pa[0] + (pb[0] - pa[0]) * f + side[0] * lat, y + up, pa[2] + (pb[2] - pa[2]) * f + side[2] * lat, 0,
+      q > 0 && q < len ? 1 : 0, -side[0] * Math.sin(th), Math.cos(th), -side[2] * Math.sin(th)]);
   }
-  const base = pts[m], loop = [];
-  const n = Math.round(2 * Math.PI * LOOP_R / step);
-  for (let q = 0; q <= n; q++) {
-    const th = q / n * 2 * Math.PI, off = -S / 2 + S * sm(q / n);
-    loop.push([base[0] + t[0] * LOOP_R * Math.sin(th) + side[0] * off, base[1] + LOOP_R * (1 - Math.cos(th)), base[2] + t[2] * LOOP_R * Math.sin(th) + side[2] * off, 0, q > 0 && q < n ? 1 : 0]);
+  // de punten van m tot m2 vervangen door de kurkentrekker; de start (punt 0) blijft vooraan staan
+  const out = [];
+  for (let i = 0; i < N; i++) {
+    const inside = m < m2 ? (i >= m && i <= m2) : (i >= m || i <= m2);
+    if (i === m) out.push(...cork);
+    else if (!inside) out.push(pts[i]);
   }
-  def._loopSide = side;
-  // de looping begint en eindigt op de plek van punt m; de start (punt 0) blijft vooraan staan
-  const k0 = (N - m - 1) % N;
-  return after.slice(k0).concat(loop, after.slice(0, k0));
+  return out;
 }
 const FLOW_MIN_R = 900, FLOW_R = 1500, FLOW_BANK_MAX = 62;
 function autoTrack(def, idx) {
@@ -513,7 +519,7 @@ function autoTrack(def, idx) {
   const need = bank.map(b => def.hw * Math.sin(b * Math.PI / 180) + 25);
   const lift = smoothArr(smoothArr(need.map((nd, i) => { let m = 0; for (let j = -45; j <= 45; j++) { const q = (i + j + N) % N; m = Math.max(m, need[q] - ys[q]); } return Math.max(0, m); }), 36), 36);
   let out = pts.map((p, i) => [p[0], ys[i] + lift[i], p[2], bank[i], 0]);
-  if (LOOP_TRACKS.includes(def.id)) out = addLoop(out, c, r.step, def);
+  if (LOOP_TRACKS.includes(def.id) || WALL_TRACKS.includes(def.id)) out = addLoop(out, c, r.step, def);
   return out;
 }
 const BANK_RATE = 1.3;   // graden per lintpunt (16 eenheden): ongeveer 25 graden per 300 eenheden
@@ -530,13 +536,15 @@ function buildTrack(def, idx) {
   } else r = resample(autoTrack(def, idx));
   const { N, len, step } = r;
   const P = new Float32Array(N * 3), bankMag = new Float32Array(N);
-  const loop = new Uint8Array(N);
-  r.pts.forEach((p, i) => { P[i * 3] = p[0]; P[i * 3 + 1] = p[1]; P[i * 3 + 2] = p[2]; bankMag[i] = p[3]; loop[i] = p[4] > 0.5 ? 1 : 0; });
+  const loop = new Uint8Array(N), loopU = [];
+  r.pts.forEach((p, i) => { P[i * 3] = p[0]; P[i * 3 + 1] = p[1]; P[i * 3 + 2] = p[2]; bankMag[i] = p[3]; loop[i] = p[4] > 0.5 ? 1 : 0; loopU[i] = p.length > 7 ? [p[5], p[6], p[7]] : null; });
   const v = i => { i = (i + N) % N; return [P[i * 3], P[i * 3 + 1], P[i * 3 + 2]]; };
   const T = [], R0 = [];
   for (let i = 0; i < N; i++) {
     const t = norm(sub(v(i + 1), v(i - 1)));
-    T.push(t); R0.push(loop[i] && def._loopSide ? def._loopSide.slice() : norm([-t[2], 0, t[0]]));
+    // in de kurkentrekker: boven = naar de as van de schroef (haaks op de rijrichting gemaakt), rechts = rijrichting x boven
+    const lu = loop[i] && loopU[i] ? norm(sub(loopU[i], scale(t, dot(loopU[i], t)))) : null;
+    T.push(t); R0.push(lu ? norm(cross(t, lu)) : norm([-t[2], 0, t[0]]));
   }
   // richting van de bocht (rechts = +), uitgesmeerd zodat de kanteling niet verspringt
   const curv = T.map((t, i) => loop[i] ? 0 : dot(sub(T[(i + 1) % N], T[(i - 1 + N) % N]), R0[i]));
@@ -552,14 +560,14 @@ function buildTrack(def, idx) {
   const R = [], U = [];
   for (let i = 0; i < N; i++) {
     const b = bs[i] * Math.PI / 180, u0 = cross(R0[i], T[i]);
-    const r = loop[i] ? norm(sub(R0[i], scale(T[i], dot(R0[i], T[i])))) : norm(add(scale(R0[i], Math.cos(b)), scale(u0, -Math.sin(b))));
+    const r = loop[i] && loopU[i] ? R0[i] : norm(add(scale(R0[i], Math.cos(b)), scale(u0, -Math.sin(b))));
     R.push(r); U.push(cross(r, T[i]));
   }
   // kromming in het wegvlak (kg, stuurt je mee) en loodrecht erop (kn, drukt je op de weg)
   const kg0 = [], kn0 = [];
   for (let i = 0; i < N; i++) {
     const dT = scale(sub(T[(i + 1) % N], T[(i - 1 + N) % N]), 1 / (2 * step));
-    kg0.push(dot(dT, R[i])); kn0.push(dot(dT, U[i]));
+    kg0.push(loop[i] ? 0 : dot(dT, R[i])); kn0.push(dot(dT, U[i]));   // in de kurkentrekker volgt het schip de weg vanzelf
   }
   const smooth = (a, w) => a.map((_, i) => { let s = 0; for (let j = -w; j <= w; j++) s += a[(i + j + N) % N]; return s / (2 * w + 1); });
   // schans en gat (alleen op de testbaan): het lintpunt het dichtst bij JUMP_AT en LAND_AT
@@ -1055,7 +1063,7 @@ const POINTS = [10, 7, 5, 3, 2, 1];
 const MEDAL_COL = ['#4a4860', '#c8793a', '#cfd6e0', '#ffd24a'], MEDAL_NAME = ['', 'BRONZE', 'SILVER', 'GOLD'];
 const PAL_GHOST = ['#9ff', '#7de', '#5cd', '#4bc', '#268', '#aff', '#dff'];
 // opslag: keuzes, records met ghost per baan en voertuig, beste cupresultaat per cup en klasse
-const SAVE3 = 'kott3d.save.v4';   // opgehoogd: de banen kregen ruimere bochten (records, ghosts en medailletijden kloppen niet meer)
+const SAVE3 = 'kott3d.save.v6';   // opgehoogd: de banen kregen ruimere bochten (records, ghosts en medailletijden kloppen niet meer)
 const save = (() => { try { return Object.assign({ char: 0, car: 0, cls: 1, rec: {}, ghost: {}, cups: {} }, JSON.parse(localStorage.getItem(SAVE3)) || {}); } catch (e) { return { char: 0, car: 0, cls: 1, rec: {}, ghost: {}, cups: {} }; } })();
 function store() { try { localStorage.setItem(SAVE3, JSON.stringify(save)); } catch (e) {} }
 // spelstatus buiten de race: menu of race, en welke modus
@@ -2131,6 +2139,8 @@ const LIGHTS = ['#ffe060', '#ff5a8a', '#4fe0ff', '#7dffb0'];
 // een poort in 3D op afstand sv: twee palen en een balk, met per soort iets erbij
 function gate3d(out, sv, style) {
   const g = GATE[style]; if (!g) return;
+  // geen poort bij een kurkentrekker of wandrit (de weg draait daar weg onder de poort)
+  if (TR.loop) { const gi = Math.floor((((sv % TR.len) + TR.len) % TR.len) / TR.step); for (let k = -40; k <= 40; k++) if (TR.loop[(gi + k + TR.N) % TR.N]) return; }
   const Qg = at(sv, {}), T = norm([Qg.tx, Qg.ty, Qg.tz]), Rr = [Qg.rx, Qg.ry, Qg.rz], U = [Qg.ux, Qg.uy, Qg.uz];
   const P = (d, up, f) => [Qg.px + Rr[0] * d + U[0] * up + T[0] * f, Qg.py + Rr[1] * d + U[1] * up + T[1] * f, Qg.pz + Rr[2] * d + U[2] * up + T[2] * f];
   const pc = hex(g.post), pd = hex(g.postD), h = g.h, off = HW + 16, pw = g.pw / 2;
@@ -3013,7 +3023,7 @@ const KUI = (() => {
   let G = {}, T = {};
   function trackTip(tr) {
   const n = t => tr.haz.filter(h => h.type === t).length;
-  if (n('loop')) return 'LOOP THE LOOP - KEEP YOUR SPEED UP';
+  if (n('loop')) return T.def && T.def._twist === 'wall' ? 'WALL RIDE - THE ROAD TURNS SIDEWAYS' : 'CORKSCREW - HOLD ON TIGHT';
   if (n('cannon')) return 'HIT THE CANNON AND FLY';
   if (n('gap')) return 'JUMP THE GAPS - TOO SLOW AND YOU FALL IN';
   if (n('wave')) return 'WATCH OUT FOR THE WAVES';
