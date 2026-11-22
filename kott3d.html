@@ -33,7 +33,7 @@ const LAPS = 3, SHIP_R = 22, HOVER = 5, SHIP_SIZE = 1.2;
 const WALL_H = 26, WALL_T = 10, ROAD_T = 16;
 const BERM = 420;   // vlakke berm naast de vangrail (op wegniveau) waar het decor op staat; daarachter de helling
 // Versie van de 3D-versie, rechtsonder op het startscherm. Bij elke publicatie op de website eentje ophogen.
-const GAME_VERSION = '3D-57';
+const GAME_VERSION = '3D-58';
 const LOW_H = 1080;           // aantal beeldlijnen (zoals FINE in komeet.html); daarna zonder vervaging vergroot
 const GROUND_Y = -40;        // grond iets onder het laagste stuk weg
 
@@ -122,6 +122,20 @@ const CP = [
 
 // ---------------------------------------------------------------- de 24 banen uit komeet.html (letterlijk gekopieerd)
 // pts zijn x, y op de kaart; hier wordt y de z-as. Hoogte en kanteling komen er automatisch bij (autoTrack).
+const TRACK_DEFS_NEW = [
+  { id: 'o1', name: 'Coral Tube', cup: 8, hw: 150, haz: { pads: 7, current: 3, bumps: 1 } },
+  { id: 'o2', name: 'Kelp Forest', cup: 8, hw: 150, haz: { pads: 7, current: 4 } },
+  { id: 'o3', name: 'Trench Run', cup: 8, hw: 150, haz: { pads: 8, current: 3, chain: 1 } },
+  { id: 'c1', name: 'Frosting Ring', cup: 9, hw: 150, haz: { pads: 7, slow: 2, bumps: 1 } },
+  { id: 'c2', name: 'Gumdrop Hills', cup: 9, hw: 150, haz: { pads: 7, slow: 2, bumps: 2, launch: 1 } },
+  { id: 'c3', name: 'Choco Falls', cup: 9, hw: 150, haz: { pads: 7, slow: 1, chain: 1 } },
+  { id: 'h1', name: 'Willow Bog', cup: 10, hw: 150, haz: { pads: 7, wisp: 4, slow: 1 } },
+  { id: 'h2', name: 'Lantern Marsh', cup: 10, hw: 150, haz: { pads: 7, wisp: 5 } },
+  { id: 'h3', name: 'Crypt Hollow', cup: 10, hw: 150, haz: { pads: 8, wisp: 4, chain: 1 } },
+  { id: 'm1', name: 'Cog Boulevard', cup: 11, hw: 150, haz: { pads: 7, geyser: 4, chain: 1 } },
+  { id: 'm2', name: 'Steam Works', cup: 11, hw: 150, haz: { pads: 7, geyser: 4 } },
+  { id: 'm3', name: 'Clocktower', cup: 11, hw: 150, haz: { pads: 8, geyser: 3, chain: 1 } }
+];
 const TRACK_DEFS = [
   { id: 'k1', name: 'Palm Beach', cup: 0, hw: 150, haz: { pads: 6, wave: 2, chain: 1, bank: 1 },
     pts: [[1500,4200],[1500,2300],[2600,1300],[4400,1200],[6200,1500],[7000,2800],[6600,4200],[5200,4700],[4800,5800],[5600,6800],[4600,7300],[2800,7000],[1700,6000]] },
@@ -174,12 +188,16 @@ const TRACK_DEFS = [
 ];
 // gevaren (zelfde maten als in komeet.html)
 const PAD_HW = 55, PAD_HL = 80, WAVE_HW = 55, WAVE_RUN = 1.6, WAVE_P = 3.6, GAP_L = 300, GAP_BACK = 1200;   // terugzetten na een val: ver genoeg om weer vaart te maken (heuvels!)
+const GEY_P = 3.2, GEY_ON = 0.9;   // geiser: elke 3,2 seconden 0,9 seconde stoom
+const geyserOn = (hz, t) => ((t + hz.ph) % GEY_P) < GEY_ON;
+const wispD = (hz, hw, t) => hw * 0.7 * Math.sin(t * 1.3 + hz.ph);   // waar het dwaallicht dwars over de weg zweeft
 function waveAt(hz, hw, t) {
   const f = (((t + hz.ph) % WAVE_P) + WAVE_P) % WAVE_P / WAVE_RUN;
   if (f >= 1) return null;
   return hz.dir * (-(hw + WAVE_HW) + f * 2 * (hw + WAVE_HW));
 }
 // hoogte in de wereld per object (uit SPR_DEF in komeet.html)
+TRACK_DEFS.push(...TRACK_DEFS_NEW);
 const OBJ_H = {"palm":240,"lamp":180,"sign":160,"cherry":220,"lantern":100,"torii":200,"brazier":140,"tower":270,"banner":250,"spikes":95,"parasol":140,"hut":160,"container":95,"crate":62,"tent":160,"balloons":210,"bamboo":310,"vending":125,"neonsign":250,"pillar":340,"barrel":78,"icerock":110,"lighthouse":540,"ferris":500,"pagoda":540,"tvtower":720,"gatehouse":420,"bigcrystal":460,"shrine":200,"surf":175,"lifeguard":240,"chevR":95,"chevL":95,"crystal":210,"pylon":250,"beacon":130,"cactus":150,"pavilion":230,"snowpine":230,"obelisk":250,"dpalm":240,"dtent":170,"rockarch":200,"pots":70,"dlamp":150,"sandtower":280,"cart":110,"camel":170,"ltree":230,"elephant":150,"banyan":260,"llamp":130,"stall":150,"fountain":110,"flags":200,"bell":170,"igloo":120,"icespire":240,"icetower":280,"snowman":90,"icelamp":160,"icewall":140,"icestatue":150,"snowrock":110,"floatrock":220,"gstatue":230,"portal":220,"comet":150,"starpillar":240,"column":200,"drone":90,"hourglass":220,"carousel":180,"foodcart":110,"gpine":200,"plantern":120,"bridge":90,"gargoyle":150,"cage":170,"dish":150,"rocket":180,"aplant":140,"holosign":150,"bar":170,"icecream":110,"flamingo":120,"pierlamp":170,"boat":140,"oilbarrels":90,"harbourcrane":300,"sandcastle":80,"towels":110,"biglantern":140,"maple":220,"koipond":60,"ramen":150,"weeping":240,"belltower":260,"luckycat":90,"lanternpole":180,"bonsai":80,"dragon":200,"catapult":170,"deadtree":230,"candelabra":150,"armour":120,"well":110,"chest":70,"tombstone":80,"torch":150,"dome":200,"fueltank":230,"radar":220,"hovertruck":120,"energy":90,"robotarm":200,"solar":120,"teleporter":150,"spire":280,"carpets":150,"spices":80,"minaret":320,"camelrest":110,"wellpalm":160,"lampstall":150,"lionstatue":170,"buggy":90,"boulders":90,"chariot":200,"peacock":110,"gopuram":320,"oillamps":100,"paintedele":190,"mango":220,"drum":90,"flowerpot":80,"fireworks":160,"polarbear":130,"icefall":260,"sled":80,"icethrone":260,"bluelamp":160,"penguins":80,"dragonskull":120,"cabin":170,"icefountain":140,"titanhead":260,"orrery":200,"harp":200,"wingedgate":280,"startree":230,"crystaldragon":220,"sundial":130,"ruinchunk":200,"nebulapillar":260,"coaster":300,"teacup":150,"balloon":320,"droptower":340,"bouncy":160,"lifeboat":170,"turbine":360,"strongman":220,"hammock":200,"ruinwall":200,"troll":220,"wizardtower":340,"portcullis":220,"cauldron":110,"watchplat":220,"lavaspire":300,"chainpost":160,"throne":160,"guardlion":160,"redgate":260,"goldstatue":260,"neonboard":300,"noodlebar":200,"taiko":130,"shrinerock":220,"bambootower":300,"dragonlantern":200,"starship":220,"mushroom":220,"gantry":360,"meteor":200,"buoy":160,"monolith":260,"totem":240,"globe":220,"mech":280,"ziggurat":320,"stonehead":220,"caravan":150,"palacegate":280,"hoodoo":300,"windpump":280,"bigtent":200,"fossil":200,"oasispool":80,"mausoleum":320,"swingtree":260,"stepwell":160,"victorypillar":320,"garlandarch":240,"elegate":260,"stonechariot":200,"lotuspond":70,"balcony":200,"icepalace":360,"mammoth":220,"mtnhut":200,"icearch":260,"icecliff":280,"icequeen":260,"xmastree":260,"swan":150,"sleigh":120,"armillary":240,"handplanet":300,"crystaltemple":280,"stargate":300,"guardian":340,"cometmon":260,"lighttree":280,"galaxy":220,"moonshard":200,"robot":74,"yukata":76,"happi":76,"kiteboy":76,"monk":76,"jester":76,"lady":76,"cyber":76,"courier":76,"cadet":76,"surfer":76,"redsuit":76,"lifeguardguy":76,"clown":76,"candy":76,"dadkid":76,"cheer":76,"marshal":76,"foamfan":76,"pirate":76,"squire":76,"witch":76,"viking":76,"mummy":76,"samurai":76,"hoodalien":76,"cosmo":76,"butler":76,"crab":30,"sealion":50,"whitecrane":70,"deer":80,"crow":60,"camelcalf":70,"monkey":50,"arcticfox":40,"jelly":[50,40],"fgull":[50,130],"fflamingo":[50,155],"fkite":[50,180],"fdragon":[50,205],"fbat":[50,130],"fdove":[50,155],"fufo":[50,180],"fwisp":[50,205],"fowl":[50,130],"merchant":76,"robed":76,"flagboy":76,"dancer":76,"drummer":76,"powder":76,"parka":76,"skier":76,"wizard":76,"yeti":92,"fanA":74,"fanB":74,"fanC":74,"beachA":74,"beachB":74,"worker":74,"raver":74,"juggler":74,"kimono":74,"skeleton":74,"knight":74,"astro":74,"volley":150,"ghost":[72,16],"alien":60,"frog":30,"gull":92,"chevR0":95,"chevL0":95,"chevR1":95,"chevL1":95,"chevR2":95,"chevL2":95,"chevR3":95,"chevL3":95,"chevR4":95,"chevL4":95,"chevR5":95,"chevL5":95,"chevR6":95,"chevL6":95,"chevR7":95,"chevL7":95,"chevR8":95,"chevL8":95};
 // indeling van het decor per baan (letterlijk uit komeet.html; plekken zijn een deel van de ronde)
 const DRESS = [
@@ -420,6 +438,20 @@ LIFE.forEach(l => l.push(['row', 0.005, 0.012, 'marshal', 300, 'R', 18]));
  [[21, 23], { astro: 'wizard' }]
 ].forEach(([tracks, map]) => tracks.forEach(i => LIFE[i].forEach(op => { if (op[0] === 'crowd') op[3] = op[3].map(k => map[k] || k); })));
 DRESS.forEach((d, i) => d.push(...LIFE[i]));
+// indeling van de twaalf nieuwe banen: rijen langs de weg, een herkenningspunt en poorten (alleen plaatjes die er zijn)
+{
+  const SETS = [
+    { rows: ['jelly', 'column', 'ruinchunk', 'buoy'], mark: 'monolith', gate: 'ring' },
+    { rows: ['icecream', 'mushroom', 'balloons', 'teacup'], mark: 'carousel', gate: 'bunting' },
+    { rows: ['deadtree', 'tombstone', 'weeping', 'candelabra'], mark: 'mausoleum', gate: 'stone' },
+    { rows: ['oilbarrels', 'robotarm', 'windpump', 'fueltank'], mark: 'turbine', gate: 'crane' }
+  ];
+  for (let c = 0; c < 4; c++) for (let t = 0; t < 3; t++) {
+    const S2 = SETS[c], r = k => S2.rows[(k + t) % S2.rows.length];
+    DRESS.push([['gate', 0.0006, 'start'], ['row', 0.03, 0.2, r(0), 260, 'both', 70], ['row', 0.24, 0.42, r(1), 320, 'out', 90], ['mark', 0.46, S2.mark, 'out', 120],
+      ['row', 0.5, 0.68, r(2), 300, 'in', 80], ['gates', 0.72, 0.8, 380, S2.gate], ['row', 0.82, 0.98, r(3), 280, 'both', 80]]);
+  }
+}
 // Neon Crossing als acht (in de maat van de kaarten van komeet.html); start bovenaan, de kruising ligt in het midden
 const FIG8_PTS = Array.from({ length: 20 }, (_, k) => { const t = Math.PI / 2 + k / 20 * 2 * Math.PI; return [Math.round(4100 + 1800 * Math.sin(2 * t)), Math.round(4100 + 3800 * Math.sin(t))]; });
 // Eigen baanvormen in echte hoogte (x, z, hoogte, kanteling), zoals de testbaan; ze vervangen de vorm uit komeet.html.
@@ -500,10 +532,54 @@ const NINE = {
 NINE.f2 = () => [...swayK(-12, 0, 0, 800, 1, 0, 80), ...arcK(0, 2.5, 2.5, -90, 90, 80, 200), ...lineK(0, 5, -5, 5, 200, 420), ...lineK(-5, 5, -6, 5, 420, 520),
   ...lineK(-6, 5, -7.2, 5, 520, 360), ...lineK(-7.2, 5, -12.5, 5, 360, 110), ...arcK(-12.5, 2.5, 2.5, 90, 270, 110, 80), ...lineK(-12.5, 0, -12, 0, 80, 80)];
 for (const id in NINE) NINE[id] = banked(NINE[id]());
+// Schildpad: ['S', lengte, hoogte] recht, ['A', straal, graden, hoogte] boog (plus = rechtsaf), ['W', lengte, uitwijking, golven, hoogte]
+// slinger. Maten in duizendtallen; de hoogte loopt per stuk naar de opgegeven eindhoogte.
+function turtleK(segs) {
+  const out = []; let x = 0, z = 0, th = 0, h = segs[segs.length - 1][segs[segs.length - 1].length - 1];
+  for (const g of segs) {
+    if (g[0] === 'S' || g[0] === 'W') {
+      const L = g[1], n = Math.max(1, Math.round(L * K / 500)), h0 = h, amp = g[0] === 'W' ? g[2] : 0, wv = g[0] === 'W' ? g[3] : 0, h1 = g[g.length - 1];
+      const dx = Math.cos(th), dz = Math.sin(th), rx = -Math.sin(th), rz = Math.cos(th);
+      for (let k = 0; k < n; k++) { const t = k / n, o = amp * Math.sin(2 * Math.PI * wv * t) * Math.sin(Math.PI * t);
+        out.push([(x + dx * L * t + rx * o) * K, (z + dz * L * t + rz * o) * K, h0 + (h1 - h0) * t]); }
+      x += dx * L; z += dz * L; h = h1;
+    } else {
+      const R = g[1], a = g[2] * Math.PI / 180, n = Math.max(2, Math.round(R * K * Math.abs(a) / 500)), h0 = h, h1 = g[3], sg = Math.sign(a);
+      const cx = x - Math.sin(th) * R * sg, cz = z + Math.cos(th) * R * sg, a0 = th - sg * Math.PI / 2;
+      for (let k = 0; k < n; k++) { const t = k / n, aa = a0 + a * t; out.push([(cx + R * Math.cos(aa)) * K, (cz + R * Math.sin(aa)) * K, h0 + (h1 - h0) * t]); }
+      th += a; x = cx + R * Math.cos(a0 + a); z = cz + R * Math.sin(a0 + a); h = h1;
+    }
+  }
+  // kleine sluitfout gelijkmatig verdelen
+  const ex = x * K, ez = z * K, n = out.length; out.forEach((p, i) => { p[0] -= ex * i / n; p[1] -= ez * i / n; });
+  out.closeErr = Math.hypot(ex, ez);
+  return out;
+}
+const rep2 = (pat, n) => { const r = []; for (let k = 0; k < n; k++) r.push(...pat); return r; };
+const NEW_SHAPES = {
+  // Diepzee
+  o1: [['W', 10, 0.45, 2, 140], ['A', 2.5, 180, 200], ['W', 10, 0.45, 2, 260], ['A', 2.5, 180, 140]],
+  o2: [['W', 6, 0.4, 1, 120], ['A', 3, 120, 220], ['W', 6, 0.4, 1, 300], ['A', 3, 120, 180], ['W', 6, 0.4, 1, 90], ['A', 3, 120, 120]],
+  o3: [['S', 2, 300], ['W', 8, 1.2, 0.5, 80], ['S', 2, 120], ['A', 2.5, 180, 200], ['S', 2, 260], ['W', 8, 1.2, 0.5, 320], ['S', 2, 260], ['A', 2.5, 180, 300]],
+  // Snoepland
+  c1: rep2([['A', 3.2, 100, 120], ['A', 1.7, -40, 200]], 6),   // bloem: de rand van een taart
+  c2: [['S', 2, 100], ['S', 2, 300], ['S', 2, 100], ['S', 2, 300], ['A', 2.4, 90, 200], ['S', 3, 200], ['A', 2.4, 90, 120], ['S', 2, 320], ['S', 2, 100], ['S', 2, 320], ['S', 2, 120], ['A', 2.4, 90, 200], ['S', 3, 200], ['A', 2.4, 90, 100]],
+  c3: [['S', 3, 80], ['A', 2.2, 540, 620], ['S', 3, 600], ['S', 1, 690], ['S', 1.2, 520], ['S', 4.8, 100], ['A', 2.2, 180, 80], ['S', 7, 80]],
+  // Spookmoeras
+  h1: [['W', 12, 0.3, 3, 120], ['A', 2.5, 180, 180], ['W', 12, 0.3, 3, 240], ['A', 2.5, 180, 120]],
+  h2: rep2([['S', 5, 140], ['A', 1.3, 90, 140], ['S', 2, 200], ['A', 1.3, -90, 200], ['S', 2, 140], ['A', 1.3, 90, 140], ['S', 4, 100], ['A', 1.3, 90, 140]], 2),
+  h3: [['S', 4, 440], ['A', 3, 360, 60], ['S', 4, 140], ['A', 4, 180, 220], ['S', 8, 300], ['A', 4, 180, 440]],
+  // Tandwielstad
+  m1: rep2([['S', 4.5, 120], ['A', 1.3, 90, 120], ['S', 2, 180], ['A', 1.3, -90, 180], ['S', 2, 120], ['A', 1.3, 90, 120]], 4),
+  m2: rep2([['S', 8, 120], ['A', 1.5, 90, 120], ['S', 6, 120], ['A', 1.3, -270, 480], ['S', 2, 480], ['S', 4, 120]], 2),
+  m3: [['S', 3, 100], ['A', 2, 360, 480], ['S', 3, 480], ['A', 2.5, 90, 400], ['S', 6, 120], ['A', 2.5, 90, 100], ['S', 6, 100], ['A', 2.5, 90, 100], ['S', 6, 100], ['A', 2.5, 90, 100]]
+};
 const LAYOUTS = { v3: { cp: layoutSpiralKeep(), glue: true },  s3: { cp: layoutKnot() } };
 // schansen over water (zoals in Crystal Crypt): rand en landingsplek, in spel-eenheden
 const NINE_JUMPS = { k1: [[-5200, 5200], [-5200, 4000]], p2: [[-3200, -6600], [-4400, -6600]], d2: [[-3000, 0], [-1800, 0]], f3: [[-600, -1300], [600, -1300]], g3: [[-600, -3500], [-1800, -3500]] };
 LAYOUTS.f2 = { cp: NINE.f2, jump: true, jumpAt: [-6000, 5000], landAt: [-7200, 5000] };   // de originele schans (kick 0.48)
+for (const id in NEW_SHAPES) LAYOUTS[id] = { cp: banked(turtleK(NEW_SHAPES[id])) };
+LAYOUTS.c3.jump = true; LAYOUTS.c3.jumpAt = [-1000, 4400]; LAYOUTS.c3.landAt = [-2200, 4400];   // schans over de chocoladerivier
 for (const id in NINE) if (id !== 'f2') LAYOUTS[id] = NINE_JUMPS[id] ? { cp: NINE[id], jump: true, kick: 0.3, jumpAt: NINE_JUMPS[id][0], landAt: NINE_JUMPS[id][1] } : { cp: NINE[id] };
 const TRACKS = [{ id: 't0', name: 'Test Track', cup: 0, hw: 150, cp: CP, jump: true }].concat(TRACK_DEFS.map(d =>
   LAYOUTS[d.id] ? Object.assign({}, d, { pts: undefined }, LAYOUTS[d.id]) : d.id === 'p3' ? Object.assign({}, d, { pts: FIG8_PTS }) : d));
@@ -809,6 +885,10 @@ function placeHaz3d() {
     sv => { haz.push({ type: 'jump', s0: sv + 60, s1: sv + 100, gap: true }); haz.push({ type: 'gap', s0: sv + 150, s1: sv + 150 + GAP_L }); });
   scan(want.wave || 0, 700, 300, (k, p) => k.mx < [1 / 900, 1 / 600, 1 / 430][p], sv => haz.push({ type: 'wave', s0: sv, s1: sv + 700, ph: rnd() * WAVE_P, dir: rnd() < 0.5 ? -1 : 1 }));
   scan(want.bumps || 0, 720, 260, (k, p) => k.mx < [1 / 1300, 1 / 900, 1 / 600][p], sv => { for (let i = 0; i < 4; i++) haz.push({ type: 'bump', s0: sv + 60 + i * 180, s1: sv + 96 + i * 180 }); });
+  // stroming (diepzee): duwt je opzij; dwaallicht (moeras): zweeft heen en weer en remt; geiser (tandwielstad): spuit om de paar seconden
+  scan(want.current || 0, 900, 300, (k, p) => k.mx < [1 / 1500, 1 / 1000, 1 / 600][p], sv => haz.push({ type: 'current', s0: sv, s1: sv + 900, dir: rnd() < 0.5 ? -1 : 1 }));
+  scan(want.wisp || 0, 260, 260, (k, p) => true, sv => haz.push({ type: 'wisp', s0: sv, s1: sv + 260, ph: rnd() * 6.28 }));
+  scan(want.geyser || 0, 160, 320, (k, p) => k.mx < [1 / 1500, 1 / 900, 1 / 500][p], sv => haz.push({ type: 'geyser', s0: sv, s1: sv + 160, ph: rnd() * GEY_P }));
   scan(want.launch || 0, 2000, 300, (k, p) => k.mx < [1 / 2200, 1 / 1600, 1 / 1100][p], sv => {
     for (const o of [60, 320]) pads.push({ s: sv + o, d: 0 });
     haz.push({ type: 'jump', s0: sv + 560, s1: sv + 600, launch: true });
@@ -982,7 +1062,10 @@ function stepEnt(e) {
         if (e.speed > 360) { const k2 = 1 - (1 - 360 / e.speed) * 2.8 * DT; e.vT *= k2; e.vR *= k2; }
         e.vR += hz.dir * 320 * DT; e.ev.wave = 1;
       }
-    } else if (hz.type === 'gap' && !e.air) {
+    } else if (hz.type === 'current') { e.vR += hz.dir * 480 * DT; e.ev.current = 1; }
+    else if (hz.type === 'wisp') { if (Math.abs(e.d - wispD(hz, HW, S.raceTime)) < 70 && e.speed > 450) { const k3 = 1 - 1.6 * DT; e.vT *= k3; e.vR *= k3; e.ev.wisp = 1; } }
+    else if (hz.type === 'geyser') { if (geyserOn(hz, S.raceTime) && !e.air) { e.air = true; e.vz = 560; e.airT = 0; e.vT *= 0.9; e.ev.jump = 1; } }
+    else if (hz.type === 'gap' && !e.air) {
       const back = sh - (hz.s0 - GAP_BACK);
       e.s -= back; e.progress -= back; e.d = clamp(e.d, -HW * 0.5, HW * 0.5);
       e.vT = 450; e.vR = 0; e.psi = 0; e.vz = 0; e.z = 0; e.padT = 0; e.driftT = 0; e.energy = Math.max(e.energy, 0.5); e.ev.fall = 1;
@@ -1084,6 +1167,7 @@ function aiInput(e, ents) {
     target = hz.d1 >= HW - 1 ? Math.min(target, hz.d0 - 45) : Math.max(target, hz.d1 + 45);
   }
   if (e.rival != null) for (const p of TR.pads) { let dp = p.s - sa; dp -= Math.round(dp / TR.len) * TR.len; if (dp > 150 && dp < 900 && Math.abs(Q2.kg) < 0.0006) { target = p.d; break; } }
+  for (const hz of TR.haz) if (hz.type === 'wisp' && hz.s0 - sa > -60 && hz.s0 - sa < 500) { const wd = wispD(hz, HW, S.raceTime); if (Math.abs(target - wd) < 90) target = wd > 0 ? wd - 100 : wd + 100; }
   target = clamp(target, -HW + 40, HW - 40);
   const want = Math.atan2(target - e.d, 320);
   e.in.steer = clamp((want - e.psi) * 3, -1, 1);
@@ -1278,7 +1362,12 @@ const CUPS = [
   { name: 'DUNE CUP', theme: 0, sub: 'Oasis, bazaar and canyon' },
   { name: 'LOTUS CUP', theme: 1, sub: 'Marigolds, monsoon and festival' },
   { name: 'FROST CUP', theme: 2, sub: 'Glacier, crypt and frozen throne' },
-  { name: 'LEGEND CUP', theme: 3, sub: 'Aurora, a titan and the big bang' }
+  { name: 'LEGEND CUP', theme: 3, sub: 'Aurora, a titan and the big bang' },
+  // vier nieuwe cups met een eigen thema
+  { name: 'ABYSS CUP', theme: 4, sub: 'Glass tubes under the sea' },
+  { name: 'SUGAR CUP', theme: 5, sub: 'Frosting, gumdrops and chocolate' },
+  { name: 'PHANTOM CUP', theme: 6, sub: 'Bogs, lanterns and a crypt' },
+  { name: 'GEAR CUP', theme: 7, sub: 'Cogs, steam and a clocktower' }
 ];
 const POINTS = [10, 7, 5, 3, 2, 1];
 const MEDAL_COL = ['#4a4860', '#c8793a', '#cfd6e0', '#ffd24a'], MEDAL_NAME = ['', 'BRONZE', 'SILVER', 'GOLD'];
@@ -1512,7 +1601,7 @@ function raceKey(code) {
   if (code === 'KeyP' && S.player) S.player.ai = !S.player.ai;
   // tijdrit klaar: N = volgende baan (ook de baankeuze schuift mee, zodat Esc daar terugkomt)
   if (S.phase === 'done' && S.t > 1 && G3.mode === 'tt' && code === 'KeyN') {
-    const nx = TR.idx % 24 + 1; ui.cup = Math.floor((nx - 1) / 3); ui.track = (nx - 1) % 3; ui.bg = nx; goRace('tt', nx); return;
+    const nx = TR.idx % (TRACKS.length - 1) + 1; ui.cup = Math.floor((nx - 1) / 3); ui.track = (nx - 1) % 3; ui.bg = nx; goRace('tt', nx); return;
   }
   if (S.phase === 'done' && S.t > 1 && (code === 'Enter' || code === 'Space')) {
     if (G3.mode === 'cup') {
@@ -1735,8 +1824,8 @@ function onlineKey(code) {
   const cupMode = room.omode === 1, busy = cupMode && room.cupRace > 0;
   if (NET.sel === 0 && (L || R) && !busy) { netSet({ omode: cupMode ? 0 : 1, cupRace: 0 }); NET.cup = null; }
   if (NET.sel === 1 && (L || R) && !busy) {
-    if (cupMode) { const c = ((room.cup || 0) + (R ? 1 : 7)) % 8; netSet({ cup: c }); ui.bg = cupTrack(c, 0); }
-    else { ui.bg = 1 + ((((room.track || 1) - 1) + (R ? 1 : 23)) % 24); netSet({ track: ui.bg }); }
+    if (cupMode) { const c = ((room.cup || 0) + (R ? 1 : CUPS.length - 1)) % CUPS.length; netSet({ cup: c }); ui.bg = cupTrack(c, 0); }
+    else { ui.bg = 1 + ((((room.track || 1) - 1) + (R ? 1 : TRACKS.length - 2)) % (TRACKS.length - 1)); netSet({ track: ui.bg }); }
     loadTrack(ui.bg);
   }
   if (NET.sel === 2 && (L || R)) netSet({ bots: clamp((room.bots || 0) + (R ? 1 : -1), 0, Math.max(0, 6 - room.players.length)) });
@@ -1824,7 +1913,7 @@ function titleTick(dt) {
   const was = Math.floor(ui.reelT / REEL_SHOT);
   ui.reelT += dt;
   const now = Math.floor(ui.reelT / REEL_SHOT);
-  if (now !== was) { ui.reelN++; if (ui.reelN % REEL_PER === 0) { ui.bg = 1 + ((ui.bg - 1 + 1 + Math.floor(Math.random() * 22)) % 24); loadTrack(ui.bg); } }
+  if (now !== was) { ui.reelN++; if (ui.reelN % REEL_PER === 0) { { const NT = TRACKS.length - 1; ui.bg = 1 + ((ui.bg - 1 + 1 + Math.floor(Math.random() * (NT - 2))) % NT); } loadTrack(ui.bg); } }
 }
 // uitslag en tussenstand
 // intro: zwarte balken, cup en baan, en in een cup de vijf rivalen
@@ -2086,6 +2175,13 @@ const THEMES = [
   { pal: [[.35,.2,.8],[.12,.05,.35],[.02,.01,.1],[0,0,.02],[.012,.01,.04],[.6,.3,1],[.08,.1,.16],[.11,.14,.22],[.4,1,.6],[.3,1,.7],[.6,.3,1],[.5,.3,1],[.6,.9,1],[.32,.12,.42]],
     ui: '#a070ff', accent: '#7dffb0', root: 42, scale: [0,2,3,5,7,8,10], prog: [0,6,5,3], bpm: 138, names: { ice: 'frost', slow: 'gravity well' } }
 ];
+// nieuwe thema's: kleuren voor menu en rail, en de ingebouwde muziek
+THEMES.push(
+  Object.assign({}, THEMES[3], { ui: '#2fd8ff', accent: '#ffe27a', root: 41, scale: [0,2,3,5,7,9,10], prog: [0,4,5,3], bpm: 118, names: { ice: 'current', slow: 'sea grass' } }),
+  Object.assign({}, THEMES[1], { ui: '#ff6fb5', accent: '#7dffd8', root: 45, scale: [0,2,4,5,7,9,11], prog: [0,3,4,0], bpm: 128, names: { ice: 'icing', slow: 'syrup' } }),
+  Object.assign({}, THEMES[2], { ui: '#9a6cff', accent: '#9dff6a', root: 38, scale: [0,1,3,5,6,8,10], prog: [0,5,1,4], bpm: 116, names: { ice: 'mist', slow: 'bog' } }),
+  Object.assign({}, THEMES[0], { ui: '#e0902a', accent: '#ffd86a', root: 43, scale: [0,2,3,5,7,8,11], prog: [0,4,1,5], bpm: 134, names: { ice: 'oil', slow: 'grease' } })
+);
 const mtof = m => 440 * Math.pow(2, (m - 69) / 12);
 function note(th, deg, oct) {
   return th.root + 12 * (oct + Math.floor(deg / 7)) + th.scale[((deg % 7) + 7) % 7];
@@ -2464,11 +2560,15 @@ const GROUND = [
   [[.92, .72, .45], [.88, .66, .4], [.8, .55, .3], [.74, .5, .28], [.95, .8, .55], [.15, .6, .62]],       // duin
   [[.55, .68, .3], [.5, .62, .27], [1, .6, .15], [.95, .45, .1], [.8, .6, .4], [.2, .55, .6]],            // lotus
   [[.92, .95, 1], [.86, .9, .97], [.7, .82, .95], [.62, .75, .9], [.95, .97, 1], [.3, .5, .75]],          // ijs
-  [[.2, .15, .35], [.16, .12, .3], [.5, .3, .7], [.4, .22, .6], [.1, .08, .2], [.05, .03, .12]]          // legende
+  [[.2, .15, .35], [.16, .12, .3], [.5, .3, .7], [.4, .22, .6], [.1, .08, .2], [.05, .03, .12]],         // legende
+  [[.22, .42, .5], [.19, .37, .45], [.15, .55, .5], [.12, .48, .45], [.3, .5, .55], [.04, .18, .32]],     // diepzee
+  [[1, .8, .87], [.96, .74, .82], [.62, .9, .76], [.52, .82, .68], [1, .9, .72], [.42, .25, .14]],        // snoep (water = chocolade)
+  [[.17, .21, .15], [.14, .18, .13], [.26, .2, .32], [.21, .16, .27], [.1, .12, .1], [.1, .18, .14]],     // spookmoeras
+  [[.42, .36, .3], [.38, .32, .27], [.56, .4, .2], [.48, .35, .18], [.3, .28, .26], [.18, .2, .24]]        // tandwielstad
 ];
 function buildRoadMesh() {
   // kleur van de hellingen per cup (gras, zand, sneeuw of sterrenstof)
-  const SL = [['#5cb04a', '#4c9c40'], ['#5cb04a', '#4c9c40'], ['#4e8a3e', '#437a36'], ['#4a3a78', '#3c2e66'], ['#e0b070', '#d4a062'], ['#7aa040', '#6a8e36'], ['#e8f0fa', '#d4e2f2'], ['#4a3a78', '#3c2e66']][TR.def.cup];
+  const SL = [['#5cb04a', '#4c9c40'], ['#5cb04a', '#4c9c40'], ['#4e8a3e', '#437a36'], ['#4a3a78', '#3c2e66'], ['#e0b070', '#d4a062'], ['#7aa040', '#6a8e36'], ['#e8f0fa', '#d4e2f2'], ['#4a3a78', '#3c2e66'], ['#3c7a86', '#33707c'], ['#ff9ec4', '#f58ab6'], ['#3a4a32', '#30402a'], ['#7a6650', '#6c5a46']][TR.def.cup];
   COL.grassA = hex(SL[0]); COL.grassB = hex(SL[1]);
   // rail in de themakleur met wit, curbs in de accentkleur met wit, bovenrand in de accentkleur
   const TH = THEMES[CUPS[TR.def.cup].theme];
@@ -2578,6 +2678,14 @@ function buildRoadMesh() {
     for (let k = 0; k < 9; k++) { const f = f0 + 30 + k * (f1 - f0 - 60) / 8, d = ((k * 137) % 360) - 180; rect(f, f + 12, d - 60, d + 60, 3, COL.waterL); }
   }
   }
+  // diepzee: de weg loopt door een glazen buis (ribben in een boog over de weg)
+  if (TR.def.cup === 8) for (let i = 0; i < N; i += 11) {
+    const j = (i + 1) % N, glass = hex('#9fe6ff'), rim = hex('#e8fbff'), RAD = HW + 40;
+    for (let k = 0; k < 12; k++) {
+      const a0 = Math.PI * k / 12, a1 = Math.PI * (k + 1) / 12, p = (ii, a, r) => pos(ii, -Math.cos(a) * r, Math.sin(a) * r * 0.85);
+      pushQuad(out, p(i, a0, RAD), p(j, a0, RAD), p(j, a1, RAD), p(i, a1, RAD), lit(k % 3 ? glass : rim, U[i]));
+    }
+  }
   // poorten uit DRESS: palen naast de vangrail en een balk erover, per stijl
   if (TR.idx > 0) for (const op of DRESS[TR.idx - 1]) {
     if (op[0] === 'gate' && op[2] !== 'start') gate3d(out, op[1] * TR.len, op[2]);
@@ -2622,6 +2730,8 @@ function buildRoadMesh() {
     if (hz.type === 'ice') strip(hz.s0, hz.s1, -HW, HW, HC.ice, 0.6, 0.6, 40, HC.ice2);
     else if (hz.type === 'slow') strip(hz.s0, hz.s1, hz.d0, hz.d1, HC.mud, 0.6, 0.6, 40, HC.mud2);
     else if (hz.type === 'gap') strip(hz.s0, hz.s1, -HW, HW, HC.lava, 0.7, 0.7, 30, HC.lava2);
+    else if (hz.type === 'current') { for (let sv = hz.s0; sv < hz.s1; sv += 110) for (let q = -2; q <= 2; q++) { const d = q * 55 + hz.dir * ((sv / 110) % 2) * 12; strip(sv, sv + 50, d - 14 * hz.dir, d + 14 * hz.dir, hex('#7fe8ff'), 0.7, 0.9, 50); } }
+    else if (hz.type === 'geyser') { strip(hz.s0, hz.s1, -HW * 0.8, HW * 0.8, hex('#2a2a30'), 0.7, 0.7, 20, hex('#55505a')); }
     else if (hz.type === 'jump') {
       // schans: oplopende geel-zwarte wig, eindigt bij s1
       for (let c = 0; c < 6; c++) { const d0 = -HW + c * HW / 3; strip(hz.s0 - 60, hz.s1, d0, d0 + HW / 3, (c & 1) ? COL.wallTop : COL.chevB, 0.8, hz.launch ? 34 : 24, 25); }
@@ -2713,6 +2823,12 @@ const DECOR_BY_CUP = [null,
   [['banyan', 400, 3], ['elephant', 260, 1], ['gopuram', 620, 0.5], ['lotuspond', 80, 1], ['peacock', 120, 1], ['monk', 110, 1], ['mango', 280, 3], ['paintedele', 260, 0.6], ['oillamps', 80, 1]],
   [['snowpine', 320, 6], ['icespire', 420, 1], ['igloo', 140, 1], ['snowman', 130, 1], ['penguins', 90, 1], ['yeti', 220, 0.6], ['icerock', 160, 2], ['polarbear', 150, 0.6], ['icelamp', 200, 1], ['sled', 90, 0.6]],
   [['nebulapillar', 460, 1], ['floatrock', 300, 2], ['startree', 380, 3], ['titanhead', 520, 0.4], ['stargate', 460, 0.5], ['orrery', 300, 1], ['moonshard', 260, 2], ['crystaldragon', 420, 0.4], ['guardian', 300, 1]]];
+DECOR_BY_CUP.push(
+  [['jelly', 120, 3], ['buoy', 180, 1], ['boat', 180, 1], ['crab', 50, 2], ['ruinchunk', 260, 1.5], ['column', 260, 1.5], ['fossil', 240, 1], ['monolith', 300, 0.6], ['shrinerock', 260, 1]],
+  [['icecream', 160, 3], ['candy', 110, 1], ['teacup', 180, 1], ['balloons', 230, 2], ['carousel', 220, 0.6], ['bouncy', 190, 1], ['mushroom', 260, 2], ['foodcart', 130, 1], ['clown', 110, 1]],
+  [['deadtree', 300, 4], ['tombstone', 90, 3], ['ghost', 110, 1], ['cauldron', 120, 1], ['witch', 120, 0.6], ['mausoleum', 340, 0.5], ['weeping', 280, 2], ['skeleton', 110, 1], ['candelabra', 170, 1]],
+  [['robotarm', 240, 1.5], ['turbine', 420, 0.6], ['fueltank', 280, 1], ['oilbarrels', 100, 2], ['robot', 130, 1], ['windpump', 320, 1], ['hourglass', 240, 1], ['orrery', 260, 0.6], ['gantry', 380, 0.5]]
+);
 const DECOR_KINDS = [['palm', 300, 7], ['parasol', 120, 2], ['beachA', 110, 1], ['beachB', 110, 1], ['flags', 190, 1], ['lifeguard', 260, 0.6],
   ['sandcastle', 70, 0.8], ['towels', 50, 0.6], ['surfer', 120, 0.6], ['crab', 40, 0.6], ['icecream', 150, 0.5], ['pierlamp', 200, 0.6]];
 // verhouding breedte/hoogte van een plaatje uit art/sprites.js, gelezen uit de kop van de png
@@ -2804,7 +2920,7 @@ function buildDecor() {
       }
     }
     // pijlborden aan de buitenkant van scherpe bochten
-    const cv = di === 2 ? 8 : TR.def.cup;
+    const cv = di === 2 ? 8 : TR.def.cup % 8;
     for (let sv = 0; sv < L; sv += 130) {
       const k = TR.kh[Math.floor(sv / TR.step) % N];
       if (Math.abs(k) > 1 / 620) put(sv, (k > 0 ? 'chevR' : 'chevL') + cv, k > 0 ? -1 : 1, base + 24);
@@ -2870,8 +2986,9 @@ function buildDecor() {
 
 // ---------------------------------------------------------------- lucht
 let skyTex = null, FOG = [0.62, 0.86, 0.95];
+const fogRange = () => TR.def && TR.def.cup === 8 ? [1300, 7000] : TR.def && TR.def.cup === 10 ? [1500, 8000] : [2600, 11000];
 function buildSky() {
-  const src = ART.sky[TR.def.id] || ART.sky.k1;
+  const src = ART.sky[TR.def.id] || ART.sky[{ o: 's1', c: 'p1', h: 'v2', m: 'd3' }[TR.def.id[0]]] || ART.sky.k1;
   if (!src) return;
   skyTex = texFrom(src, gl.MIRRORED_REPEAT);
   skyTex.onready = () => {
@@ -2978,6 +3095,7 @@ function render(dt) {
   const proj = perspective(fov, asp, 4, 40000), view = lookAt(cam.pos, cam.look, cam.u);
   const VP = mul(proj, view.m);
   gl.viewport(0, 0, W, H);
+  if (TR.def && TR.def.cup === 8) FOG = [0.04, 0.24, 0.38]; else if (TR.def && TR.def.cup === 10) FOG = [0.16, 0.2, 0.18];
   gl.clearColor(FOG[0], FOG[1], FOG[2], 1);
   gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
   gl.disable(gl.CULL_FACE);
@@ -2996,7 +3114,7 @@ function render(dt) {
     gl.useProgram(pr.p);
     gl.uniformMatrix4fv(pr.u.uVP, false, VP);
     if (pr.u.uM) gl.uniformMatrix4fv(pr.u.uM, false, I4);
-    gl.uniform3fv(pr.u.uCam, cam.pos); gl.uniform3fv(pr.u.uFog, FOG); gl.uniform2f(pr.u.uFogR, 2600, 11000);
+    gl.uniform3fv(pr.u.uCam, cam.pos); gl.uniform3fv(pr.u.uFog, FOG); gl.uniform2f(pr.u.uFogR, ...fogRange());
   };
   common(PG); gl.uniform3fv(PG.u['uG[0]'], GROUND[TR.def.cup].flat()); gl.uniform3fv(PG.u.uCenter, TR.center);
   if (distMap) { gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, distMap.tex); gl.uniform1i(PG.u.uDist, 1); gl.uniform3fv(PG.u.uDistBox, distMap.box); gl.activeTexture(gl.TEXTURE0); }
@@ -3033,7 +3151,7 @@ function render(dt) {
   // decor
   gl.useProgram(PB.p);
   gl.uniformMatrix4fv(PB.u.uVP, false, VP);
-  gl.uniform3fv(PB.u.uCam, cam.pos); gl.uniform3fv(PB.u.uFog, FOG); gl.uniform2f(PB.u.uFogR, 2600, 11000);
+  gl.uniform3fv(PB.u.uCam, cam.pos); gl.uniform3fv(PB.u.uFog, FOG); gl.uniform2f(PB.u.uFogR, ...fogRange());
   gl.uniform3fv(PB.u.uRight, norm([view.x[0], 0, view.x[2]]));
   gl.activeTexture(gl.TEXTURE0); gl.uniform1i(PB.u.uTex, 0);
   for (const g of decor) {
@@ -3157,6 +3275,19 @@ function drawDynamic() {
     (zp.trail || []).forEach((p, i, arr) => { const f = (i + 1) / arr.length; cube(p[0], p[1], 22, 2 + f * 6, 0, [f > 0.6 ? IC.zapHi : IC.zap]); });
     cube(zp.s, zp.d, 22, 11, flick * 8, [IC.zap, IC.zapHi]);
     cube(zp.s, zp.d, 22, 6, -flick * 10, [IC.white]);
+  }
+  for (const hz of TR.haz || []) {
+    if (hz.type === 'wisp') { const wd = wispD(hz, HW, t), sm = (hz.s0 + hz.s1) / 2, bob = Math.sin(t * 3 + hz.ph) * 6;
+      cube(sm, wd, 34 + bob, 9, t * 2, [[0.6, 1, 0.5]]); for (let q = 0; q < 4; q++) { const a = t * 4 + q * 1.57; cube(sm + Math.cos(a) * 20, wd + Math.sin(a) * 20, 34 + bob, 3, a, [[0.85, 1, 0.7]]); } }
+    else if (hz.type === 'geyser') { const on = geyserOn(hz, t), ph = ((t + hz.ph) % GEY_P) / GEY_ON;
+      for (let q = 0; q < (on ? 10 : 2); q++) { const hh = on ? ((q / 10 + ph * 1.5) % 1) * 260 : 6 + q * 8, sv = hz.s0 + 40 + (q * 37) % 80, d = ((q * 53) % 160) - 80;
+        cube(sv, d, hh, on ? 10 + hh * 0.05 : 5, q + t, [[0.92, 0.92, 0.95]]); } }
+  }
+  // vissen rond de glazen buis (diepzee): scholen die langs de baan zwemmen
+  if (TR.def.cup === 8) for (let k = 0; k < 8; k++) {
+    const side = k & 1 ? 1 : -1, base = ((k * TR.len / 8 + t * (90 + k * 15)) % TR.len), col = [[1, 0.6, 0.2], [0.3, 0.8, 1], [1, 0.9, 0.3], [1, 0.4, 0.6]][k % 4];
+    for (let q = 0; q < 5; q++) { const sv = base + q * 28, d = side * (HW + 120 + 40 * Math.sin(t + k + q)), hh = 90 + 30 * Math.sin(t * 1.5 + q + k);
+      cube(sv, d, hh, 6, 0, [col]); cube(sv - 10, d, hh, 3.5, 0, [col]); }
   }
   // rookwolkjes van het driften: oud spul weg, de rest groeit en stijgt
   FX.smoke = (FX.smoke || []).filter(p => t - p.t < 0.7 && t >= p.t);
@@ -4257,7 +4388,7 @@ function dropAirPads() {
   TR.pads = TR.pads.filter(p => { const i = Math.floor((((p.s % TR.len) + TR.len) % TR.len) / TR.step); for (let k = -3; k <= 3; k++) if (air[(i + k + TR.N) % TR.N]) return false; return true; });
 }
 function loadTrack(idx, intro) {
-  idx = 1 + ((idx - 1) % 24 + 24) % 24;   // 0 was de testbaan, die is eruit
+  const NT = TRACKS.length - 1; idx = 1 + ((idx - 1) % NT + NT) % NT;   // 0 was de testbaan, die is eruit
   buildTrack(TRACKS[idx], idx);
   let cx = 0, cz = 0, rr = 0;
   for (let i = 0; i < TR.N; i++) { cx += TR.P[i * 3] / TR.N; cz += TR.P[i * 3 + 2] / TR.N; }
