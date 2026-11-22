@@ -33,7 +33,7 @@ const LAPS = 3, SHIP_R = 22, HOVER = 5, SHIP_SIZE = 1.2;
 const WALL_H = 26, WALL_T = 10, ROAD_T = 16;
 const BERM = 420;   // vlakke berm naast de vangrail (op wegniveau) waar het decor op staat; daarachter de helling
 // Versie van de 3D-versie, rechtsonder op het startscherm. Bij elke publicatie op de website eentje ophogen.
-const GAME_VERSION = '3D-73';
+const GAME_VERSION = '3D-74';
 const LOW_H = 1080;           // aantal beeldlijnen (zoals FINE in komeet.html); daarna zonder vervaging vergroot
 const GROUND_Y = -40;        // grond iets onder het laagste stuk weg
 
@@ -3020,8 +3020,10 @@ let rng = 7;
 const rnd = () => ((rng = (rng * 16807) % 2147483647) - 1) / 2147483646;
 function buildDecor() {
   const { N, P, R } = TR, groups = {};
+  const qa = at(TR.step + 250, {}), qd = HW - 50 + WALL_T + 130, qx = qa.px + qa.rx * qd, qz = qa.pz + qa.rz * qd;   // plek van de race queen na de start: daar geen publiek of decor
   const add = (name, x, y, z, h) => {
     if (!ART.obj[name]) return;
+    if ((x - qx) ** 2 + (z - qz) ** 2 < 300 * 300) return;
     (groups[name] = groups[name] || []).push([x, y, z, h]);
   };
   const freeAt = (x, z, margin) => {
