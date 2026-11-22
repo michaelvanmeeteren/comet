@@ -33,7 +33,7 @@ const LAPS = 3, SHIP_R = 22, HOVER = 5, SHIP_SIZE = 1.2;
 const WALL_H = 26, WALL_T = 10, ROAD_T = 16;
 const BERM = 420;   // vlakke berm naast de vangrail (op wegniveau) waar het decor op staat; daarachter de helling
 // Versie van de 3D-versie, rechtsonder op het startscherm. Bij elke publicatie op de website eentje ophogen.
-const GAME_VERSION = '3D-75';
+const GAME_VERSION = '3D-77';
 const LOW_H = 1080;           // aantal beeldlijnen (zoals FINE in komeet.html); daarna zonder vervaging vergroot
 const GROUND_Y = -40;        // grond iets onder het laagste stuk weg
 
@@ -1690,12 +1690,30 @@ const cupTrack = (cup, race) => 1 + cup * 3 + race;
 // kroningsceremonie: de top drie op een podium op de baan, vlak na de finish
 let CER = null, LAST_VP = null;
 const CER_LEN = 11, CER_STEPS = [[0, 92], [150, 62], [-150, 40]];   // [zijwaarts, hoogte] voor goud, zilver, brons
+// de kroning staat op een vrij plein naast de baan (de weg is te smal); F wijst van de weg af, de camera staat aan die kant en kijkt naar de baan
+const plz = (f, r, h) => { const P = TR.plaza; return [P.c[0] + P.F[0] * f + P.R[0] * r, P.c[1] + h, P.c[2] + P.F[2] * f + P.R[2] * r]; };
+function findPlaza() {
+  const { N, P, R } = TR, i0 = Math.round(520 / TR.step);
+  const clear = (x, z, m) => { for (let j = 0; j < N; j += 2) { const h = Math.max(0, P[j * 3 + 1] - GROUND_Y), r = HW + WALL_T + Math.min(BERM, h * 4) + h * 1.1 + m, dx = P[j * 3] - x, dz = P[j * 3 + 2] - z; if (dx * dx + dz * dz < r * r) return false; } return true; };
+  for (let k = 0; k < N; k += 30) {
+    const i = (i0 + k) % N, hr = norm([R[i][0], 0, R[i][2]]);
+    for (let D = 800; D <= 2600; D += 150) for (const sd of [1, -1]) {
+      const x = P[i * 3] + hr[0] * sd * D, z = P[i * 3 + 2] + hr[2] * sd * D;
+      if (clear(x, z, 620)) { const F = [hr[0] * sd, 0, hr[2] * sd]; return { c: [x, GROUND_Y, z], F, R: cross(F, [0, 1, 0]) }; }
+    }
+  }
+  const q = at(520, {}), F = norm([q.tx, 0, q.tz]);   // geen plek gevonden: dan toch op de weg
+  return { c: [q.px, q.py, q.pz], F, R: cross(F, [0, 1, 0]) };
+}
 function startCeremony() {
   const rows = cupStandings(), entOf = r => r.k === 0 ? S.player : S.ents.find(e => e.slot === r.k - 1);
   const sPod = 520, top = rows.slice(0, 3).map(entOf);
-  top.forEach((e, k) => { if (!e) return; Object.assign(e, { s: sPod, progress: sPod, d: CER_STEPS[k][0], z: CER_STEPS[k][1] + 2, psi: Math.PI, vT: 0, vR: 0, vz: 0, air: false, boosting: false, steer: 0, spinT: 0 }); e.in = { steer: 0, acc: false, brk: false, boost: false, drift: false }; });
+  top.forEach((e, k) => { if (!e) return; Object.assign(e, { s: sPod + 165, progress: sPod + 165, d: CER_STEPS[k][0], z: 0, psi: Math.PI, vT: 0, vR: 0, vz: 0, air: false, boosting: false, steer: 0, spinT: 0 }); e.in = { steer: 0, acc: false, brk: false, boost: false, drift: false }; });
   S.ents.filter(e => !top.includes(e)).forEach((e, k) => Object.assign(e, { s: sPod - 420, progress: sPod - 420, d: (k - 1) * 120, z: 0, psi: Math.PI, vT: 0, vR: 0, air: false, boosting: false, steer: 0 }));
-  CER = { t: 0, s: sPod, top, rows, rest: rows.slice(3).map(entOf) };
+  const rest = rows.slice(3).map(entOf);
+  top.forEach((e, k) => { if (e) e.cer = [{ f: 210, r: 0 }, { f: 0, r: 310 }, { f: 0, r: -310 }][k]; });   // winnaar voor het podium, zilver en brons ernaast
+  rest.forEach((e, k) => { if (e) e.cer = [{ f: 140, r: -430 }, { f: 140, r: 430 }, { f: -60, r: -560 }][k]; });   // de anderen vooraan opzij
+  CER = { t: 0, s: sPod, top, rows, rest };
   [523, 659, 784, 1047, 784, 1047].forEach((f, i) => setTimeout(() => beep(f, 0.3, 'square', 0.07), 300 + i * 170));
 }
 function startCup() {
@@ -3020,10 +3038,12 @@ let rng = 7;
 const rnd = () => ((rng = (rng * 16807) % 2147483647) - 1) / 2147483646;
 function buildDecor() {
   const { N, P, R } = TR, groups = {};
+  TR.plaza = findPlaza(); const PC = TR.plaza.c;
   const qa = at(TR.step + 250, {}), qd = HW - 50 + WALL_T + 130, qx = qa.px + qa.rx * qd, qz = qa.pz + qa.rz * qd;   // plek van de race queen na de start: daar geen publiek of decor
   const add = (name, x, y, z, h) => {
     if (!ART.obj[name]) return;
     if ((x - qx) ** 2 + (z - qz) ** 2 < 300 * 300) return;
+    if ((x - PC[0]) ** 2 + (z - PC[2]) ** 2 < 900 * 900) return;   // het plein van de kroning
     (groups[name] = groups[name] || []).push([x, y, z, h]);
   };
   const freeAt = (x, z, margin) => {
@@ -3218,6 +3238,7 @@ const I4 = [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1];
 // wereldpositie en assen van een schip
 const E = {};
 function entFrame(e, o) {
+  if (CER && e.cer && TR.plaza) { const b = plz(e.cer.f, e.cer.r, 0); o.base = b; o.f = TR.plaza.F; o.r = TR.plaza.R; o.u = [0, 1, 0]; o.T = TR.plaza.F; o.pos = add(b, [0, HOVER, 0]); return o; }   // op het plein van de kroning
   at(e.s, E);
   const cs = Math.cos(e.psi), sn = Math.sin(e.psi);
   const T = [E.tx, E.ty, E.tz], R = [E.rx, E.ry, E.rz], U = norm([E.ux, E.uy, E.uz]);
@@ -3233,12 +3254,12 @@ function entFrame(e, o) {
 const cam = { pos: [0, 0, 0], f: [0, 0, 1], u: [0, 1, 0] };
 let camInit = false;
 function ceremonyCam(dt) {
-  const t = CER.t, q = at(CER.s, {}), T = [q.tx, q.ty, q.tz], R = [q.rx, q.ry, q.rz], U = [q.ux, q.uy, q.uz], P0 = [q.px, q.py, q.pz];
+  const t = CER.t, PL = TR.plaza, T = PL.F, R = PL.R, U = [0, 1, 0], P0 = PL.c;
   const at3 = (f, r, u) => add(add(add(P0, scale(T, f)), scale(R, r)), scale(U, u)), ease = x => { x = Math.max(0, Math.min(1, x)); return x * x * (3 - 2 * x); };
   let pos, look;
   if (t < 3) { const k = ease(t / 3); pos = at3(2600 - 1950 * k, 0, 760 - 580 * k); look = at3(0, 0, 70); }
   else if (t < 7) { const a = -0.32 + (t - 3) / 4 * 0.64; pos = at3(620 * Math.cos(a), 620 * Math.sin(a), 210); look = at3(0, 0, 80); }   // kleine zwaai, boven de weg (anders staat decor ervoor)
-  else if (t < 9.5) { const k = ease((t - 7) / 1.2); const w = entFrame(CER.top[0], {}).pos; pos = add(scale(at3(620 * Math.cos(0.32), 620 * Math.sin(0.32), 210), 1 - k), scale(at3(330, 40, 170), k)); look = add(scale(at3(0, 0, 80), 1 - k), scale(add(w, scale(U, 110)), k)); }
+  else if (t < 9.5) { const k = ease((t - 7) / 1.2); const w = at3(0, CER_STEPS[0][0], CER_STEPS[0][1]); pos = add(scale(at3(620 * Math.cos(0.32), 620 * Math.sin(0.32), 210), 1 - k), scale(at3(330, 40, 170), k)); look = add(scale(at3(0, 0, 80), 1 - k), scale(add(w, scale(U, 110)), k)); }
   else { const k = ease((t - 9.5) / 1.2); pos = add(scale(at3(330, 40, 170), 1 - k), scale(at3(760, -60, 230), k)); look = at3(0, 0, 90); }
   const kf = t < 0.05 ? 1 : 1 - Math.exp(-dt * 5);
   cam.pos = cam.pos ? add(cam.pos, scale(sub(pos, cam.pos), kf)) : pos; cam.look = cam.look ? add(cam.look, scale(sub(look, cam.look), kf)) : look; cam.u = U;
@@ -3600,15 +3621,23 @@ function drawDynamic() {
     }
   }
   if (CER) {
-    const sp = CER.s, box = (s0, s1, d0, d1, h, top, side) => {
-      pushQuad(out, wp(s0, d0, h), wp(s1, d0, h), wp(s1, d1, h), wp(s0, d1, h), top);
-      pushQuad(out, wp(s1, d0, 0), wp(s1, d1, 0), wp(s1, d1, h), wp(s1, d0, h), side);
-      pushQuad(out, wp(s0, d0, 0), wp(s0, d1, 0), wp(s0, d1, h), wp(s0, d0, h), side);
-      for (const d of [d0, d1]) pushQuad(out, wp(s0, d, 0), wp(s1, d, 0), wp(s1, d, h), wp(s0, d, h), side);
+    const pw = plz, sp = 0, box = (s0, s1, d0, d1, h, top, side) => {
+      pushQuad(out, pw(s0, d0, h), pw(s1, d0, h), pw(s1, d1, h), pw(s0, d1, h), top);
+      pushQuad(out, pw(s1, d0, 0), pw(s1, d1, 0), pw(s1, d1, h), pw(s1, d0, h), side);
+      pushQuad(out, pw(s0, d0, 0), pw(s0, d1, 0), pw(s0, d1, h), pw(s0, d0, h), side);
+      for (const d of [d0, d1]) pushQuad(out, pw(s0, d, 0), pw(s1, d, 0), pw(s1, d, h), pw(s0, d, h), side);
     };
+    const cube = (f, r, h, sz, rot, cols) => {   // blokje op het plein
+      const P = TR.plaza, c = plz(f, r, h), cr = Math.cos(rot), srt = Math.sin(rot), ax = add(scale(P.F, cr), scale(P.R, srt)), ay = add(scale(P.F, -srt), scale(P.R, cr)), U = [0, 1, 0];
+      const Pt = (x, y, z) => add(add(add(c, scale(ax, x * sz)), scale(ay, y * sz)), scale(U, z * sz));
+      [[[1, -1, -1], [1, 1, -1], [1, 1, 1], [1, -1, 1]], [[-1, -1, -1], [-1, 1, -1], [-1, 1, 1], [-1, -1, 1]], [[-1, 1, -1], [1, 1, -1], [1, 1, 1], [-1, 1, 1]], [[-1, -1, -1], [1, -1, -1], [1, -1, 1], [-1, -1, 1]], [[-1, -1, 1], [1, -1, 1], [1, 1, 1], [-1, 1, 1]]]
+        .forEach((q, i) => pushQuad(out, Pt(...q[0]), Pt(...q[1]), Pt(...q[2]), Pt(...q[3]), cols[i % cols.length]));
+    };
+    // vloer: tegels van licht en donker steen
+    for (let a = -6; a < 6; a++) for (let b = -6; b < 6; b++) pushQuad(out, pw(a * 100, b * 100, 0.8), pw(a * 100 + 100, b * 100, 0.8), pw(a * 100 + 100, b * 100 + 100, 0.8), pw(a * 100, b * 100 + 100, 0.8), (a + b) & 1 ? [0.78, 0.76, 0.72] : [0.66, 0.64, 0.6]);
     const COLS = [[[1, 0.84, 0.25], [0.85, 0.62, 0.1]], [[0.86, 0.88, 0.92], [0.62, 0.65, 0.72]], [[0.85, 0.55, 0.3], [0.62, 0.36, 0.18]]];
     CER_STEPS.forEach(([d, h], k) => box(sp - 55, sp + 55, d - 72, d + 72, h, COLS[k][0], COLS[k][1]));
-    for (let q = 0; q < 12; q++) pushQuad(out, wp(sp + 60 + q * 50, -70, 1.4), wp(sp + 100 + q * 50, -70, 1.4), wp(sp + 100 + q * 50, 70, 1.4), wp(sp + 60 + q * 50, 70, 1.4), q & 1 ? [0.75, 0.08, 0.12] : [0.85, 0.12, 0.16]);   // rode loper
+    for (let q = 0; q < 11; q++) pushQuad(out, pw(sp + 60 + q * 50, -70, 1.6), pw(sp + 100 + q * 50, -70, 1.6), pw(sp + 100 + q * 50, 70, 1.6), pw(sp + 60 + q * 50, 70, 1.6), q & 1 ? [0.75, 0.08, 0.12] : [0.85, 0.12, 0.16]);   // rode loper
     const ct = CER.t;
     if (ct > 2.5) for (let i = 0; i < 90; i++) {   // confetti
       const p = (ct * 0.3 + i * 0.137) % 1, col = [[1, 0.3, 0.4], [1, 0.85, 0.2], [0.3, 0.8, 1], [0.5, 1, 0.5], [0.9, 0.5, 1]][i % 5];
@@ -3676,7 +3705,7 @@ const KUI = (() => {
   const SPR_BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5].map(v => (v + 0.5) / 16);
   const ART_OBJ = {};
   const proj3 = p => { const m = LAST_VP; if (!m) return null; const x = m[0] * p[0] + m[4] * p[1] + m[8] * p[2] + m[12], y = m[1] * p[0] + m[5] * p[1] + m[9] * p[2] + m[13], w = m[3] * p[0] + m[7] * p[1] + m[11] * p[2] + m[15]; return w > 1 ? [(x / w * 0.5 + 0.5) * W, (1 - (y / w * 0.5 + 0.5)) * H, w] : null; };
-  for (const k of ['logo', 'trophy', 'e0', 'e1', 'e2', 'e3', 'e4', 'e5', 'e6', 'e7', 'e8', 'e9', 'e10', 'e11', 'trophygold', 'trophysilver', 'trophybronze', 'podium', 'confetti', 'crown', ...Array.from({ length: 18 }, (_, i) => ['b' + i + 'x', 'b' + i + 'x2', 'b' + i + 's']).flat()]) if (ART.obj[k]) { const im = new Image(); im.onload = () => { ART_OBJ[k] = im; }; im.src = ART.obj[k]; }
+  for (const k of ['logo', 'trophy', 'e0', 'e1', 'e2', 'e3', 'e4', 'e5', 'e6', 'e7', 'e8', 'e9', 'e10', 'e11', 'trophygold', 'trophysilver', 'trophybronze', 'podium', 'confetti', 'crown', 'selhi', 'sello', ...Array.from({ length: 18 }, (_, i) => ['b' + i + 'x', 'b' + i + 'x2', 'b' + i + 's']).flat()]) if (ART.obj[k]) { const im = new Image(); im.onload = () => { ART_OBJ[k] = im; }; im.src = ART.obj[k]; }
   const TRACKS_ALL = TRACKS_OUTER, TRACKS = TRACKS_ALL.slice(1);
   const LOOKS = TRACKS.map(t => ({ names: THEMES[CUPS[t.cup].theme].names }));
   const roadWx = () => null;
@@ -4046,16 +4075,17 @@ function drawCeremony(u) {
   // eerst plek 4 tot 6 (staan achter het podium, dus eronder getekend): sip klappend op hun auto achter het podium
   (CER.rest || []).forEach((e, k) => {
     if (!e) return; const face = e === S.player ? ui.char : e.rival, im = ART_OBJ['b' + face + 's']; if (!im) return;
-    const fr = entFrame(e, {}), ft = proj3(add(fr.pos, scale(fr.u, 42))), hd = proj3(add(fr.pos, scale(fr.u, 162))); if (!ft || !hd) return;
+    const fr = entFrame(e, {}), side = add(fr.pos, scale(fr.r, e.cer && e.cer.r > 0 ? 80 : -80)), ft = proj3(side), hd = proj3(add(side, scale(fr.u, 120))); if (!ft || !hd) return;   // naast hun auto
     const bs = (ft[1] - hd[1]) / im.height, sway = Math.sin(t * 2 + k) * 1.5 * u;
     ctx.imageSmoothingEnabled = false; ctx.drawImage(im, Math.round(ft[0] - im.width * bs / 2 + sway), Math.round(ft[1] - im.height * bs), Math.round(im.width * bs), Math.round(im.height * bs));
   });
   // portretten boven de drie op het podium; de winnaar krijgt de kroon
   CER.top.forEach((e, k) => {
-    if (!e) return; const fr = entFrame(e, {}), face = e === S.player ? ui.char : e.rival, b1 = ART_OBJ['b' + face + 'x'];
+    if (!e) return; const face = e === S.player ? ui.char : e.rival, b1 = ART_OBJ['b' + face + 'x'];
+    const sd = CER_STEPS[k], fr = { pos: plz(0, sd[0], sd[1]), u: [0, 1, 0] };   // staat op zijn trede, de auto staat ervoor
     let p, sc;
     if (b1) {   // dier met heel lijf, staand op zijn auto, juichend in twee beeldjes
-      const hop = Math.max(0, Math.sin(t * 7 + k * 2)) * 8, ft = proj3(add(fr.pos, scale(fr.u, 42 + hop))), hd = proj3(add(fr.pos, scale(fr.u, 42 + hop + 120))); if (!ft || !hd) return;
+      const hop = Math.max(0, Math.sin(t * 7 + k * 2)) * 8, ft = proj3(add(fr.pos, scale(fr.u, hop))), hd = proj3(add(fr.pos, scale(fr.u, hop + 120))); if (!ft || !hd) return;
       const bh = ft[1] - hd[1], bs = bh / b1.height, im = (Math.floor(t * 3.5 + k) % 2 && ART_OBJ['b' + face + 'x2']) || b1;
       ctx.imageSmoothingEnabled = false; ctx.drawImage(im, Math.round(ft[0] - im.width * bs / 2), Math.round(ft[1] - im.height * bs), Math.round(im.width * bs), Math.round(im.height * bs));
       sc = 0.5 * bh / (26 * H / 360); p = [hd[0], hd[1] + 12 * sc * H / 360 + bh * 0.06];   // kroon even breed als het hoofd, net op het hoofd
@@ -4187,11 +4217,24 @@ function card(x, y, w, h, sel, color) {
   x = Math.round(x); y = Math.round(y); w = Math.round(w); h = Math.round(h);
   ctx.fillStyle = sel ? 'rgba(20,14,48,0.92)' : 'rgba(8,5,22,0.72)';
   ctx.fillRect(x, y, w, h);
-  const t = sel ? 2 : 1;
-  ctx.fillStyle = sel ? (color || '#ffb833') : 'rgba(255,255,255,0.22)';
-  ctx.fillRect(x, y, w, t); ctx.fillRect(x, y + h - t, w, t); ctx.fillRect(x, y, t, h); ctx.fillRect(x + w - t, y, t, h);
+  const t = sel ? 2 : 1, fim = ART_OBJ[sel ? 'selhi' : 'sello'];
+  if (fim) {   // witte pixelomlijsting (negen stukken: hoeken vast, randen uitgerekt)
+    const k = Math.max(1, Math.round(H / 720 * 1.5)), o = sel ? 3 * k : k;
+    ctx.globalAlpha = sel ? 1 : 0.45; nineSlice(fim, x - o, y - o, w + 2 * o, h + 2 * o, 12, k); ctx.globalAlpha = 1;
+  } else {
+    ctx.fillStyle = sel ? (color || '#ffb833') : 'rgba(255,255,255,0.22)';
+    ctx.fillRect(x, y, w, t); ctx.fillRect(x, y + h - t, w, t); ctx.fillRect(x, y, t, h); ctx.fillRect(x + w - t, y, t, h);
+  }
   const bu = H / 720, bh = Math.min(h * 0.18, 12 * bu);
   if (bh >= 3) dband(x + t, y + t, w - 2 * t, bh, sel ? (color || '#ffb833') : '#ffffff', sel ? 0.45 : 0.1);
+}
+function nineSlice(im, x, y, w, h, c, k) {
+  const sw = im.width, sh = im.height, d = Math.round(c * k), mw = sw - 2 * c, mh = sh - 2 * c;
+  ctx.imageSmoothingEnabled = false; x = Math.round(x); y = Math.round(y); w = Math.round(w); h = Math.round(h);
+  ctx.drawImage(im, 0, 0, c, c, x, y, d, d); ctx.drawImage(im, sw - c, 0, c, c, x + w - d, y, d, d);
+  ctx.drawImage(im, 0, sh - c, c, c, x, y + h - d, d, d); ctx.drawImage(im, sw - c, sh - c, c, c, x + w - d, y + h - d, d, d);
+  ctx.drawImage(im, c, 0, mw, c, x + d, y, w - 2 * d, d); ctx.drawImage(im, c, sh - c, mw, c, x + d, y + h - d, w - 2 * d, d);
+  ctx.drawImage(im, 0, c, c, mh, x, y + d, d, h - 2 * d); ctx.drawImage(im, sw - c, c, c, mh, x + w - d, y + d, d, h - 2 * d);
 }
 function header(u, title, hint) {
   ctx.fillStyle = 'rgba(5,3,12,0.45)'; ctx.fillRect(0, 0, W, H);
