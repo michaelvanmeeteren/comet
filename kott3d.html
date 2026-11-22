@@ -32,7 +32,7 @@ const STEP = 16;             // afstand tussen twee punten van het lint
 const LAPS = 3, SHIP_R = 22, HOVER = 5, SHIP_SIZE = 1.2;
 const WALL_H = 26, WALL_T = 10, ROAD_T = 16;
 // Versie van de 3D-versie, rechtsonder op het startscherm. Bij elke publicatie op de website eentje ophogen.
-const GAME_VERSION = '3D-24';
+const GAME_VERSION = '3D-25';
 const LOW_H = 1080;           // aantal beeldlijnen (zoals FINE in komeet.html); daarna zonder vervaging vergroot
 const GROUND_Y = -40;        // grond iets onder het laagste stuk weg
 
@@ -1696,6 +1696,7 @@ const LOGO_IMG = new Image(); if (ART.obj.logo) LOGO_IMG.src = ART.obj.logo;
 let logoBox = null;
 const REEL_SHOT = 3.0, REEL_PER = 2;
 function titleTick(dt) {
+  if (G3.state === 'menu' && ui.screen !== 'title') ui.menuT = (ui.menuT || 0) + dt;   // menu's: doorlopende vlucht
   if (G3.state !== 'menu' || ui.screen !== 'title') return;
   const was = Math.floor(ui.reelT / REEL_SHOT);
   ui.reelT += dt;
@@ -2787,9 +2788,11 @@ function updateCamera(dt) {
   if (!camInit) { cam.f = want; cam.u = fr.u; camInit = true; }
   if (G3.state === 'menu' && !cam.free) {
     // vlucht langs de baan: per shot een ander stuk en een andere hoogte; vliegt door de bochten heen
-    const shot = ui.reelN || 0, low = shot % 2 === 0, sv = (shot * 0.37 % 1) * TR.len + (ui.reelT % REEL_SHOT) * (low ? 1100 : 800);
-    const q = at(sv, {}), qa = at(sv + (low ? 420 : 650), {}), side = low ? 0 : (shot % 4 === 1 ? 1 : -1) * (HW + 260);
-    const up = [q.ux, q.uy, q.uz], h = low ? 55 : 240;
+    // in de menu's een doorlopende vlucht over de baan die gekozen is (zonder wissels), op het titelscherm shots
+    const inMenu = ui.screen !== 'title', shot = inMenu ? 'm' : ui.reelN || 0, low = inMenu ? false : shot % 2 === 0;
+    const sv = inMenu ? (ui.menuT || 0) * 900 : (shot * 0.37 % 1) * TR.len + (ui.reelT % REEL_SHOT) * (low ? 1100 : 800);
+    const q = at(sv, {}), qa = at(sv + (low ? 420 : 650), {}), side = low || inMenu ? 0 : (shot % 4 === 1 ? 1 : -1) * (HW + 260);
+    const up = [q.ux, q.uy, q.uz], h = inMenu ? 150 : low ? 55 : 240;
     const want = add(add([q.px, q.py, q.pz], scale([q.rx, q.ry, q.rz], side)), scale(up, h));
     const look = add([qa.px, qa.py, qa.pz], scale([qa.ux, qa.uy, qa.uz], low ? 30 : 0));
     // zacht volgen binnen een shot, meteen op zijn plek bij een nieuw shot
