@@ -31,8 +31,9 @@ let HW = 150;                          // halve wegbreedte (zoals de banen in ko
 const STEP = 16;             // afstand tussen twee punten van het lint
 const LAPS = 3, SHIP_R = 22, HOVER = 5, SHIP_SIZE = 1.2;
 const WALL_H = 26, WALL_T = 10, ROAD_T = 16;
+const BERM = 420;   // vlakke berm naast de vangrail (op wegniveau) waar het decor op staat; daarachter de helling
 // Versie van de 3D-versie, rechtsonder op het startscherm. Bij elke publicatie op de website eentje ophogen.
-const GAME_VERSION = '3D-46';
+const GAME_VERSION = '3D-47';
 const LOW_H = 1080;           // aantal beeldlijnen (zoals FINE in komeet.html); daarna zonder vervaging vergroot
 const GROUND_Y = -40;        // grond iets onder het laagste stuk weg
 
@@ -2499,11 +2500,14 @@ function buildRoadMesh() {
         const a = pos(i, sd * (HW + WALL_T), -ROAD_T), b = pos(j, sd * (HW + WALL_T), -ROAD_T);
         if (a[1] < GROUND_Y + 2 && b[1] < GROUND_Y + 2) continue;
         const ha = norm([R[i][0] * sd, 0, R[i][2] * sd]), hb = norm([R[j][0] * sd, 0, R[j][2] * sd]);
-        const fa = [a[0] + ha[0] * (a[1] - GROUND_Y) * 1.1, GROUND_Y, a[2] + ha[2] * (a[1] - GROUND_Y) * 1.1];
-        const fb = [b[0] + hb[0] * (b[1] - GROUND_Y) * 1.1, GROUND_Y, b[2] + hb[2] * (b[1] - GROUND_Y) * 1.1];
+        const bw = Math.min(BERM, (Math.min(a[1], b[1]) - GROUND_Y) * 4);   // lage weg: smallere berm
+        const a2 = [a[0] + ha[0] * bw, a[1], a[2] + ha[2] * bw], b2 = [b[0] + hb[0] * bw, b[1], b[2] + hb[2] * bw];
+        pushQuad(out, a, b, b2, a2, lit(COL.grassA, [0, 1, 0]));
+        const fa = [a2[0] + ha[0] * (a[1] - GROUND_Y) * 1.1, GROUND_Y, a2[2] + ha[2] * (a[1] - GROUND_Y) * 1.1];
+        const fb = [b2[0] + hb[0] * (b[1] - GROUND_Y) * 1.1, GROUND_Y, b2[2] + hb[2] * (b[1] - GROUND_Y) * 1.1];
         const n = norm([ha[0], 1.1, ha[2]]);
         const gc = (Math.floor(i / 8) & 1) ? COL.grassA : COL.grassB;
-        pushQuad(out, a, b, fb, fa, lit(gc, n));
+        pushQuad(out, a2, b2, fb, fa, lit(gc, n));
       }
     } else if (i % (TRACK_STYLE[TR.def.id] === 'skyway' ? 30 : 22) === 0 && P[i * 3 + 1] > 60) {
       const c = pos(i, 0, -ROAD_T), w = 22, top = c[1] + 4;
@@ -2713,7 +2717,7 @@ function buildDecor() {
   };
   const freeAt = (x, z, margin) => {
     for (let j = 0; j < N; j += 2) {
-      const dx = P[j * 3] - x, dz = P[j * 3 + 2] - z, r = HW + WALL_T + Math.max(0, P[j * 3 + 1]) * 1.1 + margin;
+      const dx = P[j * 3] - x, dz = P[j * 3 + 2] - z, r = HW + WALL_T + Math.min(BERM, Math.max(0, P[j * 3 + 1] - GROUND_Y) * 4) + Math.max(0, P[j * 3 + 1]) * 1.1 + margin;
       if (dx * dx + dz * dz < r * r) return false;
     }
     return true;
@@ -2735,7 +2739,7 @@ function buildDecor() {
       for (let j = 0; j < N; j += 3) {
         let dj = Math.abs(j - own); dj = Math.min(dj, N - dj);
         if (dj < ownWin) continue;
-        const dx = P[j * 3] - x, dz = P[j * 3 + 2] - z, r = need + Math.max(0, P[j * 3 + 1] - GROUND_Y) * 1.1;
+        const dx = P[j * 3] - x, dz = P[j * 3 + 2] - z, hj = Math.max(0, P[j * 3 + 1] - GROUND_Y), r = need + Math.min(BERM, hj * 4) + hj * 1.1;
         if (dx * dx + dz * dz < r * r) return false;
       }
       return true;
@@ -2751,7 +2755,8 @@ function buildDecor() {
       if (!clearOf(x, z, i, base + 30)) return false;
       // op de helling: de rand van de weg min de afstand tot de rand gedeeld door de helling
       const edgeY = P[i * 3 + 1] + R[i][1] * side * (HW + WALL_T) - ROAD_T;
-      const y = isBridge[i] || TRACK_STYLE[TR.def.id] === 'skyway' ? GROUND_Y : Math.max(GROUND_Y, edgeY - 24);   // op de berm naast de rail, net onder de wegrand
+      const bw = Math.min(BERM, (edgeY - GROUND_Y) * 4);
+      const y = isBridge[i] || TRACK_STYLE[TR.def.id] === 'skyway' ? GROUND_Y : Math.max(GROUND_Y, edgeY - Math.max(0, off - HW - WALL_T - bw) / 1.1);   // op de berm, of verderop op de helling
       const oh = OBJ_H[k] || 200;   // [hoogte, zweefhoogte] voor vliegende dingen
       if (!roadFree(x, z, halfW(k, (Array.isArray(oh) ? oh[0] : oh) * DECOR_SCALE))) return false;
       add(k, x, y + (Array.isArray(oh) ? oh[1] : 0), z, (Array.isArray(oh) ? oh[0] : oh) * DECOR_SCALE);
@@ -2797,7 +2802,7 @@ function buildDecor() {
     side = -side;
     const h = Math.max(0, P[i * 3 + 1] - GROUND_Y);
     const hr = norm([R[i][0], 0, R[i][2]]), tg = norm([TR.T[i][0], 0, TR.T[i][2]]);
-    const off = HW + WALL_T + h * 1.1 + 260 + rnd() * 380;
+    const off = HW + WALL_T + Math.min(BERM, h * 4) + h * 1.1 + 260 + rnd() * 380;
     const cx = P[i * 3] + hr[0] * off * side, cz = P[i * 3 + 2] + hr[2] * off * side;
     const pool = groves.length ? groves : KINDS;
     let pick = rnd() * pool.reduce((a, k) => a + k[2], 0), kind = pool[0];
@@ -2814,7 +2819,7 @@ function buildDecor() {
   }
   // publiek bij de start, en een paar grote herkenningspunten
   if (!dressed) for (let i = 4; i < 80; i += 5) for (const sd of [-1, 1]) {
-    const h = Math.max(0, P[i * 3 + 1]), off = HW + WALL_T + h * 1.1 + 70;
+    const h = Math.max(0, P[i * 3 + 1]), off = HW + WALL_T + Math.min(BERM, h * 4) + h * 1.1 + 70;
     const hr = norm([R[i][0], 0, R[i][2]]);
     const x = P[i * 3] + hr[0] * off * sd, z = P[i * 3 + 2] + hr[2] * off * sd;
     if (freeAt(x, z, 20)) add('cheer', x, GROUND_Y, z, 120);
@@ -4154,7 +4159,7 @@ function buildDistMap() {
   const d = new Float32Array(n * n).fill(1e9);
   for (let i = 0; i < TR.N; i += 2) {   // om het andere punt: de vakjes zijn groter dan de afstand tussen twee punten
     if (TR.loop[i]) continue;
-    const foot = HW + WALL_T + Math.max(0, TR.P[i * 3 + 1] - GROUND_Y) * 1.1;   // tot waar de helling reikt
+    const hh = Math.max(0, TR.P[i * 3 + 1] - GROUND_Y), foot = HW + WALL_T + Math.min(BERM, hh * 4) + hh * 1.1;   // berm plus helling
     const r = Math.ceil(foot / cell) + 1, cx = (TR.P[i * 3] - x0) / cell, cz = (TR.P[i * 3 + 2] - z0) / cell;
     for (let y = Math.max(0, Math.floor(cz - r)); y <= Math.min(n - 1, Math.ceil(cz + r)); y++)
       for (let x = Math.max(0, Math.floor(cx - r)); x <= Math.min(n - 1, Math.ceil(cx + r)); x++) {
