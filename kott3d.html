@@ -33,7 +33,7 @@ const LAPS = 3, SHIP_R = 22, HOVER = 5, SHIP_SIZE = 1.2;
 const WALL_H = 26, WALL_T = 10, ROAD_T = 16;
 const BERM = 420;   // vlakke berm naast de vangrail (op wegniveau) waar het decor op staat; daarachter de helling
 // Versie van de 3D-versie, rechtsonder op het startscherm. Bij elke publicatie op de website eentje ophogen.
-const GAME_VERSION = '3D-68';
+const GAME_VERSION = '3D-69';
 const LOW_H = 1080;           // aantal beeldlijnen (zoals FINE in komeet.html); daarna zonder vervaging vergroot
 const GROUND_Y = -40;        // grond iets onder het laagste stuk weg
 
@@ -129,9 +129,9 @@ const TRACK_DEFS_NEW = [
   { id: 'c1', name: 'Frosting Ring', cup: 9, hw: 150, haz: { pads: 7, slow: 2, bumps: 1 } },
   { id: 'c2', name: 'Gumdrop Hills', cup: 9, hw: 150, haz: { pads: 7, slow: 2, bumps: 2, launch: 1 }, split: { s0: 18900, s1: 26200, IN: 1700, OUT: 1700, D: 480, level: 340 } },
   { id: 'c3', name: 'Choco Falls', cup: 9, hw: 150, haz: { pads: 7, slow: 1, chain: 1 } },
-  { id: 'h1', name: 'Willow Bog', cup: 10, hw: 150, split: { auto: true, mode: 'hump' }, haz: { pads: 7, wisp: 4, slow: 1 } },
-  { id: 'h2', name: 'Lantern Marsh', cup: 10, hw: 150, haz: { pads: 7, wisp: 5 } },
-  { id: 'h3', name: 'Crypt Hollow', cup: 10, hw: 150, haz: { pads: 8, wisp: 4, chain: 1 } },
+  { id: 'h1', name: 'Willow Bog', cup: 10, hw: 150, split: { auto: true, mode: 'hump' }, haz: { pads: 7, slow: 1 } },
+  { id: 'h2', name: 'Lantern Marsh', cup: 10, hw: 150, haz: { pads: 7, slow: 1 } },
+  { id: 'h3', name: 'Crypt Hollow', cup: 10, hw: 150, haz: { pads: 8, chain: 1 } },
   { id: 'm1', name: 'Cog Boulevard', cup: 11, hw: 150, haz: { piston: 2, pads: 7, geyser: 4, chain: 1 } },
   { id: 'm2', name: 'Steam Works', cup: 11, hw: 150, haz: { piston: 3, pads: 7, geyser: 4 } },
   { id: 'm3', name: 'Clocktower', cup: 11, hw: 150, split: { auto: true, mode: 'level' }, haz: { piston: 2, pads: 8, geyser: 3, chain: 1 } }
@@ -637,7 +637,7 @@ function minRadius(pts) {
 // ondersteboven rijden bleek onbestuurbaar: geen kurkentrekkers meer (de code blijft voor als je er een wilt, zet dan een baan in LOOP_TRACKS)
 const LOOP_TRACKS = [], CORK_L = 1700, CORK_R = 250;
 // hoek van de wandrit per baan (graden): niet overal een volle kwartslag
-const WALL_DEG = { p1: 60, v2: 75, s2: 75, d2: 65, l2: 70, f1: 70, g1: 72 };   // niets boven de 75 graden
+const WALL_DEG = { p1: 35, v2: 40, s2: 40, d2: 35, l2: 38, f1: 38, g1: 40 };   // schuine wand, nooit steiler dan 40 graden (steiler speelde slecht)
 // wielerbaan: de hele baan helt naar binnen, steil in de bochten en licht op de rechte stukken (zoals een velodroom)
 // Karakter per baan (level design): bepaalt het hoogteverloop en de kanteling
 //   coaster   achtbaan: op rechte stukken hoge bulten waar je even van loskomt
@@ -830,7 +830,7 @@ function buildTrack(def, idx) {
   // rond een draai: kanteling rustig weg en weer terug (over ruim 1500), zodat je bij het uitrijden niet ineens opzij geduwd wordt
   const loopDist = new Float32Array(N).fill(999);
   for (let i = 0; i < N; i++) if (loop[i]) for (let k = -140; k <= 140; k++) { const q = (i + k + N) % N; loopDist[q] = Math.min(loopDist[q], Math.abs(k)); }
-  const bs = Array.from(bankMag, (m, i) => { const t = Math.max(0, Math.min(1, (loopDist[i] - 20) / 120)); return m * sgn[i] * t * t * (3 - 2 * t); });
+  const bs = Array.from(bankMag, (m, i) => { const t = Math.max(0, Math.min(1, (loopDist[i] - 20) / 120)); return clamp(m * sgn[i] * t * t * (3 - 2 * t), -40, 40); });   // nergens steiler dan 40 graden
   for (let pass = 0; pass < 3; pass++) {
     for (let i = 1; i < N * 2; i++) { const a = bs[(i - 1) % N], k = i % N; bs[k] = clamp(bs[k], a - BANK_RATE, a + BANK_RATE); }
     for (let i = N * 2; i > 0; i--) { const a = bs[i % N], k = (i - 1) % N; bs[k] = clamp(bs[k], a - BANK_RATE, a + BANK_RATE); }
@@ -2380,7 +2380,8 @@ function soundEvents() {
   if (ev.splash || ev.fall) splash();
   { const p = S.player, sa = ((p.s % TR.len) + TR.len) % TR.len;
     for (const hz of TR.haz || []) { if (!TIMED[hz.type] || hz.s0 - sa < 0 || hz.s0 - sa > 1600) continue;
-      const ph = timedPhase(hz, S.raceTime); if (ph.p === 1 && !hz.warned) { hz.warned = 1; if (hz.type === 'geyser' || hz.type === 'bubble') whoosh(0.05); else beep(hz.type === 'icefall' ? 1400 : 520, 0.12, 'square', 0.035); } else if (ph.p !== 1) hz.warned = 0; } }
+      const ph = timedPhase(hz, S.raceTime); if (ph.p === 1 && !hz.warned) { hz.warned = 1; if (hz.type === 'geyser' || hz.type === 'bubble') whoosh(0.05); else beep(hz.type === 'icefall' ? 1400 : 520, 0.12, 'square', 0.035); } else if (ph.p !== 1) hz.warned = 0;
+      if (hz.type === 'piston') { if (ph.p === 2 && !hz.slammed) { hz.slammed = 1; if (hz.s0 - sa < 900) { thud(0.5); cam.shake = Math.max(cam.shake || 0, 0.5 * (1 - (hz.s0 - sa) / 900)); } } else if (ph.p !== 2) hz.slammed = 0; } } }
   if (ev.bump) thud(0.15);
   if (S.player.finished && !S.player.fanfare) { S.player.fanfare = 1; [523, 659, 784, 1047].forEach((f, i) => setTimeout(() => beep(f, 0.25, 'square', 0.07), i * 140)); }
 }
@@ -3359,8 +3360,49 @@ function render(dt) {
     gl.bindTexture(gl.TEXTURE_2D, t.tex);
     gl.bindVertexArray(g.vao); gl.drawArrays(gl.TRIANGLES, 0, g.count);
   }
+  drawHazSprites();
   gl.bindVertexArray(null);
   KUI.frame();
+}
+
+// ---------------------------------------------------------------- ijspegels en lava als bewegende plaatjes (vier beeldjes)
+const hazBB = (() => {
+  const vao = gl.createVertexArray(); gl.bindVertexArray(vao);
+  const buf = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, buf); gl.bufferData(gl.ARRAY_BUFFER, 4 * 42, gl.DYNAMIC_DRAW);
+  const L = n => gl.getAttribLocation(PB.p, n);
+  gl.enableVertexAttribArray(L('aCen')); gl.vertexAttribPointer(L('aCen'), 3, gl.FLOAT, false, 28, 0);
+  gl.enableVertexAttribArray(L('aCorner')); gl.vertexAttribPointer(L('aCorner'), 2, gl.FLOAT, false, 28, 12);
+  gl.enableVertexAttribArray(L('aSize')); gl.vertexAttribPointer(L('aSize'), 2, gl.FLOAT, false, 28, 20);
+  gl.bindVertexArray(null); return { vao, buf };
+})();
+const HQ = {};
+function drawHazSprites() {
+  if (!TR.haz) return;
+  const t = S.raceTime;
+  for (const hz of TR.haz) {
+    if (hz.type !== 'icefall' && hz.type !== 'lava') continue;
+    const sm = (hz.s0 + hz.s1) / 2; let dm = (hz.d0 + hz.d1) / 2;
+    at(sm, HQ); if (Math.hypot(HQ.px - cam.pos[0], HQ.pz - cam.pos[2]) > 9000) continue;
+    const T = TIMED[hz.type], x = ((t + hz.ph) % T[0] + T[0]) % T[0], ph = timedPhase(hz, t);
+    let name = null, up = 0, k;
+    if (hz.type === 'icefall') {
+      k = 2.2;
+      if (x < 0.14) { name = 'icec'; up = 200 * (1 - x / 0.14); }   // valt
+      else if (x < 0.8) name = 'iced';                              // spat uiteen
+      else { up = 200; name = ph.p === 1 && Math.sin(t * (10 + ph.w * 18)) > 0 ? 'iceb' : 'icea'; if (ph.p === 1) dm += Math.sin(t * 45) * 4 * ph.w; }   // hangt, kraakt en trilt
+    } else {
+      k = 2.6;
+      if (ph.p === 2) name = ph.a < 0.18 ? 'lavab' : ph.a < 0.8 ? (Math.floor(t * 9) & 1 ? 'lavac' : 'lavab') : 'lavad';
+      else if (x < T[1] + 0.4) name = 'lavad';
+      else if (ph.p === 1) name = 'lavaa';
+    }
+    if (!name || !ART.obj[name]) continue;
+    const tx = cachedTex(ART.obj[name]); if (!tx.ready) continue;
+    const h = tx.h * k, w = tx.w * k, c = [HQ.px + HQ.rx * dm + HQ.ux * up, HQ.py + HQ.ry * dm + HQ.uy * up, HQ.pz + HQ.rz * dm + HQ.uz * up], data = [];
+    for (const [cx, cy] of [[-0.5, 0], [0.5, 0], [0.5, 1], [-0.5, 0], [0.5, 1], [-0.5, 1]]) data.push(c[0], c[1], c[2], cx, cy, w, h);
+    gl.bindBuffer(gl.ARRAY_BUFFER, hazBB.buf); gl.bufferSubData(gl.ARRAY_BUFFER, 0, new Float32Array(data));
+    gl.bindTexture(gl.TEXTURE_2D, tx.tex); gl.bindVertexArray(hazBB.vao); gl.drawArrays(gl.TRIANGLES, 0, 6);
+  }
 }
 
 // ---------------------------------------------------------------- bewegende dingen op de baan
@@ -3488,25 +3530,28 @@ function drawDynamic() {
           cube(sv, d, rise, ph.p === 2 ? 11 + rise * 0.05 : 5, q + t, [[0.94, 0.94, 0.97]]); }
       } else if (hz.type === 'piston') {
         lane(ph.p === 2 ? [1, 0.25, 0.15] : blink ? [1, 0.2, 0.1] : [0.35, 0.3, 0.2], 1.2);
-        const hh = ph.p === 2 ? 12 + ph.a * 10 : ph.p === 1 ? 40 + ph.w * 130 : 60;   // trekt zich op, en slaat dan neer
+        // hangt hoog en veilig; bij de waarschuwing trilt hij en knippert het rood; dan slaat hij in een flits neer en komt rustig weer omhoog
+        const T = TIMED.piston, x = ((t + hz.ph) % T[0] + T[0]) % T[0];
+        const hh = ph.p === 2 ? 4 : ph.p === 1 ? 200 + ph.w * 25 + (blink ? 3 : -3) * ph.w : 4 + 196 * Math.min(1, (x - T[1]) / 0.6) ** 0.7;
         const hw2 = Math.min(55, (d1 - d0) / 2 - 10);
         // stellage: twee palen en een balk bovenaan, een zuigerstang en een stalen kop met geel-zwarte strepen
-        for (const sd of [-1, 1]) for (let y = 0; y < 260; y += 24) cube(sm, dm + sd * ((d1 - d0) / 2 + 12), y + 12, 10, 0, [[0.32, 0.3, 0.34], [0.45, 0.4, 0.38]]);
-        for (let q = -3; q <= 3; q++) cube(sm, dm + q * ((d1 - d0) / 6), 268, 12, 0, [[0.35, 0.32, 0.36]]);
-        for (let y = hh + 50; y < 262; y += 20) cube(sm, dm, y, 6, 0, [[0.75, 0.72, 0.7]]);
-        cube(sm, dm, hh + 20, hw2, 0, [[0.55, 0.55, 0.6], [0.7, 0.7, 0.75]]);
+        for (const sd of [-1, 1]) for (let y = 0; y < 380; y += 24) cube(sm, dm + sd * ((d1 - d0) / 2 + 12), y + 12, 10, 0, [[0.32, 0.3, 0.34], [0.45, 0.4, 0.38]]);
+        for (let q = -3; q <= 3; q++) cube(sm, dm + q * ((d1 - d0) / 6), 388, 12, 0, [[0.35, 0.32, 0.36]]);
+        for (let y = hh + 100; y < 382; y += 20) cube(sm, dm, y, 6, 0, [[0.75, 0.72, 0.7]]);
+        for (let y = 0; y < 3; y++) cube(sm, dm, hh + 22 + y * 30, hw2, 0, [ph.p === 1 && blink ? [0.85, 0.3, 0.25] : [0.55, 0.55, 0.6], [0.7, 0.7, 0.75]]);   // grote stalen kop
+        if (ph.p === 2) for (let q = 0; q < 10; q++) { const a = q * 0.628, r = 30 + ph.a * 110; cube(sm + Math.cos(a) * r * 0.6, dm + Math.sin(a) * r, 6 + ph.a * 30, 8 - ph.a * 5, a, [[0.75, 0.7, 0.62]]); }   // stofwolk bij de klap
         for (let q = -2; q <= 2; q++) cube(sm, dm + q * hw2 * 0.4, hh + 2, hw2 * 0.2, 0, [q & 1 ? [0.1, 0.1, 0.1] : [1, 0.82, 0.1]]);
-        if (ph.p === 1) cube(sm, dm, hh + 70, 6, t * 4, [blink ? [1, 0.1, 0.1] : [0.4, 0.05, 0.05]]);   // rood zwaailicht
+        if (ph.p === 1) cube(sm, dm, 410, 9, t * 4, [blink ? [1, 0.1, 0.1] : [0.4, 0.05, 0.05]]);   // rood zwaailicht
       } else if (hz.type === 'icefall') {
         const sh = ph.p === 1 ? 0.3 + ph.w * 0.7 : ph.p === 2 ? 1 : 0.25;   // schaduw groeit tot de pegel valt
         pushQuad(out, wp(sm - 50 * sh, dm - 55 * sh, 1.3), wp(sm + 50 * sh, dm - 55 * sh, 1.3), wp(sm + 50 * sh, dm + 55 * sh, 1.3), wp(sm - 50 * sh, dm + 55 * sh, 1.3), blink ? [0.05, 0.1, 0.2] : [0.15, 0.2, 0.3]);
         const yh = ph.p === 2 ? 220 * (1 - ph.a) : 230;
-        if (ph.p !== 0 || Math.sin(t) > -2) cube(sm, dm, yh + 30, 12, 0.5, [[0.8, 0.95, 1], [0.6, 0.85, 1]]);
-        if (ph.p === 2) for (let q = 0; q < 6; q++) { const a = q * 1.05; cube(sm + Math.cos(a) * 40 * ph.a, dm + Math.sin(a) * 40 * ph.a, 6, 5, a, [[0.85, 0.97, 1]]); }
+        if (!ART.obj.icea) { if (ph.p !== 0 || Math.sin(t) > -2) cube(sm, dm, yh + 30, 12, 0.5, [[0.8, 0.95, 1], [0.6, 0.85, 1]]);
+        if (ph.p === 2) for (let q = 0; q < 6; q++) { const a = q * 1.05; cube(sm + Math.cos(a) * 40 * ph.a, dm + Math.sin(a) * 40 * ph.a, 6, 5, a, [[0.85, 0.97, 1]]); } }
       } else if (hz.type === 'lava') {
         lane(ph.p === 2 ? [1, 0.45, 0.05] : blink ? [1, 0.3, 0] : [0.35, 0.12, 0.05], 1.2);   // gloeiende scheur
-        if (ph.p === 1) for (let q = 0; q < 4; q++) cube(sm - 50 + q * 33, dm + Math.sin(t * 9 + q) * 30, 8 + ((t * 2 + q * 0.3) % 1) * 40, 3, q, [[1, 0.7, 0.2]]);
-        if (ph.p === 2) for (let q = 0; q < 12; q++) { const hh = ((q / 12 + ph.a * 1.2) % 1) * 240; cube(sm - 60 + (q * 41) % 120, d0 + ((q * 29) % 100) / 100 * (d1 - d0), hh, 10 + hh * 0.03, q, [q & 1 ? [1, 0.5, 0.05] : [1, 0.8, 0.2]]); }
+        if (ph.p === 1 && !ART.obj.lavaa) for (let q = 0; q < 4; q++) cube(sm - 50 + q * 33, dm + Math.sin(t * 9 + q) * 30, 8 + ((t * 2 + q * 0.3) % 1) * 40, 3, q, [[1, 0.7, 0.2]]);
+        if (ph.p === 2 && !ART.obj.lavab) for (let q = 0; q < 12; q++) { const hh = ((q / 12 + ph.a * 1.2) % 1) * 240; cube(sm - 60 + (q * 41) % 120, d0 + ((q * 29) % 100) / 100 * (d1 - d0), hh, 10 + hh * 0.03, q, [q & 1 ? [1, 0.5, 0.05] : [1, 0.8, 0.2]]); }
       } else if (hz.type === 'bubble') {
         lane(ph.p === 2 ? [0.5, 0.9, 1] : blink ? [0.35, 0.75, 1] : [0.15, 0.4, 0.55], 1.2);
         const n = ph.p === 2 ? 14 : ph.p === 1 ? 4 + Math.floor(ph.w * 6) : 2;
