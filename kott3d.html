@@ -32,7 +32,7 @@ const STEP = 16;             // afstand tussen twee punten van het lint
 const LAPS = 3, SHIP_R = 22, HOVER = 5, SHIP_SIZE = 1.2;
 const WALL_H = 26, WALL_T = 10, ROAD_T = 16;
 // Versie van de 3D-versie, rechtsonder op het startscherm. Bij elke publicatie op de website eentje ophogen.
-const GAME_VERSION = '3D-17';
+const GAME_VERSION = '3D-18';
 const LOW_H = 540;           // aantal beeldlijnen (zoals FINE in komeet.html); daarna zonder vervaging vergroot
 const GROUND_Y = -40;        // grond iets onder het laagste stuk weg
 
@@ -421,7 +421,31 @@ LIFE.forEach(l => l.push(['row', 0.005, 0.012, 'marshal', 300, 'R', 18]));
 DRESS.forEach((d, i) => d.push(...LIFE[i]));
 // Neon Crossing als acht (in de maat van de kaarten van komeet.html); start bovenaan, de kruising ligt in het midden
 const FIG8_PTS = Array.from({ length: 20 }, (_, k) => { const t = Math.PI / 2 + k / 20 * 2 * Math.PI; return [Math.round(4100 + 1800 * Math.sin(2 * t)), Math.round(4100 + 3800 * Math.sin(t))]; });
-const TRACKS = [{ id: 't0', name: 'Test Track', cup: 0, hw: 150, cp: CP, jump: true }].concat(TRACK_DEFS.map(d => d.id === 'p3' ? Object.assign({}, d, { pts: FIG8_PTS }) : d));
+// Eigen baanvormen in echte hoogte (x, z, hoogte, kanteling), zoals de testbaan; ze vervangen de vorm uit komeet.html.
+// Spiraalburcht: start boven op de burcht, spiraal van 2,5 ronde omlaag, laag over de vlakte, steile klim terug naar boven.
+function layoutSpiralKeep() {
+  const cp = [[1400, 1150, 900, 0], [1400, 550, 900, 0]];   // start op het vlakke stuk boven, het startveld staat er ook nog op
+  const n = 30, turns = 2.5;
+  for (let k = 0; k <= n; k++) { const a = -k / n * turns * 2 * Math.PI; cp.push([1400 * Math.cos(a), 1400 * Math.sin(a), 900 - 780 * k / n, 26]); }
+  cp.push([-1400, 1800, 100, 10], [-1000, 3500, 70, 22], [0, 4500, 70, 26], [1100, 4100, 80, 26], [1400, 3200, 90, 0], [1400, 2600, 110, 0]);
+  cp.push([1400, 2150, 500, 0], [1400, 1700, 900, 0]);   // de steile klim (rond 40 graden) terug naar boven
+  return cp;
+}
+// Skischans: lange klim naar een schans, sprong over een bevroren meer, landen op een afdaling.
+function layoutSkiJump() {
+  return [[-1500, 0, 80, 0], [0, 0, 80, 0], [1500, 0, 90, 10], [2800, 600, 110, 30], [3300, 1800, 140, 34], [2800, 3000, 180, 30],
+    [1500, 3500, 260, 0], [500, 3500, 360, 0], [-200, 3500, 450, 0], [-700, 3500, 380, 0], [-1200, 3500, 300, 0],
+    [-2300, 3500, 180, 0], [-3400, 3350, 100, 18], [-4200, 2500, 80, 32], [-4200, 1100, 80, 32], [-3300, 150, 80, 18]];
+}
+// Knoop: een klaverblad met drie kruisingen; de hoogte golft zo dat de ene kant steeds over en de andere onder gaat
+function layoutKnot() {
+  const S = 1700, cp = [];
+  for (let k = 0; k < 36; k++) { const t = k / 36 * 2 * Math.PI; cp.push([S * (Math.sin(t) + 2 * Math.sin(2 * t)), S * (Math.cos(t) - 2 * Math.cos(2 * t)), 300 + 230 * Math.sin(3 * t), 22]); }
+  return cp;
+}
+const LAYOUTS = { v3: { cp: layoutSpiralKeep() }, f2: { cp: layoutSkiJump(), jump: true, jumpAt: [-200, 3500], landAt: [-1200, 3500] }, s3: { cp: layoutKnot() } };
+const TRACKS = [{ id: 't0', name: 'Test Track', cup: 0, hw: 150, cp: CP, jump: true }].concat(TRACK_DEFS.map(d =>
+  LAYOUTS[d.id] ? Object.assign({}, d, { pts: undefined }, LAYOUTS[d.id]) : d.id === 'p3' ? Object.assign({}, d, { pts: FIG8_PTS }) : d));
 
 const TR = {};
 const crom = (a, b, c, d, t) => 0.5 * (2 * b + (-a + c) * t + (2 * a - 5 * b + 4 * c - d) * t * t + (-a + 3 * b - 3 * c + d) * t * t * t);
@@ -482,9 +506,10 @@ const WALL_DEG = { p1: 60, v2: 75, s2: 75, d2: 65, l2: 70, f1: 70, g1: 72 };   /
 //   aurora    hemelgolven: hoog en lang golvend
 //   chaos     alles door elkaar: duinen op een grote heuvel
 //   figure8   acht: de baan kruist zichzelf; de tweede keer over een brug
-const TRACK_STYLE = { k1: 'dunes', k2: 'docks', k3: 'coaster', p1: 'rolling', p2: 'rolling', p3: 'figure8', v1: 'arches', v2: 'flat', v3: 'tower',
-  s1: 'hops', s2: 'skyway', s3: 'waves', d1: 'dunes', d2: 'rolling', d3: 'plateau', l1: 'flat', l2: 'terraces', l3: 'summit',
-  f1: 'bobsled', f2: 'descent', f3: 'summit', g1: 'aurora', g2: 'velodrome', g3: 'chaos' };
+// v3, f2 en s3 hebben een eigen baanvorm (LAYOUTS): spiraalburcht, skischans en knoop
+const TRACK_STYLE = { k1: 'dunes', k2: 'docks', k3: 'coaster', p1: 'rolling', p2: 'rolling', p3: 'figure8', v1: 'arches', v2: 'flat', v3: 'spiral',
+  s1: 'hops', s2: 'skyway', s3: 'knot', d1: 'dunes', d2: 'rolling', d3: 'plateau', l1: 'flat', l2: 'terraces', l3: 'summit',
+  f1: 'bobsled', f2: 'skijump', f3: 'summit', g1: 'aurora', g2: 'velodrome', g3: 'chaos' };
 const VELODROME = Object.keys(TRACK_STYLE).filter(k => TRACK_STYLE[k] === 'velodrome');
 const WALL_TRACKS = Object.keys(WALL_DEG), WALL_IN = 950, WALL_HOLD = 900, WALL_R = 240;
 // rolhoek (radialen) langs een draai, f van 0 tot 1
@@ -665,8 +690,9 @@ function buildTrack(def, idx) {
   }
   const smooth = (a, w) => a.map((_, i) => { let s = 0; for (let j = -w; j <= w; j++) s += a[(i + j + N) % N]; return s / (2 * w + 1); });
   // schans en gat (alleen op de testbaan): het lintpunt het dichtst bij JUMP_AT en LAND_AT
-  const near = (x, z) => { let b = 0, bd = 1e18; for (let i = 0; i < N * 0.45; i++) { const d = (P[i * 3] - x) ** 2 + (P[i * 3 + 2] - z) ** 2; if (d < bd) { bd = d; b = i; } } return b; };
-  const lipI = def.jump ? near(JUMP_AT[0], JUMP_AT[1]) : -1, landI = def.jump ? near(LAND_AT[0], LAND_AT[1]) : -1;
+  const near = (x, z) => { let b = 0, bd = 1e18; for (let i = 0; i < (def.jumpAt ? N : N * 0.45); i++) { const d = (P[i * 3] - x) ** 2 + (P[i * 3 + 2] - z) ** 2; if (d < bd) { bd = d; b = i; } } return b; };
+  const ja = def.jumpAt || JUMP_AT, la = def.landAt || LAND_AT;
+  const lipI = def.jump ? near(ja[0], ja[1]) : -1, landI = def.jump ? near(la[0], la[1]) : -1;
   const kh = smooth(curv.map(c => c / (2 * step)), 6);
   // stuk baan van de looping (voor gevaren, items en physics)
   let l0 = -1, l1 = -1;
@@ -680,6 +706,9 @@ function buildTrack(def, idx) {
 function mulberry32(a) { return function () { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
 function placeHaz3d() {
   const def = TR.def, rnd = mulberry32(1337 + (TR.idx - 1) * 7919), L = TR.len, hw = HW, haz = [], pads = [], occ = [];
+  // boostpads voor een steile klim (zoals terug naar de burcht) en voor een schans over water
+  for (let i = 0, run = 0; i < TR.N * 1.05; i++) { const k = i % TR.N; if (TR.T[k][1] > 0.4) { if (++run === 6) { const sv = (k - 6) * TR.step; for (const o of [700, 380]) pads.push({ s: ((sv - o) % L + L) % L, d: 0 }); occ.push([sv - 900, sv + 700]); } } else run = 0; }
+  if (def.jump && def.jumpAt) { for (const o of [1700, 1200, 700]) pads.push({ s: ((TR.lipS - o) % L + L) % L, d: 0 }); occ.push([TR.lipS - 1900, TR.lipS + TR.gapL + 700]); }
   if (TR.loopS) { occ.push([TR.loopS[0] - 1300, TR.loopS[1] + 900]); haz.push({ type: 'loop', s0: TR.loopS[0], s1: TR.loopS[1] }); for (const o of [900, 520]) pads.push({ s: (TR.loopS[0] - o + L) % L, d: 0 }); }
   const want = def.haz || {};
   const kAt = sv => TR.kh[Math.floor((((sv % L) + L) % L) / TR.step) % TR.N];
@@ -785,9 +814,10 @@ function stepEnt(e) {
   if (inp.drift && !air) vf -= vf * 0.12 * DT;
 
   // zwaartekracht in het wegvlak, omgerekend naar de richting van het schip
-  const gT = -GRAV * Q.ty * (Q.loop ? 0.35 : 0.85), gR = -GRAV * Q.ry;
+  const gT = -GRAV * Q.ty * (Q.loop ? 0.35 : Q.ty > 0.3 ? 0.5 : 0.85), gR = -GRAV * Q.ry;
   // de looping duwt mee: wie te langzaam gaat, wordt opgestuwd (nooit blijven hangen of terugrollen)
   if (Q.loop && vf < 650) vf += 1600 * DT;
+  if (Q.ty > 0.3 && vf < 550) vf += 1500 * DT;   // steile klim: niemand glijdt terug
   vf += (gT * cs + gR * sn) * DT;
   const gl = -gT * sn + gR * cs;
   const N = GRAV * Q.uy + e.vT * e.vT * Q.kn + ADH + (Q.loop ? 2500 : 0);   // druk op de weg (als versnelling)
@@ -1157,7 +1187,7 @@ const POINTS = [10, 7, 5, 3, 2, 1];
 const MEDAL_COL = ['#4a4860', '#c8793a', '#cfd6e0', '#ffd24a'], MEDAL_NAME = ['', 'BRONZE', 'SILVER', 'GOLD'];
 const PAL_GHOST = ['#9ff', '#7de', '#5cd', '#4bc', '#268', '#aff', '#dff'];
 // opslag: keuzes, records met ghost per baan en voertuig, beste cupresultaat per cup en klasse
-const SAVE3 = 'kott3d.save.v14';   // opgehoogd: de banen kregen ruimere bochten (records, ghosts en medailletijden kloppen niet meer)
+const SAVE3 = 'kott3d.save.v15';   // opgehoogd: de banen kregen ruimere bochten (records, ghosts en medailletijden kloppen niet meer)
 const save = (() => { try { return Object.assign({ char: 0, car: 0, cls: 1, rec: {}, ghost: {}, cups: {} }, JSON.parse(localStorage.getItem(SAVE3)) || {}); } catch (e) { return { char: 0, car: 0, cls: 1, rec: {}, ghost: {}, cups: {} }; } })();
 function store() { try { localStorage.setItem(SAVE3, JSON.stringify(save)); } catch (e) {} }
 // spelstatus buiten de race: menu of race, en welke modus
@@ -2643,7 +2673,7 @@ function buildDecor() {
     const x = P[i * 3] + hr[0] * off * sd, z = P[i * 3 + 2] + hr[2] * off * sd;
     if (freeAt(x, z, 20)) add('cheer', x, GROUND_Y, z, 120);
   }
-  if (TR.def.jump) {
+  if (TR.def.id === 't0') {
   add('lighthouse', 4300, GROUND_Y, 1200, 900); add('ferris', -4200, GROUND_Y, 2600, 760); add('lighthouse', -3800, GROUND_Y, -5200, 700);
   add('harbourcrane', 4200, GROUND_Y, -3800, 650); add('boat', 7600, GROUND_Y, 3200, 260); add('boat', -7400, GROUND_Y, -1800, 220); add('buoy', 7900, GROUND_Y, -2600, 90);
   }
@@ -3921,7 +3951,7 @@ function loadTrack(idx, intro) {
   if (skyTex) { skyTex.dead = true; gl.deleteTexture(skyTex.tex); }
   decor = []; mapPts = null;
   TR.haz = []; TR.pads = [];
-  if (TR.def.pts) placeHaz3d();
+  if (TR.idx > 0) placeHaz3d();
   buildRoadMesh(); buildDecor(); buildSky();
   startRace(intro);
 }
