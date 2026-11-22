@@ -32,7 +32,7 @@ const STEP = 16;             // afstand tussen twee punten van het lint
 const LAPS = 3, SHIP_R = 22, HOVER = 5, SHIP_SIZE = 1.2;
 const WALL_H = 26, WALL_T = 10, ROAD_T = 16;
 // Versie van de 3D-versie, rechtsonder op het startscherm. Bij elke publicatie op de website eentje ophogen.
-const GAME_VERSION = '3D-16';
+const GAME_VERSION = '3D-17';
 const LOW_H = 540;           // aantal beeldlijnen (zoals FINE in komeet.html); daarna zonder vervaging vergroot
 const GROUND_Y = -40;        // grond iets onder het laagste stuk weg
 
@@ -2733,8 +2733,17 @@ function updateCamera(dt) {
   const want = norm(add(scale(fr.f, 0.55), scale(fr.T, 0.45)));
   if (!camInit) { cam.f = want; cam.u = fr.u; camInit = true; }
   if (G3.state === 'menu' && !cam.free) {
-    const a = flick * 0.06 + (ui.reelN || 0) * 2.1, c = TR.center, r = c[2] * (0.55 + 0.25 * ((ui.reelN || 0) % 2));
-    cam.pos = [c[0] + Math.cos(a) * r, 1500, c[1] + Math.sin(a) * r]; cam.look = [c[0], 100, c[1]]; cam.u = [0, 1, 0];
+    // vlucht langs de baan: per shot een ander stuk en een andere hoogte; vliegt door de bochten heen
+    const shot = ui.reelN || 0, low = shot % 2 === 0, sv = (shot * 0.37 % 1) * TR.len + (ui.reelT % REEL_SHOT) * (low ? 1100 : 800);
+    const q = at(sv, {}), qa = at(sv + (low ? 420 : 650), {}), side = low ? 0 : (shot % 4 === 1 ? 1 : -1) * (HW + 260);
+    const up = [q.ux, q.uy, q.uz], h = low ? 55 : 240;
+    const want = add(add([q.px, q.py, q.pz], scale([q.rx, q.ry, q.rz], side)), scale(up, h));
+    const look = add([qa.px, qa.py, qa.pz], scale([qa.ux, qa.uy, qa.uz], low ? 30 : 0));
+    // zacht volgen binnen een shot, meteen op zijn plek bij een nieuw shot
+    if (cam.menuShot !== shot + ':' + TR.idx) { cam.menuShot = shot + ':' + TR.idx; cam.pos = want; cam.look = look; cam.u = norm(add([0, 1, 0], up)); }
+    const kf = 1 - Math.exp(-dt * 6);
+    cam.pos = add(cam.pos, scale(sub(want, cam.pos), kf)); cam.look = add(cam.look, scale(sub(look, cam.look), kf));
+    cam.u = norm(add(cam.u, scale(sub(norm(add(scale([0, 1, 0], 0.5), scale(up, 0.5))), cam.u), kf)));
     return;
   }
   if (S.phase === 'intro' && G3.state !== 'menu') {
