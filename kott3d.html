@@ -32,7 +32,7 @@ const STEP = 16;             // afstand tussen twee punten van het lint
 const LAPS = 3, SHIP_R = 22, HOVER = 5, SHIP_SIZE = 1.2;
 const WALL_H = 26, WALL_T = 10, ROAD_T = 16;
 // Versie van de 3D-versie, rechtsonder op het startscherm. Bij elke publicatie op de website eentje ophogen.
-const GAME_VERSION = '3D-39';
+const GAME_VERSION = '3D-40';
 const LOW_H = 1080;           // aantal beeldlijnen (zoals FINE in komeet.html); daarna zonder vervaging vergroot
 const GROUND_Y = -40;        // grond iets onder het laagste stuk weg
 
@@ -3251,17 +3251,23 @@ const KUI = (() => {
   // portretten zoals drawFace in komeet.html: teamkleur met raster, het geschilderde portret, een rand
   let faceCache = {};
   function buildFace(i, ss) {
-    const N = 24, W2 = Math.round(N * ss), b = Math.max(1, Math.round(ss * 0.75)), size = W2 + 2 * b, pal = RIVALS[i].pal, pic = FACE_IMG[i];
+    // het portret is pixelart van ongeveer 110 pixels: als het vak daar dichtbij zit, op ware grootte (of 2x) tekenen,
+    // pixel voor pixel; verkleinen met vervaging maakt de pixels ruw
+    const pic = FACE_IMG[i], ready = pic && pic.complete && pic.naturalWidth, want = 24 * ss;
+    const nat = ready ? Math.max(pic.width, pic.height) : 0, fit = nat ? want / nat : 0;
+    // dicht bij ware grootte: precies 1x (tot ruim een vijfde mag eraf, vooral onderaan); veel groter: vergroot zonder vervaging
+    const crisp = fit >= 0.78, mult = fit < 1.3 ? 1 : fit;
+    const W2 = Math.round(want), b = Math.max(1, Math.round(ss * 0.75)), size = W2 + 2 * b, pal = RIVALS[i].pal;
     const c = document.createElement('canvas'); c.width = c.height = size;
     const k = c.getContext('2d');
+    // rustige achtergrond: twee vlakke tinten met een harde rand, zonder stippels
     k.fillStyle = pal[3]; k.fillRect(0, 0, size, size);
-    k.fillStyle = pal[2];
-    for (let y = 0; y < W2; y++) for (let x = 0; x < W2; x++) if (1 - (y / W2 - 0.2) / 0.5 > SPR_BAYER[(y & 3) * 4 + (x & 3)]) k.fillRect(x + b, y + b, 1, 1);
-    if (pic && pic.complete && pic.naturalWidth) {
-      const sc = Math.min(W2 / pic.width, W2 / pic.height) * 1.06, w = pic.width * sc, h = pic.height * sc;
+    k.fillStyle = pal[2]; k.fillRect(b, b + Math.round(W2 * 0.55), W2, W2 - Math.round(W2 * 0.55));
+    if (ready) {
+      const sc = crisp ? mult : Math.min(W2 / pic.width, W2 / pic.height), w = Math.round(pic.width * sc), h = Math.round(pic.height * sc);
       k.save(); k.beginPath(); k.rect(b, b, W2, W2); k.clip();
-      k.imageSmoothingEnabled = true; k.imageSmoothingQuality = 'high';
-      k.drawImage(pic, b + (W2 - w) / 2, b + W2 - h, w, h);
+      k.imageSmoothingEnabled = !crisp; k.imageSmoothingQuality = 'high';
+      k.drawImage(pic, b + Math.round((W2 - w) / 2), crisp && h > W2 ? b - Math.round((h - W2) * 0.25) : b + W2 - h, w, h);
       k.restore();
     } else c.unready = true;
     k.fillStyle = pal[5];
