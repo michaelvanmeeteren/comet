@@ -32,7 +32,7 @@ const STEP = 16;             // afstand tussen twee punten van het lint
 const LAPS = 3, SHIP_R = 22, HOVER = 5, SHIP_SIZE = 1.2;
 const WALL_H = 26, WALL_T = 10, ROAD_T = 16;
 // Versie van de 3D-versie, rechtsonder op het startscherm. Bij elke publicatie op de website eentje ophogen.
-const GAME_VERSION = '3D-41';
+const GAME_VERSION = '3D-42';
 const LOW_H = 1080;           // aantal beeldlijnen (zoals FINE in komeet.html); daarna zonder vervaging vergroot
 const GROUND_Y = -40;        // grond iets onder het laagste stuk weg
 
@@ -3313,7 +3313,6 @@ const KUI = (() => {
     for (const e of S.ents) if (e !== P) dot(e, false);
     dot(P, true);
   }
-  const bandCache = {};
   const recOf = tr => { const t = OUT.save.rec[tr.id + ':' + ui.car + clsSuffix()]; return t ? { total: t, car: ui.car } : null; };
   const record = () => recOf(T);
   const getMedals = (tr, car) => medalsAny(TRACKS_ALL.indexOf(tr.def || tr), car).map(t => t / CLASSES[ui.cls].mul);
@@ -3571,6 +3570,20 @@ function drawCupResult(u) {
     text(label, W / 2, py + ph - 20 * u, 16 * u, '#fff', 'center', 700, false);
   }
 }
+// stippelverloop (van vol naar leeg, van boven naar beneden): een keer in het wit per maat, en per kleur een keer ingekleurd
+const bandMask = {}, bandTint = {};
+function dband(x, y, w, h, col, alpha) {
+  w = Math.round(w); h = Math.round(h); if (w < 1 || h < 1) return;
+  const mk = w + 'x' + h;
+  if (!bandMask[mk]) { const c = document.createElement('canvas'); c.width = w; c.height = h; const k = c.getContext('2d'); k.fillStyle = '#fff';
+    for (let yy = 0; yy < h; yy++) for (let xx = 0; xx < w; xx++) if (1 - yy / h > SPR_BAYER[(yy & 3) * 4 + (xx & 3)]) k.fillRect(xx, yy, 1, 1); bandMask[mk] = c; }
+  const tk = mk + col;
+  if (!bandTint[tk]) { const c = document.createElement('canvas'); c.width = w; c.height = h; const k = c.getContext('2d');
+    k.drawImage(bandMask[mk], 0, 0); k.globalCompositeOperation = 'source-in'; k.fillStyle = col; k.fillRect(0, 0, w, h); bandTint[tk] = c; }
+  if (alpha != null) ctx.globalAlpha = alpha;
+  ctx.drawImage(bandTint[tk], Math.round(x), Math.round(y));
+  ctx.globalAlpha = 1;
+}
 function card(x, y, w, h, sel, color) {
   x = Math.round(x); y = Math.round(y); w = Math.round(w); h = Math.round(h);
   ctx.fillStyle = sel ? 'rgba(20,14,48,0.92)' : 'rgba(8,5,22,0.72)';
@@ -3578,6 +3591,8 @@ function card(x, y, w, h, sel, color) {
   const t = sel ? 2 : 1;
   ctx.fillStyle = sel ? (color || '#ffb833') : 'rgba(255,255,255,0.22)';
   ctx.fillRect(x, y, w, t); ctx.fillRect(x, y + h - t, w, t); ctx.fillRect(x, y, t, h); ctx.fillRect(x + w - t, y, t, h);
+  const bu = H / 720, bh = Math.min(h * 0.18, 12 * bu);
+  if (bh >= 3) dband(x + t, y + t, w - 2 * t, bh, sel ? (color || '#ffb833') : '#ffffff', sel ? 0.45 : 0.1);
 }
 function header(u, title, hint) {
   ctx.fillStyle = 'rgba(5,3,12,0.45)'; ctx.fillRect(0, 0, W, H);
@@ -3711,11 +3726,7 @@ function drawMenu(u) {
       card(x, y, cw, ch, sel, col);
       // kleurband bovenaan met een rasterovergang naar de kaart
       ctx.fillStyle = col; ctx.fillRect(Math.round(x + 2), Math.round(y + 2), Math.round(cw - 4), Math.round(8 * u));
-      // rasterovergang: een keer tekenen en bewaren (per maat en kleur), niet elk beeld duizenden pixels
-      const bk = Math.round(cw - 4) + ':' + Math.round(10 * u) + ':' + col;
-      if (!bandCache[bk]) { const bc = document.createElement('canvas'), bw = Math.round(cw - 4), bh = Math.round(10 * u); bc.width = bw; bc.height = bh; const bx = bc.getContext('2d'); bx.fillStyle = col;
-        for (let yy = 0; yy < bh; yy++) for (let xx = 0; xx < bw; xx++) if (1 - yy / bh > SPR_BAYER[(yy & 3) * 4 + (xx & 3)]) bx.fillRect(xx, yy, 1, 1); bandCache[bk] = bc; }
-      ctx.drawImage(bandCache[bk], Math.round(x + 2), Math.round(y + 2 + 8 * u));
+      dband(x + 2, y + 2 + 8 * u, cw - 4, 10 * u, col);
       text(it[0], cx, y + 70 * u, 40 * u, sel ? col : '#fff', 'center', 900);
       // plaatje: een lichtcirkel erachter
       ctx.fillStyle = sel ? 'rgba(255,255,255,0.07)' : 'rgba(255,255,255,0.03)'; fillDisc(cx, iy, 62 * u);
