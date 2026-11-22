@@ -33,7 +33,7 @@ const LAPS = 3, SHIP_R = 22, HOVER = 5, SHIP_SIZE = 1.2;
 const WALL_H = 26, WALL_T = 10, ROAD_T = 16;
 const BERM = 420;   // vlakke berm naast de vangrail (op wegniveau) waar het decor op staat; daarachter de helling
 // Versie van de 3D-versie, rechtsonder op het startscherm. Bij elke publicatie op de website eentje ophogen.
-const GAME_VERSION = '3D-50';
+const GAME_VERSION = '3D-51';
 const LOW_H = 1080;           // aantal beeldlijnen (zoals FINE in komeet.html); daarna zonder vervaging vergroot
 const GROUND_Y = -40;        // grond iets onder het laagste stuk weg
 
@@ -584,7 +584,8 @@ function addLoop(pts, curv, step, def) {
   // langste stuk met (bijna) geen bocht
   let best = -1, bestLen = 0, run = 0;
   for (let k = 0; k < N * 2; k++) { const i = k % N, nearStart = i * step < 900 || i * step > N * step - 1600; if (curv[i] < 1 / 2500 && !nearStart) { run++; if (run > bestLen && run < N) { bestLen = run; best = i; } } else run = 0; }
-  if (kind === 'wall') CL = Math.min(CL, bestLen * step - 200);   // korter op een kort recht stuk (de verhouding in- en uitdraaien blijft)
+  // voor en na de wandrit minstens 1000 rechtdoor (anders stuur je nog door een bocht terwijl de weg al kantelt); op een kort recht stuk een kortere wandrit
+  if (kind === 'wall') CL = Math.min(CL, bestLen * step - 2000);
   if (CL < 2000 || bestLen * step < CL + 200) { def._twist = null; return pts; }
   const len = Math.round(CL / step), m = (best - Math.floor(bestLen / 2) - Math.floor(len / 2) + N * 2) % N, m2 = (m + len) % N;
   const pa = pts[m], pb = pts[m2], t = norm([pb[0] - pa[0], 0, pb[2] - pa[2]]), side = [-t[2], 0, t[0]];
@@ -892,7 +893,7 @@ function stepEnt(e) {
   if (inp.drift && !air) vf -= vf * 0.12 * DT;
 
   // zwaartekracht in het wegvlak, omgerekend naar de richting van het schip
-  const gT = -GRAV * Q.ty * (Q.loop ? 0.35 : Q.ty > 0.3 ? 0.5 : 0.85), gR = -GRAV * Q.ry;
+  const gT = -GRAV * Q.ty * (Q.loop ? 0.35 : Q.ty > 0.3 ? 0.5 : 0.85), gR = -GRAV * Q.ry * (Q.loop ? 0.12 : 1);   // in een wandrit trekt de zwaartekracht je bijna niet opzij (anders glij je naar de rand)
   // de looping duwt mee: wie te langzaam gaat, wordt opgestuwd (nooit blijven hangen of terugrollen)
   if (Q.loop && vf < 650) vf += 1600 * DT;
   if (Q.ty > 0.3 && vf < 550) vf += 1500 * DT;   // steile klim: niemand glijdt terug
@@ -2943,7 +2944,10 @@ function updateCamera(dt) {
   if (cam.free) { cam.pos = cam.free.pos; cam.look = cam.free.look; cam.u = [0, 1, 0]; return; }
   cam.f = norm(add(cam.f, scale(sub(want, cam.f), kf)));
   // de camera kantelt voor tweederde mee met de weg (anders slaat het beeld om bij steile wissels)
-  const upWant = norm(add(scale([0, 1, 0], 0.35), scale(fr.u, 0.65)));
+  // in een wandrit draait hij minder mee (een derde), zodat het beeld bij in- en uitdraaien rustig blijft
+  const li = Math.floor((((S.player.s % TR.len) + TR.len) % TR.len) / TR.step) % TR.N, inTw = TR.loop && TR.loop[li] ? 1 : 0;
+  cam.tw = (cam.tw || 0) + (inTw - (cam.tw || 0)) * (1 - Math.exp(-dt * 3));
+  const fol = 0.65 - 0.32 * cam.tw, upWant = norm(add(scale([0, 1, 0], 1 - fol), scale(fr.u, fol)));
   cam.u = norm(add(cam.u, scale(sub(upWant, cam.u), ku)));
   const back = 175 + Math.min(60, S.player.speed * 0.03);
   cam.pos = add(add(fr.pos, scale(cam.f, -back)), scale(cam.u, 62));
