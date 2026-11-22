@@ -33,7 +33,7 @@ const LAPS = 3, SHIP_R = 22, HOVER = 5, SHIP_SIZE = 1.2;
 const WALL_H = 26, WALL_T = 10, ROAD_T = 16;
 const BERM = 420;   // vlakke berm naast de vangrail (op wegniveau) waar het decor op staat; daarachter de helling
 // Versie van de 3D-versie, rechtsonder op het startscherm. Bij elke publicatie op de website eentje ophogen.
-const GAME_VERSION = '3D-63';
+const GAME_VERSION = '3D-64';
 const LOW_H = 1080;           // aantal beeldlijnen (zoals FINE in komeet.html); daarna zonder vervaging vergroot
 const GROUND_Y = -40;        // grond iets onder het laagste stuk weg
 
@@ -123,18 +123,18 @@ const CP = [
 // ---------------------------------------------------------------- de 24 banen uit komeet.html (letterlijk gekopieerd)
 // pts zijn x, y op de kaart; hier wordt y de z-as. Hoogte en kanteling komen er automatisch bij (autoTrack).
 const TRACK_DEFS_NEW = [
-  { id: 'o1', name: 'Coral Tube', cup: 8, hw: 150, haz: { pads: 7, current: 3, bumps: 1 } },
-  { id: 'o2', name: 'Kelp Forest', cup: 8, hw: 150, haz: { pads: 7, current: 4 } },
-  { id: 'o3', name: 'Trench Run', cup: 8, hw: 150, split: { auto: true, mode: 'level' }, haz: { pads: 8, current: 3, chain: 1 } },
+  { id: 'o1', name: 'Coral Tube', cup: 8, hw: 150, haz: { bubble: 2, pads: 7, current: 3, bumps: 1 } },
+  { id: 'o2', name: 'Kelp Forest', cup: 8, hw: 150, haz: { bubble: 3, pads: 7, current: 4 } },
+  { id: 'o3', name: 'Trench Run', cup: 8, hw: 150, split: { auto: true, mode: 'level' }, haz: { bubble: 2, pads: 8, current: 3, chain: 1 } },
   { id: 'c1', name: 'Frosting Ring', cup: 9, hw: 150, haz: { pads: 7, slow: 2, bumps: 1 } },
   { id: 'c2', name: 'Gumdrop Hills', cup: 9, hw: 150, haz: { pads: 7, slow: 2, bumps: 2, launch: 1 }, split: { s0: 18900, s1: 26200, IN: 1700, OUT: 1700, D: 480, level: 340 } },
   { id: 'c3', name: 'Choco Falls', cup: 9, hw: 150, haz: { pads: 7, slow: 1, chain: 1 } },
   { id: 'h1', name: 'Willow Bog', cup: 10, hw: 150, split: { auto: true, mode: 'hump' }, haz: { pads: 7, wisp: 4, slow: 1 } },
   { id: 'h2', name: 'Lantern Marsh', cup: 10, hw: 150, haz: { pads: 7, wisp: 5 } },
   { id: 'h3', name: 'Crypt Hollow', cup: 10, hw: 150, haz: { pads: 8, wisp: 4, chain: 1 } },
-  { id: 'm1', name: 'Cog Boulevard', cup: 11, hw: 150, haz: { pads: 7, geyser: 4, chain: 1 } },
-  { id: 'm2', name: 'Steam Works', cup: 11, hw: 150, haz: { pads: 7, geyser: 4 } },
-  { id: 'm3', name: 'Clocktower', cup: 11, hw: 150, split: { auto: true, mode: 'level' }, haz: { pads: 8, geyser: 3, chain: 1 } }
+  { id: 'm1', name: 'Cog Boulevard', cup: 11, hw: 150, haz: { piston: 2, pads: 7, geyser: 4, chain: 1 } },
+  { id: 'm2', name: 'Steam Works', cup: 11, hw: 150, haz: { piston: 3, pads: 7, geyser: 4 } },
+  { id: 'm3', name: 'Clocktower', cup: 11, hw: 150, split: { auto: true, mode: 'level' }, haz: { piston: 2, pads: 8, geyser: 3, chain: 1 } }
 ];
 const TRACK_DEFS = [
   { id: 'k1', name: 'Palm Beach', cup: 0, hw: 150, split: { auto: true, mode: 'hump' }, haz: { pads: 6, wave: 2, chain: 1, bank: 1 },
@@ -149,11 +149,11 @@ const TRACK_DEFS = [
     pts: [[1100,3600],[1100,2000],[2000,1100],[4000,1000],[6400,1000],[7300,1900],[7300,3400],[6400,4300],[4800,4400],[4000,5200],[4000,6400],[3100,7300],[1900,7200],[1100,6200],[1100,4800]] },
   { id: 'p3', minR: 430, name: 'Neon Crossing', cup: 1, hw: 150, haz: { pads: 7, ice: 2, slow: 1, chain: 2, bank: 2 },
     pts: [[1200,2600],[1800,1300],[3400,1000],[6000,1000],[7100,1500],[7400,2400],[7100,3300],[6000,3800],[4200,3800],[3000,3900],[2500,4600],[3000,5300],[4200,5400],[6000,5400],[6900,5600],[7400,6400],[6900,7200],[6000,7400],[4000,7400],[1900,7300],[1100,6400],[1100,4400]] },
-  { id: 'v1', minR: 430, name: 'Lava Moat', cup: 2, hw: 150, haz: { pads: 6, gap: 2, slow: 1, bank: 1 },
+  { id: 'v1', minR: 430, name: 'Lava Moat', cup: 2, hw: 150, haz: { lava: 2, pads: 6, gap: 2, slow: 1, bank: 1 },
     pts: [[1200,3200],[1700,1700],[3200,1000],[5400,1000],[6900,1600],[7400,3000],[6800,4300],[5400,4700],[4600,5600],[4700,6700],[3800,7400],[2400,7200],[1300,6200],[1100,4600]] },
-  { id: 'v2', name: 'Dungeon Run', cup: 2, hw: 145, split: { auto: true, mode: 'hump' }, haz: { pads: 7, gap: 1, jump: 1, bumps: 2, bank: 1, launch: 1 },
+  { id: 'v2', name: 'Dungeon Run', cup: 2, hw: 145, split: { auto: true, mode: 'hump' }, haz: { lava: 2, pads: 7, gap: 1, jump: 1, bumps: 2, bank: 1, launch: 1 },
     pts: [[1000,1800],[2200,1000],[6000,1000],[7200,1800],[7000,3200],[5600,3400],[2800,3000],[1900,3900],[2700,4900],[5600,4800],[7100,5300],[7200,6700],[6000,7300],[2400,7300],[1200,6600],[900,4600]] },
-  { id: 'v3', minR: 430, name: 'Tyrant Keep', cup: 2, hw: 145, haz: { pads: 6, gap: 2, slow: 1, bank: 2, chain: 1 },
+  { id: 'v3', minR: 430, name: 'Tyrant Keep', cup: 2, hw: 145, haz: { lava: 2, pads: 6, gap: 2, slow: 1, bank: 2, chain: 1 },
     pts: [[1000,4200],[1000,2200],[1900,1100],[3600,1000],[6000,1000],[7200,1900],[7300,3600],[7300,5600],[6600,7000],[5200,7300],[4300,6500],[4300,4800],[4300,3400],[3600,2800],[2900,3400],[2900,5200],[2900,6600],[2000,7300],[1200,6600],[1000,5400]] },
   { id: 's1', minR: 430, name: 'Meteor Field', cup: 3, hw: 150, split: { auto: true, mode: 'level' }, haz: { pads: 6, jump: 2, bumps: 2, bank: 1, launch: 1 }, grav: 0.55,
     pts: [[1100,4000],[1100,2200],[1900,1100],[3200,1100],[3900,2000],[3900,4000],[3900,5400],[4700,6300],[5700,5600],[5700,3800],[5700,2000],[6500,1100],[7300,1900],[7300,4000],[7300,6200],[6500,7300],[4400,7400],[2400,7400],[1300,6800],[1100,5400]] },
@@ -173,23 +173,29 @@ const TRACK_DEFS = [
     pts: [[1100,2800],[1900,1400],[3600,1000],[5400,1300],[6200,2400],[6000,3800],[6800,4800],[7400,6000],[6600,7200],[5000,7400],[3600,6800],[3000,5600],[1900,5200],[1100,4200]] },
   { id: 'l3', name: 'Festival of Lights', cup: 5, hw: 150, minR: 430, haz: { pads: 7, chain: 3, bank: 2, slow: 1 },
     pts: [[1100,4200],[1100,2400],[1900,1200],[3600,1000],[5600,1000],[7000,1600],[7400,3000],[6600,4000],[5000,4200],[4200,5000],[4600,6000],[6000,6200],[7200,6600],[6800,7400],[5000,7400],[2800,7400],[1500,6800],[1100,5600]] },
-  { id: 'f1', name: 'Glacier Moat', cup: 6, hw: 150, minR: 430, haz: { pads: 6, ice: 3, jump: 1, bank: 2 }, grip: 0.78,
+  { id: 'f1', name: 'Glacier Moat', cup: 6, hw: 150, minR: 430, haz: { icefall: 3, pads: 6, ice: 3, jump: 1, bank: 2 }, grip: 0.78,
     pts: [[1200,5600],[1200,3600],[2000,2000],[3600,1100],[5400,1000],[6800,1600],[7400,3000],[7000,4600],[5800,5600],[4600,6400],[3400,7200],[2000,7000]] },
   { id: 'f2', name: 'Crystal Crypt', cup: 6, hw: 150, minR: 430, split: { auto: true, mode: 'level' }, haz: { pads: 7, ice: 3, jump: 1, bank: 1 }, grip: 0.78,
     pts: [[1000,4200],[1000,2200],[1800,1100],[3800,1000],[6200,1000],[7300,1800],[7300,3400],[6400,4300],[6400,5600],[7200,6600],[6400,7400],[4200,7400],[2200,7400],[1100,6600],[1000,5400]] },
-  { id: 'f3', name: 'Frozen Throne', cup: 6, hw: 150, minR: 430, haz: { pads: 7, ice: 3, bank: 2, bumps: 1 }, grip: 0.78,
+  { id: 'f3', name: 'Frozen Throne', cup: 6, hw: 150, minR: 430, haz: { icefall: 3, pads: 7, ice: 3, bank: 2, bumps: 1 }, grip: 0.78,
     pts: [[1000,4000],[1000,2000],[1900,1000],[3200,1100],[3700,2200],[3700,4000],[4400,5000],[5400,4400],[5400,2400],[6000,1200],[7000,1100],[7400,2200],[7400,4400],[7400,6200],[6600,7300],[4400,7400],[2400,7400],[1200,6600],[1000,5200]] },
   { id: 'g1', name: 'Aurora Gate', cup: 7, hw: 150, minR: 430, haz: { pads: 6, jump: 1, gap: 1, chain: 1, bank: 1, launch: 1, cannon: 1 }, grav: 0.8,
     pts: [[1200,4200],[1200,2400],[2100,1200],[4000,1000],[5800,1300],[7000,2200],[7400,3800],[6900,5400],[5600,6200],[4000,6000],[3200,6800],[2200,7200],[1300,6400]] },
   { id: 'g2', name: 'Titan Ring', cup: 7, hw: 150, minR: 430, haz: { pads: 7, wave: 2, chain: 2, bank: 2, cannon: 1 }, grav: 0.8,
     pts: [[1000,4100],[1300,2500],[2500,1300],[4100,1000],[5700,1300],[6900,2500],[7200,4100],[6900,5700],[5700,6900],[4100,7200],[2500,6900],[1300,5700]] },
-  { id: 'g3', name: 'Big Bang', cup: 7, hw: 150, minR: 430, haz: { pads: 7, gap: 1, wave: 1, ice: 1, chain: 2, bank: 2, bumps: 1, cannon: 1 }, grav: 0.8,
+  { id: 'g3', name: 'Big Bang', cup: 7, hw: 150, minR: 430, haz: { lava: 1, icefall: 1, pads: 7, gap: 1, wave: 1, ice: 1, chain: 2, bank: 2, bumps: 1, cannon: 1 }, grav: 0.8,
     pts: [[1000,4400],[1000,2400],[1700,1200],[3000,1000],[3800,1800],[4000,3200],[4800,3900],[5800,3300],[6000,1900],[6600,1100],[7300,1700],[7400,3400],[7400,5400],[6800,6800],[5400,7400],[3600,7400],[2000,7000],[1100,6000]] }
 ];
 // gevaren (zelfde maten als in komeet.html)
 const PAD_HW = 55, PAD_HL = 80, WAVE_HW = 55, WAVE_RUN = 1.6, WAVE_P = 3.6, GAP_L = 300, GAP_BACK = 1200;   // terugzetten na een val: ver genoeg om weer vaart te maken (heuvels!)
 const GEY_P = 3.2, GEY_ON = 0.9;   // geiser: elke 3,2 seconden 0,9 seconde stoom
-const geyserOn = (hz, t) => ((t + hz.ph) % GEY_P) < GEY_ON;
+// getimede gevaren: [periode, actief, waarschuwing] in seconden
+const TIMED = { geyser: [3.2, 0.9, 1.1], piston: [2.8, 0.35, 1.0], icefall: [4.2, 0.3, 1.4], lava: [3.8, 0.9, 1.1], bubble: [3.0, 0.8, 0.9] };
+// fase: 0 = rustig, 1 = waarschuwing (w loopt van 0 naar 1), 2 = actief (a loopt van 0 naar 1)
+function timedPhase(hz, t) { const T = TIMED[hz.type]; if (!T) return { p: 0 }; const x = ((t + hz.ph) % T[0] + T[0]) % T[0];
+  return x < T[1] ? { p: 2, a: x / T[1] } : x > T[0] - T[2] ? { p: 1, w: (x - (T[0] - T[2])) / T[2] } : { p: 0 }; }
+const geyserOn = (hz, t) => timedPhase(hz, t).p === 2;
+const inLane = (hz, d) => hz.d0 == null || (d > hz.d0 - 20 && d < hz.d1 + 20);
 const wispD = (hz, hw, t) => hw * 0.7 * Math.sin(t * 1.3 + hz.ph);   // waar het dwaallicht dwars over de weg zweeft
 function waveAt(hz, hw, t) {
   const f = (((t + hz.ph) % WAVE_P) + WAVE_P) % WAVE_P / WAVE_RUN;
@@ -902,6 +908,10 @@ function placeHaz3d() {
   scan(want.current || 0, 900, 300, (k, p) => k.mx < [1 / 1500, 1 / 1000, 1 / 600][p], sv => haz.push({ type: 'current', s0: sv, s1: sv + 900, dir: rnd() < 0.5 ? -1 : 1 }));
   scan(want.wisp || 0, 260, 260, (k, p) => true, sv => haz.push({ type: 'wisp', s0: sv, s1: sv + 260, ph: rnd() * 6.28 }));
   scan(want.geyser || 0, 160, 320, (k, p) => k.mx < [1 / 1500, 1 / 900, 1 / 500][p], sv => haz.push({ type: 'geyser', s0: sv, s1: sv + 160, ph: rnd() * GEY_P }));
+  scan(want.piston || 0, 180, 420, (k, p) => k.mx < [1 / 1500, 1 / 900, 1 / 500][p], sv => { const sd = rnd() < 0.5 ? -1 : 1; haz.push({ type: 'piston', s0: sv, s1: sv + 150, d0: sd > 0 ? 0 : -HW, d1: sd > 0 ? HW : 0, ph: rnd() * 3 }); });
+  scan(want.icefall || 0, 160, 420, (k, p) => true, sv => { const dc = (rnd() * 2 - 1) * (HW - 70); haz.push({ type: 'icefall', s0: sv, s1: sv + 130, d0: dc - 70, d1: dc + 70, ph: rnd() * 4 }); });
+  scan(want.lava || 0, 200, 420, (k, p) => k.mx < [1 / 1200, 1 / 800, 1 / 450][p], sv => { const dc = (rnd() * 2 - 1) * (HW - 65); haz.push({ type: 'lava', s0: sv, s1: sv + 170, d0: dc - 65, d1: dc + 65, ph: rnd() * 4, dir: dc > 0 ? -1 : 1 }); });
+  scan(want.bubble || 0, 180, 420, (k, p) => k.mx < [1 / 1500, 1 / 900, 1 / 500][p], sv => haz.push({ type: 'bubble', s0: sv, s1: sv + 160, ph: rnd() * 3 }));
   scan(want.launch || 0, 2000, 300, (k, p) => k.mx < [1 / 2200, 1 / 1600, 1 / 1100][p], sv => {
     for (const o of [60, 320]) pads.push({ s: sv + o, d: 0 });
     haz.push({ type: 'jump', s0: sv + 560, s1: sv + 600, launch: true });
@@ -1133,6 +1143,15 @@ function stepEnt(e) {
     } else if (hz.type === 'current') { e.vR += hz.dir * 480 * DT; e.ev.current = 1; }
     else if (hz.type === 'wisp') { if (Math.abs(e.d - wispD(hz, HW, S.raceTime)) < 70 && e.speed > 450) { const k3 = 1 - 1.6 * DT; e.vT *= k3; e.vR *= k3; e.ev.wisp = 1; } }
     else if (hz.type === 'geyser') { if (geyserOn(hz, S.raceTime) && !e.air) { e.air = true; e.vz = 560; e.airT = 0; e.vT *= 0.9; e.ev.jump = 1; } }
+    else if (hz.type === 'piston' || hz.type === 'icefall') {   // klap: even wegdraaien en vaart kwijt
+      const ph = timedPhase(hz, S.raceTime);
+      if (ph.p === 2 && inLane(hz, e.d) && !(e.spinT > 0) && !(e.shieldT > 0)) { e.spinT = SPIN_T * 0.8; e.spinPsi = e.psi; e.vT *= 0.6; e.vR *= 0.5; e.ev.wall = 1; }
+    } else if (hz.type === 'lava') {
+      const ph = timedPhase(hz, S.raceTime);
+      if (ph.p === 2 && inLane(hz, e.d) && !e.air) { const k4 = 1 - 1.8 * DT; e.vT *= k4; e.vR += hz.dir * 900 * DT; e.ev.wave = 1; }
+    } else if (hz.type === 'bubble') {   // bellenbron: tilt je op en geeft een zetje
+      if (timedPhase(hz, S.raceTime).p === 2 && !e.air) { e.air = true; e.vz = 420; e.airT = 0; e.vT += 160; e.ev.pad = 1; }
+    }
     else if (hz.type === 'gap' && !e.air) {
       const back = sh - (hz.s0 - GAP_BACK);
       e.s -= back; e.progress -= back; e.d = clamp(e.d, -HW * 0.5, HW * 0.5);
@@ -1244,6 +1263,9 @@ function aiInput(e, ents) {
       if (e.routePref == null) e.routePref = Math.random() < 0.5 ? -1 : 1;
       target = e.routePref * Math.max(85, Math.abs(routeC(sAh, e.routePref))) + clamp(Q2.kg * 40000, -40, 40);   // aan de gekozen kant blijven tot de routes uit elkaar zijn
     }
+  }
+  for (const hz of TR.haz) if ((hz.type === 'piston' || hz.type === 'icefall' || hz.type === 'lava') && hz.s0 - sa > -60 && hz.s0 - sa < 800 && timedPhase(hz, S.raceTime).p > 0) {
+    if (target > hz.d0 - 40 && target < hz.d1 + 40) target = (hz.d0 + hz.d1) / 2 > 0 ? hz.d0 - 60 : hz.d1 + 60;
   }
   for (const hz of TR.haz) if (hz.type === 'wisp' && hz.s0 - sa > -60 && hz.s0 - sa < 500) { const wd = wispD(hz, HW, S.raceTime); if (Math.abs(target - wd) < 90) target = wd > 0 ? wd - 100 : wd + 100; }
   { const rc2 = TR.split ? routeC(e.s, routeOf(e, e.s)) : 0; target = clamp(target - rc2, -HW + 40, HW - 40) + rc2; }
@@ -2343,6 +2365,9 @@ function soundEvents() {
   const mb = S.player.in.boost && S.player.energy > 0.01; if (mb && !S.player.wasBoost) { whoosh(0.16); beep(330, 0.2, 'sawtooth', 0.035); } S.player.wasBoost = mb;
   if (ev.drift) beep([0, 700, 900, 1200][ev.drift], 0.15, 'square', 0.06);
   if (ev.splash || ev.fall) splash();
+  { const p = S.player, sa = ((p.s % TR.len) + TR.len) % TR.len;
+    for (const hz of TR.haz || []) { if (!TIMED[hz.type] || hz.s0 - sa < 0 || hz.s0 - sa > 1600) continue;
+      const ph = timedPhase(hz, S.raceTime); if (ph.p === 1 && !hz.warned) { hz.warned = 1; if (hz.type === 'geyser' || hz.type === 'bubble') whoosh(0.05); else beep(hz.type === 'icefall' ? 1400 : 520, 0.12, 'square', 0.035); } else if (ph.p !== 1) hz.warned = 0; } }
   if (ev.bump) thud(0.15);
   if (S.player.finished && !S.player.fanfare) { S.player.fanfare = 1; [523, 659, 784, 1047].forEach((f, i) => setTimeout(() => beep(f, 0.25, 'square', 0.07), i * 140)); }
 }
@@ -3098,8 +3123,8 @@ function buildDecor() {
   add('harbourcrane', 4200, GROUND_Y, -3800, 650); add('boat', 7600, GROUND_Y, 3200, 260); add('boat', -7400, GROUND_Y, -1800, 220); add('buoy', 7900, GROUND_Y, -2600, 90);
   }
   for (const name in groups) {
-    const list = groups[name], t1 = cachedTex(ART.obj[name]), t2 = ART.obj[name + '2'] ? cachedTex(ART.obj[name + '2']) : null;
-    const g = { name, list, tex: [t1, t2].filter(Boolean), vao: null, count: 0 };
+    const list = groups[name], t1 = cachedTex(ART.obj[name]), t2 = ART.obj[name + '2'] ? cachedTex(ART.obj[name + '2']) : null, t3 = t2 && ART.obj[name + '3'] ? cachedTex(ART.obj[name + '3']) : null;
+    const g = { name, list, tex: [t1, t2, t3].filter(Boolean), vao: null, count: 0 };
     whenReady(t1, () => {
       const asp = t1.w / t1.h, data = [];
       for (const [x, y, z, h] of list) {
@@ -3293,7 +3318,8 @@ function render(dt) {
   gl.activeTexture(gl.TEXTURE0); gl.uniform1i(PB.u.uTex, 0);
   for (const g of decor) {
     if (!g.vao) continue;
-    const t = (g.tex.length > 1 && g.tex[1].ready && (Math.floor(flick * 3) & 1) ? g.tex[1] : g.tex[0]);
+    // bewegend decor: twee beeldjes om en om, of drie heen en terug (1-2-3-2) voor vier standen per ronde
+    const seq = g.tex.length > 2 ? [0, 1, 2, 1][Math.floor(flick * 6) % 4] : g.tex.length > 1 ? Math.floor(flick * 3) & 1 : 0, t = g.tex[seq] && g.tex[seq].ready ? g.tex[seq] : g.tex[0];
     if (!t || t.dead) continue;
     gl.bindTexture(gl.TEXTURE_2D, t.tex);
     gl.bindVertexArray(g.vao); gl.drawArrays(gl.TRIANGLES, 0, g.count);
@@ -3416,9 +3442,43 @@ function drawDynamic() {
   for (const hz of TR.haz || []) {
     if (hz.type === 'wisp') { const wd = wispD(hz, HW, t), sm = (hz.s0 + hz.s1) / 2, bob = Math.sin(t * 3 + hz.ph) * 6;
       cube(sm, wd, 34 + bob, 9, t * 2, [[0.6, 1, 0.5]]); for (let q = 0; q < 4; q++) { const a = t * 4 + q * 1.57; cube(sm + Math.cos(a) * 20, wd + Math.sin(a) * 20, 34 + bob, 3, a, [[0.85, 1, 0.7]]); } }
-    else if (hz.type === 'geyser') { const on = geyserOn(hz, t), ph = ((t + hz.ph) % GEY_P) / GEY_ON;
-      for (let q = 0; q < (on ? 10 : 2); q++) { const hh = on ? ((q / 10 + ph * 1.5) % 1) * 260 : 6 + q * 8, sv = hz.s0 + 40 + (q * 37) % 80, d = ((q * 53) % 160) - 80;
-        cube(sv, d, hh, on ? 10 + hh * 0.05 : 5, q + t, [[0.92, 0.92, 0.95]]); } }
+    else if (TIMED[hz.type]) {
+      const ph = timedPhase(hz, t), d0 = hz.d0 == null ? -HW * 0.8 : hz.d0, d1 = hz.d1 == null ? HW * 0.8 : hz.d1, sm = (hz.s0 + hz.s1) / 2, dm = (d0 + d1) / 2;
+      const blink = ph.p === 1 && Math.sin(t * (10 + ph.w * 18)) > 0;   // waarschuwing knippert steeds sneller
+      const lane = (col, up) => pushQuad(out, wp(hz.s0, d0, up), wp(hz.s1, d0, up), wp(hz.s1, d1, up), wp(hz.s0, d1, up), col);
+      if (hz.type === 'geyser') {
+        lane(ph.p === 2 ? [1, 0.55, 0.2] : blink ? [1, 0.35, 0.1] : [0.25, 0.22, 0.26], 1.2);   // rooster gloeit en knippert voor de uitbarsting
+        const n = ph.p === 2 ? 12 : ph.p === 1 ? 2 + Math.floor(ph.w * 6) : 1;
+        for (let q = 0; q < n; q++) { const rise = ph.p === 2 ? ((q / n + ph.a * 1.4) % 1) * 280 : ((q / n + t * 0.8) % 1) * (20 + (ph.w || 0) * 60), sv = hz.s0 + 30 + (q * 37) % 100, d = d0 + ((q * 53) % 100) / 100 * (d1 - d0);
+          cube(sv, d, rise, ph.p === 2 ? 11 + rise * 0.05 : 5, q + t, [[0.94, 0.94, 0.97]]); }
+      } else if (hz.type === 'piston') {
+        lane(ph.p === 2 ? [1, 0.25, 0.15] : blink ? [1, 0.2, 0.1] : [0.35, 0.3, 0.2], 1.2);
+        const hh = ph.p === 2 ? 12 + ph.a * 10 : ph.p === 1 ? 40 + ph.w * 130 : 60;   // trekt zich op, en slaat dan neer
+        const hw2 = Math.min(55, (d1 - d0) / 2 - 10);
+        // stellage: twee palen en een balk bovenaan, een zuigerstang en een stalen kop met geel-zwarte strepen
+        for (const sd of [-1, 1]) for (let y = 0; y < 260; y += 24) cube(sm, dm + sd * ((d1 - d0) / 2 + 12), y + 12, 10, 0, [[0.32, 0.3, 0.34], [0.45, 0.4, 0.38]]);
+        for (let q = -3; q <= 3; q++) cube(sm, dm + q * ((d1 - d0) / 6), 268, 12, 0, [[0.35, 0.32, 0.36]]);
+        for (let y = hh + 50; y < 262; y += 20) cube(sm, dm, y, 6, 0, [[0.75, 0.72, 0.7]]);
+        cube(sm, dm, hh + 20, hw2, 0, [[0.55, 0.55, 0.6], [0.7, 0.7, 0.75]]);
+        for (let q = -2; q <= 2; q++) cube(sm, dm + q * hw2 * 0.4, hh + 2, hw2 * 0.2, 0, [q & 1 ? [0.1, 0.1, 0.1] : [1, 0.82, 0.1]]);
+        if (ph.p === 1) cube(sm, dm, hh + 70, 6, t * 4, [blink ? [1, 0.1, 0.1] : [0.4, 0.05, 0.05]]);   // rood zwaailicht
+      } else if (hz.type === 'icefall') {
+        const sh = ph.p === 1 ? 0.3 + ph.w * 0.7 : ph.p === 2 ? 1 : 0.25;   // schaduw groeit tot de pegel valt
+        pushQuad(out, wp(sm - 50 * sh, dm - 55 * sh, 1.3), wp(sm + 50 * sh, dm - 55 * sh, 1.3), wp(sm + 50 * sh, dm + 55 * sh, 1.3), wp(sm - 50 * sh, dm + 55 * sh, 1.3), blink ? [0.05, 0.1, 0.2] : [0.15, 0.2, 0.3]);
+        const yh = ph.p === 2 ? 220 * (1 - ph.a) : 230;
+        if (ph.p !== 0 || Math.sin(t) > -2) cube(sm, dm, yh + 30, 12, 0.5, [[0.8, 0.95, 1], [0.6, 0.85, 1]]);
+        if (ph.p === 2) for (let q = 0; q < 6; q++) { const a = q * 1.05; cube(sm + Math.cos(a) * 40 * ph.a, dm + Math.sin(a) * 40 * ph.a, 6, 5, a, [[0.85, 0.97, 1]]); }
+      } else if (hz.type === 'lava') {
+        lane(ph.p === 2 ? [1, 0.45, 0.05] : blink ? [1, 0.3, 0] : [0.35, 0.12, 0.05], 1.2);   // gloeiende scheur
+        if (ph.p === 1) for (let q = 0; q < 4; q++) cube(sm - 50 + q * 33, dm + Math.sin(t * 9 + q) * 30, 8 + ((t * 2 + q * 0.3) % 1) * 40, 3, q, [[1, 0.7, 0.2]]);
+        if (ph.p === 2) for (let q = 0; q < 12; q++) { const hh = ((q / 12 + ph.a * 1.2) % 1) * 240; cube(sm - 60 + (q * 41) % 120, d0 + ((q * 29) % 100) / 100 * (d1 - d0), hh, 10 + hh * 0.03, q, [q & 1 ? [1, 0.5, 0.05] : [1, 0.8, 0.2]]); }
+      } else if (hz.type === 'bubble') {
+        lane(ph.p === 2 ? [0.5, 0.9, 1] : blink ? [0.35, 0.75, 1] : [0.15, 0.4, 0.55], 1.2);
+        const n = ph.p === 2 ? 14 : ph.p === 1 ? 4 + Math.floor(ph.w * 6) : 2;
+        for (let q = 0; q < n; q++) { const rise = ph.p === 2 ? ((q / n + ph.a * 1.5) % 1) * 260 : ((q / n + t * 0.7) % 1) * 70, sv = hz.s0 + 20 + (q * 31) % 120, d = d0 + ((q * 47) % 100) / 100 * (d1 - d0);
+          cube(sv, d, rise, ph.p === 2 ? 7 : 4, 0, [[0.8, 0.95, 1]]); }
+      }
+    }
   }
   // rookwolkjes van het driften: oud spul weg, de rest groeit en stijgt
   FX.smoke = (FX.smoke || []).filter(p => t - p.t < 0.7 && t >= p.t);
