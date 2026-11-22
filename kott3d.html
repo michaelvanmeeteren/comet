@@ -32,7 +32,7 @@ const STEP = 16;             // afstand tussen twee punten van het lint
 const LAPS = 3, SHIP_R = 22, HOVER = 5, SHIP_SIZE = 1.2;
 const WALL_H = 26, WALL_T = 10, ROAD_T = 16;
 // Versie van de 3D-versie, rechtsonder op het startscherm. Bij elke publicatie op de website eentje ophogen.
-const GAME_VERSION = '3D-32';
+const GAME_VERSION = '3D-33';
 const LOW_H = 1080;           // aantal beeldlijnen (zoals FINE in komeet.html); daarna zonder vervaging vergroot
 const GROUND_Y = -40;        // grond iets onder het laagste stuk weg
 
@@ -2087,7 +2087,7 @@ function engineSync(speed, throttle, boosting, active) {
   osc1.frequency.setTargetAtTime(f, t, 0.04);
   osc2.frequency.setTargetAtTime(f * 0.5 + 1.5, t, 0.04);
   filt.frequency.setTargetAtTime(350 + speed * 1.6 + (boosting ? 900 : 0), t, 0.05);
-  engGain.gain.setTargetAtTime(active ? 0.03 + 0.035 * throttle + (boosting ? 0.025 : 0) : 0, t, 0.08);
+  engGain.gain.setTargetAtTime(active ? 0.02 + 0.023 * throttle + (boosting ? 0.017 : 0) : 0, t, 0.08);   // motor een derde zachter
   musicGain.gain.setTargetAtTime(musicOn && !fileMusic && !muted ? 0.5 * vol.music / 0.8 : 0, t, 0.2);
   MUSIC.theme = (TR.def.cup || 0) % 4; MUSIC.intensity = active ? 1 : 0;
   musicFilt.frequency.setTargetAtTime(MUSIC.intensity > 0 ? 900 + speed * 2.6 : 1500, t, 0.1);
