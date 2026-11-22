@@ -32,7 +32,7 @@ const STEP = 16;             // afstand tussen twee punten van het lint
 const LAPS = 3, SHIP_R = 22, HOVER = 5, SHIP_SIZE = 1.2;
 const WALL_H = 26, WALL_T = 10, ROAD_T = 16;
 // Versie van de 3D-versie, rechtsonder op het startscherm. Bij elke publicatie op de website eentje ophogen.
-const GAME_VERSION = '3D-31';
+const GAME_VERSION = '3D-32';
 const LOW_H = 1080;           // aantal beeldlijnen (zoals FINE in komeet.html); daarna zonder vervaging vergroot
 const GROUND_Y = -40;        // grond iets onder het laagste stuk weg
 
@@ -783,7 +783,7 @@ function placeHaz3d() {
   scan(want.ice || 0, 560, 260, (k, p) => k.mx < 1 / 430 && (p > 0 || k.mean > 1 / 4000), sv => haz.push({ type: 'ice', s0: sv, s1: sv + 560 }));
   scan(want.slow || 0, 320, 220, (k, p) => k.mx < 1 / 470 && (p > 0 || k.mean > 1 / 1900),
     (sv, k) => haz.push({ type: 'slow', s0: sv, s1: sv + 320, d0: k.sign > 0 ? -0.05 * hw : -hw, d1: k.sign > 0 ? hw : 0.05 * hw }));
-  scan(Math.min(8, want.pads || 0), 170, 200, (k, p) => k.mx < [1 / 900, 1 / 600, 1 / 400][p], sv => pads.push({ s: sv + 85, d: [-0.4, 0, 0.4][Math.floor(rnd() * 3)] * hw }));
+  scan(Math.min(16, Math.max(want.pads || 0, Math.round(L / 3500))), 170, 200, (k, p) => k.mx < [1 / 900, 1 / 600, 1 / 400][p], sv => pads.push({ s: sv + 85, d: [-0.4, 0, 0.4][Math.floor(rnd() * 3)] * hw }));
   scan(want.chain || 0, 760, 260, (k, p) => k.mx < [1 / 2200, 1 / 1500, 1 / 1000][p], sv => {
     const off = [-0.42, 0, 0.42][Math.floor(rnd() * 3)] * hw;
     for (let i = 0; i < 3; i++) pads.push({ s: sv + 90 + i * 260, d: off });
@@ -796,6 +796,24 @@ function placeHaz3d() {
     for (const o of [60, 320]) pads.push({ s: sv + o, d: 0 });
     haz.push({ type: 'jump', s0: sv + 560, s1: sv + 600, launch: true });
   });
+  // gaten dichten: nergens langer dan 5000 zonder boostpad
+  for (let round = 0; round < 30; round++) {
+    const ss = pads.map(p => ((p.s % L) + L) % L).sort((a, b) => a - b);
+    if (!ss.length) break;
+    let added = false;
+    for (let i = 0; i < ss.length; i++) {
+      const a = ss[i], b = i + 1 < ss.length ? ss[i + 1] : ss[0] + L;
+      if (b - a < 5000) continue;
+      const mid = (a + b) / 2;
+      for (let o = 0; o < 1800 && !added; o += 70) for (const sv of [mid + o, mid - o]) {
+        const q = ((sv % L) + L) % L;
+        if (added || !free(q, q + 170, 150) || kStat(q, q + 170).mx > 1 / 450) continue;
+        occ.push([q, q + 170]); pads.push({ s: q + 85, d: [-0.4, 0, 0.4][Math.floor(rnd() * 3)] * hw }); added = true;
+      }
+      if (added) break;
+    }
+    if (!added) break;
+  }
   TR.haz = haz; TR.pads = pads;
 }
 
@@ -856,7 +874,7 @@ function stepEnt(e) {
   if (e.padT > 0) e.padT -= DT;
   const manual = inp.boost && e.energy > 0.01 && !air;
   if (manual) { e.energy = Math.max(0, e.energy - c.drain * DT); e.restT = 0; }
-  else { e.restT = (e.restT || 0) + DT; e.energy = Math.min(1, e.energy + (0.03 + 0.07 * Math.min(1, e.restT / 6)) * DT); }
+  else { e.restT = (e.restT || 0) + DT; e.energy = Math.min(1, e.energy + (0.03 + 0.07 * Math.min(1, e.restT / 4)) * DT); }
   e.boosting = manual || e.padT > 0;
   const gas = inp.acc || manual;
   const top = (e.boosting ? c.boostTop : c.top) * k;
