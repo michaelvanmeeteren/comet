@@ -33,7 +33,7 @@ const LAPS = 3, SHIP_R = 22, HOVER = 5, SHIP_SIZE = 1.2;
 const WALL_H = 26, WALL_T = 10, ROAD_T = 16;
 const BERM = 420;   // vlakke berm naast de vangrail (op wegniveau) waar het decor op staat; daarachter de helling
 // Versie van de 3D-versie, rechtsonder op het startscherm. Bij elke publicatie op de website eentje ophogen.
-const GAME_VERSION = '3D-53';
+const GAME_VERSION = '3D-54';
 const LOW_H = 1080;           // aantal beeldlijnen (zoals FINE in komeet.html); daarna zonder vervaging vergroot
 const GROUND_Y = -40;        // grond iets onder het laagste stuk weg
 
@@ -495,11 +495,16 @@ const NINE = {
     ...arcK(-3, 2, 1.5, 180, 90, 40, 40), ...lineK(-3, 3.5, 0, 3.5, 40, 40), ...arcK(0, 5, 1.5, -90, 90, 40, 40), ...lineK(0, 6.5, -6, 6.5, 40, 40), ...arcK(-6, 5, 1.5, 90, 180, 40, 40),
     ...lineK(-7.5, 5, -7.5, 1.5, 40, 360), ...arcK(-6, 1.5, 1.5, 180, 270, 360, 420)]
 };
+// Crystal Crypt, groot: slinger over het dal, grote bocht, lange klim naar de schans, sprong over het bevroren meer,
+// en daarna een lang recht stuk bergaf (je landt nooit in een bocht)
+NINE.f2 = () => [...swayK(-12, 0, 0, 800, 1, 0, 80), ...arcK(0, 2.5, 2.5, -90, 90, 80, 200), ...lineK(0, 5, -5, 5, 200, 420), ...lineK(-5, 5, -6, 5, 420, 520),
+  ...lineK(-6, 5, -7.2, 5, 520, 360), ...lineK(-7.2, 5, -12.5, 5, 360, 110), ...arcK(-12.5, 2.5, 2.5, 90, 270, 110, 80), ...lineK(-12.5, 0, -12, 0, 80, 80)];
 for (const id in NINE) NINE[id] = banked(NINE[id]());
-const LAYOUTS = { v3: { cp: layoutSpiralKeep(), glue: true }, f2: { cp: layoutSkiJump(), jump: true, jumpAt: [-200, 3500], landAt: [-1200, 3500] }, s3: { cp: layoutKnot() } };
+const LAYOUTS = { v3: { cp: layoutSpiralKeep(), glue: true },  s3: { cp: layoutKnot() } };
 // schansen over water (zoals in Crystal Crypt): rand en landingsplek, in spel-eenheden
 const NINE_JUMPS = { k1: [[-5200, 5200], [-5200, 4000]], p2: [[-3200, -6600], [-4400, -6600]], d2: [[-3000, 0], [-1800, 0]], f3: [[-600, -1300], [600, -1300]], g3: [[-600, -3500], [-1800, -3500]] };
-for (const id in NINE) LAYOUTS[id] = NINE_JUMPS[id] ? { cp: NINE[id], jump: true, kick: 0.3, jumpAt: NINE_JUMPS[id][0], landAt: NINE_JUMPS[id][1] } : { cp: NINE[id] };
+LAYOUTS.f2 = { cp: NINE.f2, jump: true, jumpAt: [-6000, 5000], landAt: [-7200, 5000] };   // de originele schans (kick 0.48)
+for (const id in NINE) if (id !== 'f2') LAYOUTS[id] = NINE_JUMPS[id] ? { cp: NINE[id], jump: true, kick: 0.3, jumpAt: NINE_JUMPS[id][0], landAt: NINE_JUMPS[id][1] } : { cp: NINE[id] };
 const TRACKS = [{ id: 't0', name: 'Test Track', cup: 0, hw: 150, cp: CP, jump: true }].concat(TRACK_DEFS.map(d =>
   LAYOUTS[d.id] ? Object.assign({}, d, { pts: undefined }, LAYOUTS[d.id]) : d.id === 'p3' ? Object.assign({}, d, { pts: FIG8_PTS }) : d));
 
@@ -1284,6 +1289,7 @@ function store() { try { localStorage.setItem(SAVE3, JSON.stringify(save)); } ca
 // spelstatus buiten de race: menu of race, en welke modus
 const G3 = { state: 'menu', mode: 'free' };
 // mode: 0 tijdrit, 1 cup, 2 online, 3 testbaan; track = 0..2 binnen de cup; bg = de baan die op de achtergrond ligt
+if (!save.f2big) { for (const k of Object.keys(save.rec)) if (k.startsWith('f2:')) { delete save.rec[k]; delete save.ghost[k]; } for (const k of Object.keys(save.medalT2 || {})) if (k.startsWith('f2:')) delete save.medalT2[k]; save.f2big = 1; try { localStorage.setItem(SAVE3, JSON.stringify(save)); } catch (e) {} }
 const ui = { screen: 'title', mode: 0, cup: 0, track: 0, bg: 1, char: save.char | 0, car: save.car | 0, cls: save.cls == null ? 1 : save.cls, rivals: [0, 1, 2, 3, 4], reelT: 0, reelN: 0 };
 let cupRun = null;
 // portretten (f0 tot f17 in art/sprites.js) voor menu en boordradio
