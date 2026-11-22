@@ -32,7 +32,7 @@ const STEP = 16;             // afstand tussen twee punten van het lint
 const LAPS = 3, SHIP_R = 22, HOVER = 5, SHIP_SIZE = 1.2;
 const WALL_H = 26, WALL_T = 10, ROAD_T = 16;
 // Versie van de 3D-versie, rechtsonder op het startscherm. Bij elke publicatie op de website eentje ophogen.
-const GAME_VERSION = '3D-27';
+const GAME_VERSION = '3D-28';
 const LOW_H = 1080;           // aantal beeldlijnen (zoals FINE in komeet.html); daarna zonder vervaging vergroot
 const GROUND_Y = -40;        // grond iets onder het laagste stuk weg
 
@@ -3346,16 +3346,22 @@ function drawHud(u, speed, runT) {
 
   // rechtsonder
   const kmh = Math.round(speed * 0.42);
-  text(String(kmh), W - pad - 62 * u, H - pad - 34 * u, 78 * u, P.boosting ? '#8ff' : '#fff', 'right', 900);
-  text('km/h', W - pad, H - pad - 34 * u, 20 * u, acc, 'right', 700);
-  const bw = 300 * u, bh = 14 * u, bx = W - pad - bw, by = H - pad - bh;
-  const segs = 20, segW = Math.max(3, Math.floor(bw / segs));
-  ctx.fillStyle = 'rgba(8,5,22,0.85)'; ctx.fillRect(Math.round(bx) - 2, Math.round(by) - 2, segW * segs + 3, Math.round(bh) + 4);
+  // boostmeter als oplopende schans: staafjes van links laag naar rechts hoog, ze vullen van links naar rechts
+  const segs = 26, segW = Math.max(4, Math.round(300 * u / segs)), bw = segW * segs, bx = Math.round(W - pad - bw), by = Math.round(H - pad);
+  const hMin = 10 * u, hMax = 74 * u, colH = i => Math.round(hMin + (hMax - hMin) * Math.pow((i + 1) / segs, 2.6));
+  const gap = Math.max(1, Math.round(segW / 4)), ol = Math.max(2, Math.round(3 * u));
+  ctx.fillStyle = 'rgba(8,5,22,0.88)';
+  for (let i = 0; i < segs; i++) ctx.fillRect(bx + i * segW - ol, by - colH(i) - ol, segW + 2 * ol, colH(i) + 2 * ol);
+  const pulse = P.boosting ? 0.5 + 0.5 * Math.sin(G.time * 30) : 0;
   for (let i = 0; i < segs; i++) {
-    ctx.fillStyle = P.energy > (i + 0.5) / segs ? (i < 6 ? '#ff4f8a' : i < 13 ? '#ffb833' : '#7dffb0') : '#2a2440';
-    ctx.fillRect(Math.round(bx) + i * segW, Math.round(by), segW - 1, Math.round(bh));
+    const full = P.energy > (i + 0.5) / segs, h = colH(i), x = bx + i * segW;
+    ctx.fillStyle = !full ? '#2a2440' : P.boosting ? (pulse > 0.5 ? '#bff8ff' : '#7de8ff') : i < segs * 0.3 ? '#ff4f8a' : i < segs * 0.65 ? '#ffb833' : '#7dffb0';
+    ctx.fillRect(x, by - h, segW - gap, h);
+    if (full) { ctx.fillStyle = 'rgba(255,255,255,0.35)'; ctx.fillRect(x, by - h, segW - gap, Math.max(1, Math.round(2 * u))); }   // glimlijntje bovenop
   }
-  text('BOOST', bx - 14 * u, by + 13 * u, 14 * u, P.energy > 0.02 ? '#fff' : '#ff4f8a', 'right', 700);
+  text('BOOST', bx, by - 16 * u, 14 * u, P.energy > 0.02 ? '#fff' : '#ff4f8a', 'left', 700);
+  text(String(kmh), W - pad - 62 * u, by - hMax - 16 * u, 66 * u, P.boosting ? '#8ff' : '#fff', 'right', 900);
+  text('km/h', W - pad, by - hMax - 16 * u, 20 * u, acc, 'right', 700);
   if (P.draft > 0.6 && G.state === 'race' && !G.paused) text('SLIPSTREAM', W / 2, H * 0.2, 18 * u, '#7de8ff', 'center', 800);
   if (P.onIce && G.state === 'race') text(LOOKS[T.index].names.ice, W / 2, H - pad - 8 * u, 26 * u, '#bfefff', 'center', 900);
   else if (P.onSlow && G.state === 'race') text(LOOKS[T.index].names.slow, W / 2, H - pad - 8 * u, 26 * u, '#ffcf8a', 'center', 900);
