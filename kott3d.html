@@ -32,8 +32,8 @@ const STEP = 16;             // afstand tussen twee punten van het lint
 const LAPS = 3, SHIP_R = 22, HOVER = 5, SHIP_SIZE = 1.2;
 const WALL_H = 26, WALL_T = 10, ROAD_T = 16;
 // Versie van de 3D-versie, rechtsonder op het startscherm. Bij elke publicatie op de website eentje ophogen.
-const GAME_VERSION = '3D-19';
-const LOW_H = 540;           // aantal beeldlijnen (zoals FINE in komeet.html); daarna zonder vervaging vergroot
+const GAME_VERSION = '3D-20';
+const LOW_H = 1080;           // aantal beeldlijnen (zoals FINE in komeet.html); daarna zonder vervaging vergroot
 const GROUND_Y = -40;        // grond iets onder het laagste stuk weg
 
 // ---------------------------------------------------------------- voertuigen (uit komeet.html)
@@ -2122,7 +2122,7 @@ if (!gl) { const m = document.getElementById('msg'); m.style.display = 'block'; 
 const hx = hud.getContext('2d');
 let W = 480, H = LOW_H;
 function resize() {
-  H = Math.max(300, Math.min(LOW_H, Math.round(innerHeight))); W = Math.round(H * innerWidth / innerHeight);
+  H = Math.max(300, Math.min(LOW_H, Math.round(innerHeight * (devicePixelRatio || 1)))); W = Math.round(H * innerWidth / innerHeight);
   cv.width = W; cv.height = H;
   // menu's en HUD op de echte schermresolutie: portretten en plaatjes houden hun details (het 3D-beeld blijft grof)
   hud.height = Math.min(1440, Math.round(innerHeight * (devicePixelRatio || 1)));
@@ -2548,7 +2548,8 @@ function texFrom(src, wrap) {
     if (info.dead) return;
     gl.bindTexture(gl.TEXTURE_2D, t);
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, img);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+    if (!wrap) gl.generateMipmap(gl.TEXTURE_2D);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, wrap ? gl.NEAREST : gl.NEAREST_MIPMAP_LINEAR);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, wrap || gl.CLAMP_TO_EDGE);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
@@ -2569,6 +2570,14 @@ const DECOR_BY_CUP = [null,
   [['nebulapillar', 460, 1], ['floatrock', 300, 2], ['startree', 380, 3], ['titanhead', 520, 0.4], ['stargate', 460, 0.5], ['orrery', 300, 1], ['moonshard', 260, 2], ['crystaldragon', 420, 0.4], ['guardian', 300, 1]]];
 const DECOR_KINDS = [['palm', 300, 7], ['parasol', 120, 2], ['beachA', 110, 1], ['beachB', 110, 1], ['flags', 190, 1], ['lifeguard', 260, 0.6],
   ['sandcastle', 70, 0.8], ['towels', 50, 0.6], ['surfer', 120, 0.6], ['crab', 40, 0.6], ['icecream', 150, 0.5], ['pierlamp', 200, 0.6]];
+// verhouding breedte/hoogte van een plaatje uit art/sprites.js, gelezen uit de kop van de png
+const aspectCache = {};
+function imgAspect(name) {
+  if (aspectCache[name]) return aspectCache[name];
+  let a = 1;
+  try { const b = atob(ART.obj[name].split(',')[1].slice(0, 32)); const u = i => (b.charCodeAt(i) << 24 >>> 0) + (b.charCodeAt(i + 1) << 16) + (b.charCodeAt(i + 2) << 8) + b.charCodeAt(i + 3); a = u(16) / u(20) || 1; } catch (e) {}
+  return (aspectCache[name] = a);
+}
 let rng = 7;
 const rnd = () => ((rng = (rng * 16807) % 2147483647) - 1) / 2147483646;
 function buildDecor() {
@@ -2578,10 +2587,17 @@ function buildDecor() {
     (groups[name] = groups[name] || []).push([x, y, z, h]);
   };
   const freeAt = (x, z, margin) => {
-    for (let j = 0; j < N; j += 3) {
+    for (let j = 0; j < N; j += 2) {
       const dx = P[j * 3] - x, dz = P[j * 3 + 2] - z, r = HW + WALL_T + Math.max(0, P[j * 3 + 1]) * 1.1 + margin;
       if (dx * dx + dz * dz < r * r) return false;
     }
+    return true;
+  };
+  // halve breedte van een plaatje in de wereld, en: staat iets met die halve breedte vrij van elk stuk weg (plus vangrail)?
+  const halfW = (k, h) => h * imgAspect(k) / 2;
+  const roadFree = (x, z, hw2) => {
+    const r = HW + WALL_T + hw2 + 8;
+    for (let j = 0; j < N; j++) { const dx = P[j * 3] - x, dz = P[j * 3 + 2] - z; if (dx * dx + dz * dz < r * r) return false; }
     return true;
   };
   rng = 7 + TR.idx * 131;
@@ -2604,13 +2620,15 @@ function buildDecor() {
       const i = Math.floor((((sv % L) + L) % L) / TR.step) % N;
       // geen decor vlak naast een wandrit: de wegrand staat daar hoog in de lucht
       if (TR.loop) for (let k2 = -50; k2 <= 50; k2 += 5) if (TR.loop[(i + k2 + N) % N]) return false;
-      const hr = norm([R[i][0], 0, R[i][2]]);
+      const hr = norm([R[i][0], 0, R[i][2]]), ohk = OBJ_H[k] || 200;
+      off = Math.max(off, HW + WALL_T + halfW(k, Array.isArray(ohk) ? ohk[0] : ohk) + 12);   // breed plaatje: verder van de rail
       const x = P[i * 3] + hr[0] * off * side, z = P[i * 3 + 2] + hr[2] * off * side;
       if (!clearOf(x, z, i, base + 30)) return false;
       // op de helling: de rand van de weg min de afstand tot de rand gedeeld door de helling
       const edgeY = P[i * 3 + 1] + R[i][1] * side * (HW + WALL_T) - ROAD_T;
       const y = isBridge[i] || TRACK_STYLE[TR.def.id] === 'skyway' ? GROUND_Y : Math.max(GROUND_Y, edgeY - Math.max(0, off - HW - WALL_T) / 1.1);
       const oh = OBJ_H[k] || 200;   // [hoogte, zweefhoogte] voor vliegende dingen
+      if (!roadFree(x, z, halfW(k, Array.isArray(oh) ? oh[0] : oh))) return false;
       add(k, x, y + (Array.isArray(oh) ? oh[1] : 0), z, Array.isArray(oh) ? oh[0] : oh);
       return true;
     };
@@ -2664,8 +2682,9 @@ function buildDecor() {
     for (let q = 0; q < cnt; q++) {
       const a = rnd() * 6.283, rr = row ? 0 : 40 + rnd() * 150, along = row ? (q - cnt / 2) * 150 : 0;
       const x = cx + Math.cos(a) * rr + tg[0] * along, z = cz + Math.sin(a) * rr + tg[2] * along;
-      if (!freeAt(x, z, 40)) continue;
-      add(kind[0], x, GROUND_Y, z, kind[1] * (0.82 + rnd() * 0.36));
+      const hh = kind[1] * (0.82 + rnd() * 0.36);
+      if (!freeAt(x, z, 20 + halfW(kind[0], hh)) || !roadFree(x, z, halfW(kind[0], hh))) continue;
+      add(kind[0], x, GROUND_Y, z, hh);
     }
   }
   // publiek bij de start, en een paar grote herkenningspunten
