@@ -33,7 +33,7 @@ const LAPS = 3, SHIP_R = 22, HOVER = 5, SHIP_SIZE = 1.2;
 const WALL_H = 26, WALL_T = 10, ROAD_T = 16;
 const BERM = 420;   // vlakke berm naast de vangrail (op wegniveau) waar het decor op staat; daarachter de helling
 // Versie van de 3D-versie, rechtsonder op het startscherm. Bij elke publicatie op de website eentje ophogen.
-const GAME_VERSION = '3D-49';
+const GAME_VERSION = '3D-50';
 const LOW_H = 1080;           // aantal beeldlijnen (zoals FINE in komeet.html); daarna zonder vervaging vergroot
 const GROUND_Y = -40;        // grond iets onder het laagste stuk weg
 
@@ -4197,6 +4197,22 @@ function buildDistMap() {
 }
 
 // een baan laden: lint, decor en lucht opnieuw opbouwen
+// boostpads waar je toch altijd door de lucht vliegt (na een schans of top) weghalen: de computer rijdt een ronde
+// normaal en een ronde met steeds boost, en houdt bij waar hij los van de weg is (per baan een keer, daarna bewaard)
+const airCache = {};
+function dropAirPads() {
+  let air = airCache[TR.def.id];
+  if (!air) {
+    air = new Uint8Array(TR.N); const keepT = S.raceTime;
+    for (const boostAll of [false, true]) {
+      const e = newEnt(CARS[1], CARS[1].pal, true, TR.len - 70, 0, 1.02); e.item = null; let n = 0;
+      while (e.progress < TR.len * 1.02 && n < 200 / DT) { S.raceTime = n * DT; e.ev = {}; aiInput(e, [e]); if (boostAll) { e.in.boost = true; e.energy = 1; } stepEnt(e); n++;
+        if (e.air) air[Math.floor((((e.s % TR.len) + TR.len) % TR.len) / TR.step) % TR.N] = 1; }
+    }
+    S.raceTime = keepT; airCache[TR.def.id] = air;
+  }
+  TR.pads = TR.pads.filter(p => { const i = Math.floor((((p.s % TR.len) + TR.len) % TR.len) / TR.step); for (let k = -3; k <= 3; k++) if (air[(i + k + TR.N) % TR.N]) return false; return true; });
+}
 function loadTrack(idx, intro) {
   idx = 1 + ((idx - 1) % 24 + 24) % 24;   // 0 was de testbaan, die is eruit
   buildTrack(TRACKS[idx], idx);
@@ -4210,7 +4226,7 @@ function loadTrack(idx, intro) {
   if (skyTex) { skyTex.dead = true; gl.deleteTexture(skyTex.tex); }
   decor = []; mapPts = null;
   TR.haz = []; TR.pads = [];
-  if (TR.idx > 0) placeHaz3d();
+  if (TR.idx > 0) { placeHaz3d(); dropAirPads(); }
   buildRoadMesh(); buildDecor(); buildSky();
   startRace(intro);
 }
