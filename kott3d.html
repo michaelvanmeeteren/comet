@@ -33,7 +33,7 @@ const LAPS = 3, SHIP_R = 22, HOVER = 5, SHIP_SIZE = 1.2;
 const WALL_H = 26, WALL_T = 10, ROAD_T = 16;
 const BERM = 420;   // vlakke berm naast de vangrail (op wegniveau) waar het decor op staat; daarachter de helling
 // Versie van de 3D-versie, rechtsonder op het startscherm. Bij elke publicatie op de website eentje ophogen.
-const GAME_VERSION = '3D-64';
+const GAME_VERSION = '3D-65';
 const LOW_H = 1080;           // aantal beeldlijnen (zoals FINE in komeet.html); daarna zonder vervaging vergroot
 const GROUND_Y = -40;        // grond iets onder het laagste stuk weg
 
@@ -1563,6 +1563,7 @@ function tick() {
     if (S.t >= 3) { S.phase = 'race'; S.t = 0; } else return;
   }
   S.raceTime += DT;
+  if (CER) { CER.t += DT; return; }
   for (const e of S.ents) {
     e.ev = {};
     if (e.finished || (e === S.player && S.phase === 'done')) { e.in = { steer: 0, acc: false, brk: false, boost: false, drift: false }; aiInput(e, S.ents);
@@ -1683,12 +1684,23 @@ function cupStandings() {
   return rows.sort((a, b) => b.pts - a.pts || a.k - b.k);
 }
 const cupTrack = (cup, race) => 1 + cup * 3 + race;
+// kroningsceremonie: de top drie op een podium op de baan, vlak na de finish
+let CER = null, LAST_VP = null;
+const CER_LEN = 11, CER_STEPS = [[0, 92], [150, 62], [-150, 40]];   // [zijwaarts, hoogte] voor goud, zilver, brons
+function startCeremony() {
+  const rows = cupStandings(), entOf = r => r.k === 0 ? S.player : S.ents.find(e => e.slot === r.k - 1);
+  const sPod = 520, top = rows.slice(0, 3).map(entOf);
+  top.forEach((e, k) => { if (!e) return; Object.assign(e, { s: sPod, progress: sPod, d: CER_STEPS[k][0], z: CER_STEPS[k][1] + 2, psi: Math.PI, vT: 0, vR: 0, vz: 0, air: false, boosting: false, steer: 0, spinT: 0 }); e.in = { steer: 0, acc: false, brk: false, boost: false, drift: false }; });
+  S.ents.filter(e => !top.includes(e)).forEach((e, k) => Object.assign(e, { s: sPod - 420, progress: sPod - 420, d: (k - 1) * 120, z: 0, psi: Math.PI, vT: 0, vR: 0, air: false, boosting: false, steer: 0 }));
+  CER = { t: 0, s: sPod, top, rows };
+  [523, 659, 784, 1047, 784, 1047].forEach((f, i) => setTimeout(() => beep(f, 0.3, 'square', 0.07), 300 + i * 170));
+}
 function startCup() {
   cupRun = { cup: ui.cup, race: 0, rivals: ui.rivals.slice(), points: [0, 0, 0, 0, 0, 0], done: false };
   G3.state = 'race'; G3.mode = 'cup'; loadTrack(cupTrack(ui.cup, 0), true);
 }
 function goRace(mode, track) { G3.state = 'race'; G3.mode = mode; S.freeRivals = null; loadTrack(track, true); }
-function toMenu(screen) { G3.state = 'menu'; ui.screen = screen || 'title'; S.userPause = false; cupRun = null; S.freeRivals = null; loadTrack(ui.bg); }
+function toMenu(screen) { CER = null; G3.state = 'menu'; ui.screen = screen || 'title'; S.userPause = false; cupRun = null; S.freeRivals = null; loadTrack(ui.bg); }
 function raceKey(code) {
   if (S.phase === 'intro') { if (code === 'Enter' || code === 'Space' || code === 'Escape') { S.phase = 'count'; S.t = 0; camInit = false; } return; }
   if (code === 'KeyO') { optOpen(); return; }
@@ -1708,8 +1720,9 @@ function raceKey(code) {
   if (S.phase === 'done' && S.t > 1 && (code === 'Enter' || code === 'Space')) {
     if (G3.mode === 'cup') {
       if (!cupRun.done) { cupRun.race++; loadTrack(cupTrack(cupRun.cup, cupRun.race), true); }
-      else if (!S.final) S.final = true;
-      else { S.final = false; toMenu(); }
+      else if (!S.final) { S.final = true; startCeremony(); }
+      else if (CER && CER.t < CER_LEN - 1) CER.t = CER_LEN - 1;   // ceremonie overslaan
+      else { S.final = false; CER = null; toMenu(); }
     } else if (G3.mode === 'online') { G3.state = 'menu'; ui.screen = 'online'; loadTrack(ui.bg); }
     else startRace();
     return;
@@ -3203,7 +3216,19 @@ function entFrame(e, o) {
 // ---------------------------------------------------------------- camera
 const cam = { pos: [0, 0, 0], f: [0, 0, 1], u: [0, 1, 0] };
 let camInit = false;
+function ceremonyCam(dt) {
+  const t = CER.t, q = at(CER.s, {}), T = [q.tx, q.ty, q.tz], R = [q.rx, q.ry, q.rz], U = [q.ux, q.uy, q.uz], P0 = [q.px, q.py, q.pz];
+  const at3 = (f, r, u) => add(add(add(P0, scale(T, f)), scale(R, r)), scale(U, u)), ease = x => { x = Math.max(0, Math.min(1, x)); return x * x * (3 - 2 * x); };
+  let pos, look;
+  if (t < 3) { const k = ease(t / 3); pos = at3(2600 - 1950 * k, 0, 760 - 580 * k); look = at3(0, 0, 70); }
+  else if (t < 7) { const a = -0.32 + (t - 3) / 4 * 0.64; pos = at3(620 * Math.cos(a), 620 * Math.sin(a), 210); look = at3(0, 0, 80); }   // kleine zwaai, boven de weg (anders staat decor ervoor)
+  else if (t < 9.5) { const k = ease((t - 7) / 1.2); const w = entFrame(CER.top[0], {}).pos; pos = add(scale(at3(620 * Math.cos(0.32), 620 * Math.sin(0.32), 210), 1 - k), scale(at3(330, 40, 170), k)); look = add(scale(at3(0, 0, 80), 1 - k), scale(add(w, scale(U, 110)), k)); }
+  else { const k = ease((t - 9.5) / 1.2); pos = add(scale(at3(330, 40, 170), 1 - k), scale(at3(760, -60, 230), k)); look = at3(0, 0, 90); }
+  const kf = t < 0.05 ? 1 : 1 - Math.exp(-dt * 5);
+  cam.pos = cam.pos ? add(cam.pos, scale(sub(pos, cam.pos), kf)) : pos; cam.look = cam.look ? add(cam.look, scale(sub(look, cam.look), kf)) : look; cam.u = U;
+}
 function updateCamera(dt) {
+  if (CER && G3.state !== 'menu') { ceremonyCam(dt); return; }
   const fr = entFrame(S.player, {});
   const kf = 1 - Math.exp(-dt * 5), ku = 1 - Math.exp(-dt * 2.2);
   // kijk vooral langs de baan, een beetje mee met de neus van het schip
@@ -3255,7 +3280,7 @@ function render(dt) {
   updateCamera(dt);
   const asp = W / H, fov = (62 + 7 * (G3.state === 'menu' ? 0 : cam.bk || 0)) * Math.PI / 180;   // bij boosten iets wijder
   const proj = perspective(fov, asp, 4, 40000), view = lookAt(cam.pos, cam.look, cam.u);
-  const VP = mul(proj, view.m);
+  const VP = mul(proj, view.m); LAST_VP = VP;
   gl.viewport(0, 0, W, H);
   if (TR.def && TR.def.cup === 8) FOG = [0.04, 0.24, 0.38]; else if (TR.def && TR.def.cup === 10) FOG = [0.16, 0.2, 0.18];
   gl.clearColor(FOG[0], FOG[1], FOG[2], 1);
@@ -3480,6 +3505,27 @@ function drawDynamic() {
       }
     }
   }
+  if (CER) {
+    const sp = CER.s, box = (s0, s1, d0, d1, h, top, side) => {
+      pushQuad(out, wp(s0, d0, h), wp(s1, d0, h), wp(s1, d1, h), wp(s0, d1, h), top);
+      pushQuad(out, wp(s1, d0, 0), wp(s1, d1, 0), wp(s1, d1, h), wp(s1, d0, h), side);
+      pushQuad(out, wp(s0, d0, 0), wp(s0, d1, 0), wp(s0, d1, h), wp(s0, d0, h), side);
+      for (const d of [d0, d1]) pushQuad(out, wp(s0, d, 0), wp(s1, d, 0), wp(s1, d, h), wp(s0, d, h), side);
+    };
+    const COLS = [[[1, 0.84, 0.25], [0.85, 0.62, 0.1]], [[0.86, 0.88, 0.92], [0.62, 0.65, 0.72]], [[0.85, 0.55, 0.3], [0.62, 0.36, 0.18]]];
+    CER_STEPS.forEach(([d, h], k) => box(sp - 55, sp + 55, d - 72, d + 72, h, COLS[k][0], COLS[k][1]));
+    for (let q = 0; q < 12; q++) pushQuad(out, wp(sp + 60 + q * 50, -70, 1.4), wp(sp + 100 + q * 50, -70, 1.4), wp(sp + 100 + q * 50, 70, 1.4), wp(sp + 60 + q * 50, 70, 1.4), q & 1 ? [0.75, 0.08, 0.12] : [0.85, 0.12, 0.16]);   // rode loper
+    const ct = CER.t;
+    if (ct > 2.5) for (let i = 0; i < 90; i++) {   // confetti
+      const p = (ct * 0.3 + i * 0.137) % 1, col = [[1, 0.3, 0.4], [1, 0.85, 0.2], [0.3, 0.8, 1], [0.5, 1, 0.5], [0.9, 0.5, 1]][i % 5];
+      cube(sp - 220 + (i * 53) % 440 + Math.sin(ct * 2 + i) * 15, -300 + (i * 97) % 600, 40 + 560 * (1 - p), 4, ct * 4 + i, [col]);
+    }
+    [5, 6.1, 7.3, 8.5, 9.6].forEach((tb, b) => {   // vuurwerk
+      const a = ct - tb; if (a < 0 || a > 1.3) return;
+      const col = [[1, 0.4, 0.3], [0.4, 0.9, 1], [1, 0.9, 0.3], [0.7, 0.5, 1], [0.5, 1, 0.6]][b];
+      for (let i = 0; i < 26; i++) { const ang = i / 26 * 6.283, r = a * 200; cube(sp - 650, [-320, 260, -60, 380, 80][b] + Math.cos(ang) * r, 560 + b * 30 + Math.sin(ang) * r - a * a * 90, 7 * (1 - a / 1.3) + 1, i, [col]); }
+    });
+  }
   // rookwolkjes van het driften: oud spul weg, de rest groeit en stijgt
   FX.smoke = (FX.smoke || []).filter(p => t - p.t < 0.7 && t >= p.t);
   for (const p of FX.smoke) { const a = (t - p.t) / 0.7; cube(p.s, p.d, p.h + a * 18, 3 + a * 7, p.r, [[0.85 - a * 0.25, 0.86 - a * 0.25, 0.9 - a * 0.25]]); }
@@ -3530,10 +3576,13 @@ const OUT = { save }, TRACKS_OUTER = TRACKS;
 const KUI = (() => {
   let W = 0, H = 0;
   const ctx = hx;
+  // alles wat de HUD tekent kan in een keer doorzichtiger: globalAlpha wordt met HUD_MUL vermenigvuldigd
+  let HUD_MUL = 1; { const ga = Object.getOwnPropertyDescriptor(CanvasRenderingContext2D.prototype, 'globalAlpha'); Object.defineProperty(ctx, 'globalAlpha', { get() { return this.__ga == null ? 1 : this.__ga; }, set(v) { this.__ga = v; ga.set.call(this, v * HUD_MUL); } }); }
   const MM = 190, WORLD = 8192, CHAR_COLS = 6, SHOT_T = 1.5, INTRO_SPOTS = [];
   const SPR_BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5].map(v => (v + 0.5) / 16);
   const ART_OBJ = {};
-  for (const k of ['logo', 'trophy', 'e0', 'e1', 'e2', 'e3', 'e4', 'e5', 'e6', 'e7', 'e8', 'e9', 'e10', 'e11', 'trophygold', 'trophysilver', 'trophybronze', 'podium', 'confetti']) if (ART.obj[k]) { const im = new Image(); im.onload = () => { ART_OBJ[k] = im; }; im.src = ART.obj[k]; }
+  const proj3 = p => { const m = LAST_VP; if (!m) return null; const x = m[0] * p[0] + m[4] * p[1] + m[8] * p[2] + m[12], y = m[1] * p[0] + m[5] * p[1] + m[9] * p[2] + m[13], w = m[3] * p[0] + m[7] * p[1] + m[11] * p[2] + m[15]; return w > 1 ? [(x / w * 0.5 + 0.5) * W, (1 - (y / w * 0.5 + 0.5)) * H, w] : null; };
+  for (const k of ['logo', 'trophy', 'e0', 'e1', 'e2', 'e3', 'e4', 'e5', 'e6', 'e7', 'e8', 'e9', 'e10', 'e11', 'trophygold', 'trophysilver', 'trophybronze', 'podium', 'confetti', 'crown']) if (ART.obj[k]) { const im = new Image(); im.onload = () => { ART_OBJ[k] = im; }; im.src = ART.obj[k]; }
   const TRACKS_ALL = TRACKS_OUTER, TRACKS = TRACKS_ALL.slice(1);
   const LOOKS = TRACKS.map(t => ({ names: THEMES[CUPS[t.cup].theme].names }));
   const roadWx = () => null;
@@ -3755,6 +3804,7 @@ function drawIntro(u) {
   if (G.mode !== 'online' && Math.floor(G.time * 2) % 2) text('ENTER: SKIP', W - 40 * u, H - bar / 2 + 7 * u, 16 * u, '#cfd3ff', 'right', 700);
 }
 function drawHud(u, speed, runT) {
+  { const pf = G.player && G.player.finished ? Math.max(0, Math.min(1, 1 - (S.raceTime - G.player.finishT) / 0.9)) : 1; HUD_MUL = CER ? 0 : pf; ctx.globalAlpha = 1; }   // race-HUD fadet weg na de finish
   const pad = 22 * u, P = G.player, th = THEMES[CUPS[T.cup].theme], acc = '#ffb833';
   const rec = record(), tt = G.mode === 'tt';
   // linksboven
@@ -3864,6 +3914,7 @@ function drawHud(u, speed, runT) {
     ctx.globalAlpha = 1;
   }
 
+  HUD_MUL = 1; ctx.globalAlpha = 1;
   if (G.mode === 'online') netDrawFeed(u);
   if (G.state === 'finished') { if (tt) drawTTResult(u); else if (G.mode === 'cup') drawCupResult(u); else drawOnlineResult(u); }
 
@@ -3896,8 +3947,45 @@ function drawTTResult(u) {
   if (!G.newRecord && rec) text('Record ' + fmt(rec.total) + '  (+' + (tot - rec.total).toFixed(3) + ')', W / 2, py + 330 * u, 15 * u, '#cfd3ff', 'center', 600, false);
   text('Enter: retry      N: next track      Esc: track select', W / 2, py + 360 * u, 16 * u, '#fff', 'center', 700, false);
 }
+function drawCeremony(u) {
+  const t = CER.t, ease = x => { x = Math.max(0, Math.min(1, x)); return x * x * (3 - 2 * x); };
+  // portretten boven de drie op het podium; de winnaar krijgt de kroon
+  CER.top.forEach((e, k) => {
+    if (!e) return; const fr = entFrame(e, {}), p = proj3(add(fr.pos, scale(fr.u, 95))); if (!p) return;
+    const sc = Math.max(0.5, Math.min(2.6, 1500 / p[2])), face = e === S.player ? ui.char : e.rival;
+    drawFace(face, p[0], p[1] + Math.sin(t * 3 + k) * 3 * u, sc);
+    if (k === 0 && ART_OBJ.crown && t > 7.3) {
+      const cr = ART_OBJ.crown, cw = 26 * sc * H / 360, ch = cw * cr.height / cr.width, k2 = ease((t - 7.3) / 1.4);
+      const cy = p[1] - 12 * sc * H / 360 - ch - (1 - k2) * 260 * u + Math.sin(t * 2.5) * 2 * u;
+      ctx.imageSmoothingEnabled = false; ctx.drawImage(cr, Math.round(p[0] - cw / 2), Math.round(cy), Math.round(cw), Math.round(ch));
+      if (k2 >= 1 && Math.sin(t * 6) > 0.6) { ctx.fillStyle = '#fff'; ctx.fillRect(Math.round(p[0] + cw * 0.3), Math.round(cy + ch * 0.2), Math.round(3 * u), Math.round(3 * u)); }
+    }
+  });
+  // tekst bovenin
+  const win = CER.rows[0], youWon = win.k === 0, a1 = ease((t - 1) / 0.8);
+  ctx.globalAlpha = a1;
+  text(CUPS[ui.cup].name + ' - ' + CLASSES[ui.cls].name, W / 2, 70 * u, 22 * u, '#ffb833', 'center', 800);
+  if (t > 8.6) text(youWon ? 'YOU ARE THE KING OF THE TRACK!' : win.name + ' IS THE KING OF THE TRACK!', W / 2, 120 * u, 40 * u, '#ffd24a', 'center', 900);
+  else text('THE WINNERS', W / 2, 120 * u, 40 * u, '#fff', 'center', 900);
+  ctx.globalAlpha = 1;
+  // strakke eindstand onderin, als de camera terug is
+  if (t > CER_LEN - 1.5) {
+    const a2 = ease((t - (CER_LEN - 1.5)) / 0.8), pw = Math.min(W - 40 * u, 760 * u), ph = 170 * u, px = (W - pw) / 2, py = H - ph - 28 * u + (1 - a2) * 60 * u;
+    ctx.globalAlpha = a2; panel(px, py, pw, ph, 0.9);
+    CER.rows.forEach((r, i) => {
+      const col = i % 2, row = Math.floor(i / 2), x = px + 30 * u + col * pw / 2, y = py + (44 + row * 40) * u, me = r.k === 0;
+      text(String(i + 1), x, y, 18 * u, i < 3 ? MEDAL_COL[3 - i] : '#ffb833', 'left', 900);
+      drawFace(r.face, x + 46 * u, y - 7 * u, 0.6);
+      text(r.name, x + 74 * u, y, 17 * u, me ? '#ffb833' : '#fff', 'left', 700, false);
+      text(r.pts + ' PT', x + pw / 2 - 60 * u, y, 17 * u, '#fff', 'right', 700, false);
+    });
+    text('Enter: back to menu', W / 2, py + ph - 14 * u, 14 * u, '#cfd3ff', 'center', 600, false);
+    ctx.globalAlpha = 1;
+  } else text('Enter: skip', W - 20 * u, H - 18 * u, 13 * u, '#cfd3ff', 'right', 600, false);
+}
 function drawCupResult(u) {
   const fin = G.state2 === 'final';
+  if (fin && CER) { drawCeremony(u); return; }
   const pw = 560 * u, ph = 560 * u, px = (W - pw) / 2, py = H * 0.06;
   panel(px, py, pw, ph, 0.88);
   let rows, quote = null;
