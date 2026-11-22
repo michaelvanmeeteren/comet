@@ -32,7 +32,7 @@ const STEP = 16;             // afstand tussen twee punten van het lint
 const LAPS = 3, SHIP_R = 22, HOVER = 5, SHIP_SIZE = 1.2;
 const WALL_H = 26, WALL_T = 10, ROAD_T = 16;
 // Versie van de 3D-versie, rechtsonder op het startscherm. Bij elke publicatie op de website eentje ophogen.
-const GAME_VERSION = '3D-34';
+const GAME_VERSION = '3D-35';
 const LOW_H = 1080;           // aantal beeldlijnen (zoals FINE in komeet.html); daarna zonder vervaging vergroot
 const GROUND_Y = -40;        // grond iets onder het laagste stuk weg
 
@@ -458,7 +458,7 @@ function banked(pts) { const n = pts.length; return pts.map((p, i) => { const a 
 const NINE = {
   // Palm Beach: S langs het strand, om de baai de klif op, over de kaap met een lus om de punt, en langs de rotsen omlaag
   k1: () => [...swayK(-3.8, 4, 0, 600, 1, 7, 60), ...arcK(4, 2.2, 2.2, -90, 90, 60, 420), ...lineK(4, 4.4, -1, 4.4, 420, 440), ...arcK(-1, 5.8, 1.4, -90, -180, 440, 440),
-    ...lineK(-2.4, 5.8, -2.4, 7, 440, 440), ...arcK(-3.8, 7, 1.4, 0, 180, 440, 400), ...lineK(-5.2, 7, -5.2, 1.4, 400, 70), ...arcK(-3.8, 1.4, 1.4, 180, 270, 70, 60)],
+    ...lineK(-2.4, 5.8, -2.4, 7, 440, 440), ...arcK(-3.8, 7, 1.4, 0, 180, 440, 400), ...lineK(-5.2, 7, -5.2, 6.2, 400, 400), ...lineK(-5.2, 6.2, -5.2, 5.2, 400, 500), ...lineK(-5.2, 5.2, -5.2, 4.0, 500, 330), ...lineK(-5.2, 4.0, -5.2, 1.4, 330, 70), ...arcK(-3.8, 1.4, 1.4, 180, 270, 70, 60)],
   // Night Harbour: langs de kade en twee keer een pier op en af (de tweede over een ophaalbrug), terug langs de pakhuizen
   k2: () => [...lineK(-6, 0, -4.1, 0, 40, 40), ...arcK(-4.1, 1.1, 1.1, -90, 0, 40, 40), ...lineK(-3, 1.1, -3, 4.5, 40, 60), ...arcK(-1.9, 4.5, 1.1, 180, 0, 60, 60),
     ...lineK(-0.8, 4.5, -0.8, 1.1, 60, 40), ...arcK(0.3, 1.1, 1.1, 180, 270, 40, 40), ...lineK(0.3, 0, 0.9, 0, 40, 40), ...arcK(0.9, 1.1, 1.1, -90, 0, 40, 40),
@@ -469,10 +469,10 @@ const NINE = {
     ...lineK(2, 4, -7, 4, 660, 150), ...arcK(-7, 2, 2, 90, 270, 150, 120)],
   // Bamboo Rain: drie haarspelden de berghelling op, over de kam, en in een lange afdaling achterom terug
   p2: () => [...lineK(-6, 0, 0, 0, 60, 220), ...arcK(0, -1.1, 1.1, 90, -90, 220, 300), ...lineK(0, -2.2, -5, -2.2, 300, 480), ...arcK(-5, -3.3, 1.1, 90, 270, 480, 560),
-    ...lineK(-5, -4.4, 0, -4.4, 560, 740), ...arcK(0, -5.5, 1.1, 90, -90, 740, 800), ...lineK(0, -6.6, -6.5, -6.6, 800, 800), ...arcK(-6.5, -4.6, 2, -90, -180, 800, 700),
-    ...lineK(-8.5, -4.6, -8.5, -2.5, 700, 420), ...arcK(-6, -2.5, 2.5, 180, 90, 420, 60)],
+    ...lineK(-5, -4.4, 0, -4.4, 560, 740), ...arcK(0, -5.5, 1.1, 90, -90, 740, 800), ...lineK(0, -6.6, -2.2, -6.6, 800, 800), ...lineK(-2.2, -6.6, -3.2, -6.6, 800, 900), ...lineK(-3.2, -6.6, -4.4, -6.6, 900, 730), ...lineK(-4.4, -6.6, -6.5, -6.6, 730, 700), ...arcK(-6.5, -4.6, 2, -90, -180, 700, 620),
+    ...lineK(-8.5, -4.6, -8.5, -2.5, 620, 420), ...arcK(-6, -2.5, 2.5, 180, 90, 420, 60)],
   // Caravan Bazaar: lange karavaanweg over de duinen, dan de stad in: korte straten met haakse bochten
-  d2: () => [...lineK(-6.5, 0, -3, 0, 80, 150), ...lineK(-3, 0, 0.5, 0, 150, 90), ...lineK(0.5, 0, 2, 0, 90, 100), ...arcK(2, 1.5, 1.5, -90, 0, 100, 140), ...lineK(3.5, 1.5, 3.5, 3.5, 140, 260),
+  d2: () => [...lineK(-6.5, 0, -4, 0, 80, 100), ...lineK(-4, 0, -3, 0, 100, 200), ...lineK(-3, 0, -1.8, 0, 200, 60), ...lineK(-1.8, 0, 0.5, 0, 60, 90), ...lineK(0.5, 0, 2, 0, 90, 100), ...arcK(2, 1.5, 1.5, -90, 0, 100, 140), ...lineK(3.5, 1.5, 3.5, 3.5, 140, 260),
     ...arcK(2.4, 3.5, 1.1, 0, 90, 260, 260), ...lineK(2.4, 4.6, 1, 4.6, 260, 260), ...arcK(1, 5.7, 1.1, -90, -180, 260, 260), ...lineK(-0.1, 5.7, -0.1, 6.7, 260, 260),
     ...arcK(-1.2, 6.7, 1.1, 0, 90, 260, 260), ...lineK(-1.2, 7.8, -3, 7.8, 260, 260), ...arcK(-3, 6.7, 1.1, 90, 180, 260, 260), ...lineK(-4.1, 6.7, -4.1, 5.5, 260, 260),
     ...arcK(-5.2, 5.5, 1.1, 0, -90, 260, 260), ...lineK(-5.2, 4.4, -6.5, 4.4, 260, 220), ...arcK(-6.5, 3.3, 1.1, 90, 180, 220, 180), ...lineK(-7.6, 3.3, -7.6, 1.1, 180, 90),
@@ -486,17 +486,19 @@ const NINE = {
     return [...lineK(-7, -4.2, 0, -4.2, 60, 60), ...sp, ...arcK(-2.8, 0, 1.4, 0, -90, 620, 640), ...lineK(-2.8, -1.4, -4.6, -1.4, 640, 600), ...lineK(-4.6, -1.4, -7, -1.4, 600, 300),
       ...arcK(-7, -2.8, 1.4, 90, 270, 300, 60)]; },
   // Frozen Throne: spiraal de eerste ijstoren op, brug over het dal, spiraal de troontoren af, en langs de gletsjer terug
-  f3: () => [...lineK(-4.3, 2.9, -4.3, 0, 80, 80), ...arcK(-3, 0, 1.3, 180, 630, 80, 620), ...lineK(-3, -1.3, 3, -1.3, 620, 620), ...arcK(3, 0, 1.3, 270, 720, 620, 80),
+  f3: () => [...lineK(-4.3, 2.9, -4.3, 0, 80, 80), ...arcK(-3, 0, 1.3, 180, 630, 80, 620), ...lineK(-3, -1.3, -1.6, -1.3, 620, 620), ...lineK(-1.6, -1.3, -0.6, -1.3, 620, 720), ...lineK(-0.6, -1.3, 0.6, -1.3, 720, 560), ...lineK(0.6, -1.3, 3, -1.3, 560, 540), ...arcK(3, 0, 1.3, 270, 720, 540, 80),
     ...lineK(4.3, 0, 4.3, 2.9, 80, 80), ...arcK(3.2, 2.9, 1.1, 0, 90, 80, 80), ...lineK(3.2, 4, -3.2, 4, 80, 80), ...arcK(-3.2, 2.9, 1.1, 90, 180, 80, 80)],
   // Big Bang: een lus die over het lange stuk gaat, hoog over de top, en een duikvlucht eronderdoor
   g3: () => [...lineK(-6, 0, -4.5, 0, 420, 520), ...lineK(-4.5, 0, -3, 0, 520, 500), ...lineK(-3, 0, 4, 0, 500, 360), ...arcK(4, 1.5, 1.5, -90, 180, 360, 700), ...lineK(2.5, 1.5, 2.5, -2, 700, 700),
-    ...arcK(1, -2, 1.5, 0, -90, 700, 700), ...lineK(1, -3.5, -3, -3.5, 700, 680), ...arcK(-3, -2, 1.5, -90, -180, 680, 300), ...lineK(-4.5, -2, -4.5, 2, 300, 40),
+    ...arcK(1, -2, 1.5, 0, -90, 700, 700), ...lineK(1, -3.5, 0.4, -3.5, 700, 700), ...lineK(0.4, -3.5, -0.6, -3.5, 700, 800), ...lineK(-0.6, -3.5, -1.8, -3.5, 800, 630), ...lineK(-1.8, -3.5, -3, -3.5, 630, 560), ...arcK(-3, -2, 1.5, -90, -180, 560, 300), ...lineK(-4.5, -2, -4.5, 2, 300, 40),
     ...arcK(-3, 2, 1.5, 180, 90, 40, 40), ...lineK(-3, 3.5, 0, 3.5, 40, 40), ...arcK(0, 5, 1.5, -90, 90, 40, 40), ...lineK(0, 6.5, -6, 6.5, 40, 40), ...arcK(-6, 5, 1.5, 90, 180, 40, 40),
     ...lineK(-7.5, 5, -7.5, 1.5, 40, 360), ...arcK(-6, 1.5, 1.5, 180, 270, 360, 420)]
 };
 for (const id in NINE) NINE[id] = banked(NINE[id]());
 const LAYOUTS = { v3: { cp: layoutSpiralKeep(), glue: true }, f2: { cp: layoutSkiJump(), jump: true, jumpAt: [-200, 3500], landAt: [-1200, 3500] }, s3: { cp: layoutKnot() } };
-for (const id in NINE) LAYOUTS[id] = { cp: NINE[id] };
+// schansen over water (zoals in Crystal Crypt): rand en landingsplek, in spel-eenheden
+const NINE_JUMPS = { k1: [[-5200, 5200], [-5200, 4000]], p2: [[-3200, -6600], [-4400, -6600]], d2: [[-3000, 0], [-1800, 0]], f3: [[-600, -1300], [600, -1300]], g3: [[-600, -3500], [-1800, -3500]] };
+for (const id in NINE) LAYOUTS[id] = NINE_JUMPS[id] ? { cp: NINE[id], jump: true, kick: 0.3, jumpAt: NINE_JUMPS[id][0], landAt: NINE_JUMPS[id][1] } : { cp: NINE[id] };
 const TRACKS = [{ id: 't0', name: 'Test Track', cup: 0, hw: 150, cp: CP, jump: true }].concat(TRACK_DEFS.map(d =>
   LAYOUTS[d.id] ? Object.assign({}, d, { pts: undefined }, LAYOUTS[d.id]) : d.id === 'p3' ? Object.assign({}, d, { pts: FIG8_PTS }) : d));
 
@@ -850,7 +852,7 @@ const JUMP_AT = [2300, 3600], LAND_AT = [2300, 4500], RAMP_L = 130, RAMP_H = 30;
 function gapPos(s) { let u = ((s - TR.lipS) % TR.len + TR.len) % TR.len; if (u > TR.len / 2) u -= TR.len; return u; }
 function driftLevel(t) { return t > 1.6 ? 3 : t > 1.0 ? 2 : t > 0.5 ? 1 : 0; }
 function stepEnt(e) {
-  const c = e.car, k = e.skill * (S.mul || 1), inp = e.in;
+  const c = e.car, k = e.skill * (e.rb || 1) * (S.mul || 1), inp = e.in;
   at(e.s, Q);
   e.steer += (inp.steer - e.steer) * Math.min(1, DT * 9);
   const air = e.air;
@@ -930,7 +932,7 @@ function stepEnt(e) {
     else if (g0 <= 0 && g1 > 0 && g1 < TR.gapL) {
       // de sprong rekent met echte hoogte: de weg aan de overkant ligt lager
       e.air = true; e.gapFly = true; e.airT = 0; e.ev.jump = 1; e.z = RAMP_H;
-      e.flyY = Q.py + RAMP_H; e.flyVy = Math.max(0, e.vT) * (Q.ty + 0.48); e.vz = 0;
+      e.flyY = Q.py + RAMP_H; e.flyVy = Math.max(0, e.vT) * (Q.ty + (TR.def.kick || 0.48)); e.vz = 0;
     }
     else e.z = 0;
   }
@@ -938,7 +940,8 @@ function stepEnt(e) {
   e.speed = Math.hypot(e.vT, e.vR);
 
   // loskomen bij een top, landen
-  if (!e.air && N < 0) { e.air = true; e.vz = 0; e.airT = 0; }
+  // op de aanloop naar de schansrand niet loskomen op de top ervoor: anders mis je de rand en val je in het water
+  if (!e.air && N < 0 && !(TR.def.jump && g1 > -RAMP_L - 500 && g1 <= 0)) { e.air = true; e.vz = 0; e.airT = 0; }
   if (e.air) {
     if (e.gapFly) {
       e.flyVy -= GRAV * DT; e.flyY += e.flyVy * DT;
@@ -1046,6 +1049,12 @@ function collide(ents) {
 
 // computerrijders: richten op een lijn aan de binnenkant van de bocht verderop
 function aiInput(e, ents) {
+  // elastiek: ver voor de speler wat inhouden, ver achter harder (alleen rivalen in een race)
+  if (e.rival != null && S.player && !S.player.ai) {
+    const gap = e.progress - S.player.progress, cl = CLASSES[S.mul > 1.05 ? 2 : S.mul < 0.95 ? 0 : 1];
+    const want = gap > 600 ? 1 - (1 - cl.lead) * Math.min(1, (gap - 600) / 2500) : gap < -600 ? 1 + (cl.chase - 1) * Math.min(1, (-gap - 600) / 2500) : 1;
+    e.rb = (e.rb || 1) + (want - (e.rb || 1)) * Math.min(1, DT * 0.5);
+  }
   at(e.s + 240 + Math.max(0, e.vT) * 0.35, Q2);
   let target = clamp(Q2.kg * 70000, -HW * 0.6, HW * 0.6) + e.lane;
   for (const o of ents) {
@@ -1059,6 +1068,7 @@ function aiInput(e, ents) {
     if (hz.type !== 'slow' || hz.s1 < sa - 40 || hz.s0 > sa + 300 + e.speed * 0.5) continue;
     target = hz.d1 >= HW - 1 ? Math.min(target, hz.d0 - 45) : Math.max(target, hz.d1 + 45);
   }
+  if (e.rival != null) for (const p of TR.pads) { let dp = p.s - sa; dp -= Math.round(dp / TR.len) * TR.len; if (dp > 150 && dp < 900 && Math.abs(Q2.kg) < 0.0006) { target = p.d; break; } }
   target = clamp(target, -HW + 40, HW - 40);
   const want = Math.atan2(target - e.d, 320);
   e.in.steer = clamp((want - e.psi) * 3, -1, 1);
@@ -1068,7 +1078,7 @@ function aiInput(e, ents) {
   const lava = e.energy > 0.05 && TR.haz.some(h => h.gap && h.s0 - sm2 > 0 && h.s0 - sm2 < 1100);
   const gp = gapPos(e.s);
   if (gp > -1600 && gp < 0 && e.energy > 0.05) { e.in.boost = true; e.in.steer = clamp(-e.psi * 3 - e.d * 0.01, -1, 1); return; }
-  e.in.boost = lava || e.energy > 0.5 && Math.abs(Q2.kg) < 0.00025 && e.speed > 600 && (e.boostWish = (e.boostWish || 0) + DT) > 2;
+  e.in.boost = lava || e.energy > (e.rival != null ? 0.3 : 0.5) && Math.abs(Q2.kg) < (e.rival != null ? 0.0004 : 0.00025) && e.speed > 600 && (e.boostWish = (e.boostWish || 0) + DT) > (e.rival != null ? 0.6 : 2);
   if (!e.in.boost && e.energy < 0.1) e.boostWish = 0;
 }
 
@@ -1259,7 +1269,7 @@ const POINTS = [10, 7, 5, 3, 2, 1];
 const MEDAL_COL = ['#4a4860', '#c8793a', '#cfd6e0', '#ffd24a'], MEDAL_NAME = ['', 'BRONZE', 'SILVER', 'GOLD'];
 const PAL_GHOST = ['#9ff', '#7de', '#5cd', '#4bc', '#268', '#aff', '#dff'];
 // opslag: keuzes, records met ghost per baan en voertuig, beste cupresultaat per cup en klasse
-const SAVE3 = 'kott3d.save.v17';   // opgehoogd: de banen kregen ruimere bochten (records, ghosts en medailletijden kloppen niet meer)
+const SAVE3 = 'kott3d.save.v18';   // opgehoogd: de banen kregen ruimere bochten (records, ghosts en medailletijden kloppen niet meer)
 const save = (() => { try { return Object.assign({ char: 0, car: 0, cls: 1, rec: {}, ghost: {}, cups: {} }, JSON.parse(localStorage.getItem(SAVE3)) || {}); } catch (e) { return { char: 0, car: 0, cls: 1, rec: {}, ghost: {}, cups: {} }; } })();
 function store() { try { localStorage.setItem(SAVE3, JSON.stringify(save)); } catch (e) {} }
 // spelstatus buiten de race: menu of race, en welke modus
@@ -1297,7 +1307,7 @@ function startRace(intro) {
   if (mode !== 'tt') {
     const riv = mode === 'cup' ? cupRun.rivals : (S.freeRivals = S.freeRivals || pickRivals(ui.char));
     riv.forEach((r, i) => {
-      const e = newEnt(CARS[RIVALS[r].car], RIVALS[r].pal, true, grid[i][0], grid[i][1], 0.9 + 0.018 * i + ai);
+      const e = newEnt(CARS[RIVALS[r].car], RIVALS[r].pal, true, grid[i][0], grid[i][1], 0.975 + 0.012 * i + ai);
       e.rival = r; e.slot = i; S.ents.push(e);
     });
   }
@@ -1620,7 +1630,7 @@ function netBuildRace(grid) {
   const pool = RIVALS.map((_, i) => i).filter(i => !used.has(i));
   for (let b = 0; b < R.bots; b++) {
     const r = pool.splice(Math.floor(rnd() * pool.length), 1)[0], g = grid[(R.grid.length + b) % 6];
-    const e = newEnt(CARS[RIVALS[r].car], RIVALS[r].pal, isHost, g[0], g[1], 0.9 + 0.018 * b + CLASSES[R.cls == null ? 1 : R.cls].ai);
+    const e = newEnt(CARS[RIVALS[r].car], RIVALS[r].pal, isHost, g[0], g[1], 0.975 + 0.012 * b + CLASSES[R.cls == null ? 1 : R.cls].ai);
     e.rival = r; e.slot = b; e.bot = b; if (!isHost) { e.botRemote = b; e.net = []; }
     S.ents.push(e);
   }
