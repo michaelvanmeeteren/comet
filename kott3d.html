@@ -32,7 +32,7 @@ const STEP = 16;             // afstand tussen twee punten van het lint
 const LAPS = 3, SHIP_R = 22, HOVER = 5, SHIP_SIZE = 1.2;
 const WALL_H = 26, WALL_T = 10, ROAD_T = 16;
 // Versie van de 3D-versie, rechtsonder op het startscherm. Bij elke publicatie op de website eentje ophogen.
-const GAME_VERSION = '3D-38';
+const GAME_VERSION = '3D-39';
 const LOW_H = 1080;           // aantal beeldlijnen (zoals FINE in komeet.html); daarna zonder vervaging vergroot
 const GROUND_Y = -40;        // grond iets onder het laagste stuk weg
 
@@ -1358,7 +1358,12 @@ function tick() {
   S.raceTime += DT;
   for (const e of S.ents) {
     e.ev = {};
-    if (e.finished || (e === S.player && S.phase === 'done')) { e.in = { steer: 0, acc: false, brk: false, boost: false, drift: false }; aiInput(e, S.ents); e.in.acc = e.speed < 500; e.in.boost = false; }
+    if (e.finished || (e === S.player && S.phase === 'done')) { e.in = { steer: 0, acc: false, brk: false, boost: false, drift: false }; aiInput(e, S.ents);
+      // na de finish rustig uitrijden, maar vol gas (en boost) voor een schans, lavagat of steile klim, anders blijf je hangen
+      const sa = ((e.s % TR.len) + TR.len) % TR.len, gp = TR.def.jump ? gapPos(e.s) : 1e9;
+      at(e.s + 300, Q2);
+      const hard = (gp > -2600 && gp < TR.gapL + 200) || Q2.ty > 0.12 || TR.haz.some(h => (h.type === 'jump' || h.type === 'gap') && h.s0 - sa > -400 && h.s0 - sa < 2200);
+      e.in.acc = hard || e.speed < 600; if (!hard) e.in.boost = false; }
     else if (e.ai) aiInput(e, S.ents);
     else {
       const p = e.in;
