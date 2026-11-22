@@ -33,7 +33,7 @@ const LAPS = 3, SHIP_R = 22, HOVER = 5, SHIP_SIZE = 1.2;
 const WALL_H = 26, WALL_T = 10, ROAD_T = 16;
 const BERM = 420;   // vlakke berm naast de vangrail (op wegniveau) waar het decor op staat; daarachter de helling
 // Versie van de 3D-versie, rechtsonder op het startscherm. Bij elke publicatie op de website eentje ophogen.
-const GAME_VERSION = '3D-58';
+const GAME_VERSION = '3D-59';
 const LOW_H = 1080;           // aantal beeldlijnen (zoals FINE in komeet.html); daarna zonder vervaging vergroot
 const GROUND_Y = -40;        // grond iets onder het laagste stuk weg
 
@@ -127,7 +127,7 @@ const TRACK_DEFS_NEW = [
   { id: 'o2', name: 'Kelp Forest', cup: 8, hw: 150, haz: { pads: 7, current: 4 } },
   { id: 'o3', name: 'Trench Run', cup: 8, hw: 150, haz: { pads: 8, current: 3, chain: 1 } },
   { id: 'c1', name: 'Frosting Ring', cup: 9, hw: 150, haz: { pads: 7, slow: 2, bumps: 1 } },
-  { id: 'c2', name: 'Gumdrop Hills', cup: 9, hw: 150, haz: { pads: 7, slow: 2, bumps: 2, launch: 1 } },
+  { id: 'c2', name: 'Gumdrop Hills', cup: 9, hw: 150, haz: { pads: 7, slow: 2, bumps: 2, launch: 1 }, split: { s0: 18900, s1: 26200, IN: 1700, OUT: 1700, D: 480, level: 340 } },
   { id: 'c3', name: 'Choco Falls', cup: 9, hw: 150, haz: { pads: 7, slow: 1, chain: 1 } },
   { id: 'h1', name: 'Willow Bog', cup: 10, hw: 150, haz: { pads: 7, wisp: 4, slow: 1 } },
   { id: 'h2', name: 'Lantern Marsh', cup: 10, hw: 150, haz: { pads: 7, wisp: 5 } },
@@ -844,7 +844,9 @@ function buildTrack(def, idx) {
   let l0 = -1, l1 = -1;
   for (let i = 0; i < N; i++) if (loop[i]) { if (l0 < 0) l0 = i; l1 = i; }
   const loopS = l0 >= 0 ? [l0 * step, l1 * step] : null;
+  TR.split = null;
   Object.assign(TR, { loop, loopS, kh, def, idx, lipI, landI, lipS: def.jump ? lipI * step : NaN, gapL: def.jump ? (landI - lipI) * step : 0, N, len, step, P, T, R, U, kg: smooth(kg0, 4), kn: smooth(kn0, 4), bank: bs });
+  if (def.split) TR.split = makeSplit(def.split);
 }
 
 // Gevaren en boostpads op passende plekken, vast per baan (zelfde regels als placeHazards in komeet.html).
@@ -872,6 +874,7 @@ function placeHaz3d() {
       }
     }
   };
+  if (TR.split) occ.push([TR.split.s0 - 400, TR.split.s1 + 400]);   // de splitsing krijgt eigen gevaren
   scan(want.jump || 0, 1900, 200, (k, p) => k.mx < [1 / 1900, 1 / 1300, 1 / 900][p], sv => haz.push({ type: 'jump', s0: sv + 60, s1: sv + 100 }));
   scan(want.ice || 0, 560, 260, (k, p) => k.mx < 1 / 430 && (p > 0 || k.mean > 1 / 4000), sv => haz.push({ type: 'ice', s0: sv, s1: sv + 560 }));
   scan(want.slow || 0, 320, 220, (k, p) => k.mx < 1 / 470 && (p > 0 || k.mean > 1 / 1900),
@@ -893,6 +896,11 @@ function placeHaz3d() {
     for (const o of [60, 320]) pads.push({ s: sv + o, d: 0 });
     haz.push({ type: 'jump', s0: sv + 560, s1: sv + 600, launch: true });
   });
+  if (TR.split) {
+    const sp = TR.split, h0 = sp.s0 + sp.IN;
+    for (let k = 0; k < 3; k++) pads.push({ s: h0 + 700 + k * 380, d: -sp.D });                       // links: boostketen over de heuvels
+    haz.push({ type: 'jump', s0: sp.s1 - sp.OUT - 760, s1: sp.s1 - sp.OUT - 700, route: 1 });         // rechts: schans aan het eind van de brug
+  }
   // gaten dichten: nergens langer dan 5000 zonder boostpad
   for (let round = 0; round < 30; round++) {
     const ss = pads.map(p => ((p.s % L) + L) % L).sort((a, b) => a - b);
@@ -926,6 +934,29 @@ function at(s, o) {
   o.kg = kg[i] * w + kg[j] * t; o.kn = kn[i] * w + kn[j] * t; o.i = i; o.loop = TR.loop ? TR.loop[i] : 0;
   return o;
 }
+// splitsing: gewicht 0..1 (hoe ver de routes uit elkaar zijn), midden en hoogte van een route, en op welke route iemand rijdt
+function splitW(s) {
+  const sp = TR.split; if (!sp) return 0;
+  s = ((s % TR.len) + TR.len) % TR.len; if (s <= sp.s0 || s >= sp.s1) return 0;
+  const a = Math.min(1, (s - sp.s0) / sp.IN, (sp.s1 - s) / sp.OUT); return a * a * (3 - 2 * a);
+}
+const routeC = (s, r) => r * (TR.split ? TR.split.D : 0) * splitW(s);
+function routeH(s, r) {
+  const sp = TR.split; if (!sp || r <= 0) return 0;
+  const f = ((((s % TR.len) + TR.len) % TR.len)) / TR.step, i = Math.floor(f) % TR.N, t = f - Math.floor(f);
+  return sp.hr[i] * (1 - t) + sp.hr[(i + 1) % TR.N] * t;
+}
+const routeOf = (e, s) => splitW(s) > 0 ? (e.d >= 0 ? 1 : -1) : 0;
+function makeSplit(cfg) {
+  const sp = Object.assign({}, cfg), N = TR.N, hr = new Float32Array(N);
+  for (let i = 0; i < N; i++) {
+    const sv = i * TR.step; if (sv <= sp.s0 + sp.IN || sv >= sp.s1 - sp.OUT) continue;
+    const a = Math.min(1, (sv - sp.s0 - sp.IN) / 800, (sp.s1 - sp.OUT - sv) / 800), w = a * a * (3 - 2 * a);
+    hr[i] = w * Math.max(0, sp.level - TR.P[i * 3 + 1]);
+  }
+  for (let pass = 0; pass < 4; pass++) { const c = Array.from(hr); for (let i = 0; i < N; i++) { let q = 0; for (let k = -6; k <= 6; k++) q += c[(i + k + N) % N]; hr[i] = q / 13; } }
+  sp.hr = hr; return sp;
+}
 // kleine vectorhulp
 function add(a, b) { return [a[0] + b[0], a[1] + b[1], a[2] + b[2]]; }
 function sub(a, b) { return [a[0] - b[0], a[1] - b[1], a[2] - b[2]]; }
@@ -949,6 +980,11 @@ function driftLevel(t) { return t > 1.6 ? 3 : t > 1.0 ? 2 : t > 0.5 ? 1 : 0; }
 function stepEnt(e) {
   const c = e.car, k = e.skill * (e.rb || 1) * (S.mul || 1), inp = e.in;
   at(e.s, Q);
+  const route = TR.split ? routeOf(e, e.s) : 0;
+  if (route > 0) {   // rechterroute: eigen hoogte, dus ook eigen helling en kromming (voor zwaartekracht en loskomen)
+    const h0 = routeH(e.s - 24, 1), h1 = routeH(e.s, 1), h2 = routeH(e.s + 24, 1);
+    Q.py += h1; Q.ty += (h2 - h0) / 48; Q.kn += (h2 - 2 * h1 + h0) / 576;
+  }
   e.steer += (inp.steer - e.steer) * Math.min(1, DT * 9);
   const air = e.air;
   let cs = Math.cos(e.psi), sn = Math.sin(e.psi);
@@ -1075,7 +1111,7 @@ function stepEnt(e) {
   // schans en hobbels: het schip rijdt de helling op (z volgt het wegdek van de wig) en komt pas aan de rand los
   let ramp = 0;
   if (!e.gapFly) for (const hz of TR.haz) {
-    if (hz.type === 'jump') {
+    if (hz.type === 'jump' && !(hz.route && routeOf(e, sh) !== hz.route)) {
       const a0 = hz.s0 - 60, Hh = hz.launch ? 34 : 24;
       if (!e.air && sh >= a0 && sh < hz.s1) ramp = Math.max(ramp, Hh * (sh - a0) / (hz.s1 - a0));
       else if (e.rampH && sh >= hz.s1 && sh < hz.s1 + 60) {
@@ -1100,7 +1136,8 @@ function stepEnt(e) {
     }
   }
   // vangrail
-  const maxD = HW - SHIP_R;
+  const maxD = HW - SHIP_R, rc = route ? routeC(e.s, route) : 0;   // bij een splitsing: wanden van de eigen route
+  e.d -= rc;
   if (Math.abs(e.d) <= maxD - 2) e.onWall = false;
   if (Math.abs(e.d) > maxD) {
     const sd = Math.sign(e.d);
@@ -1118,6 +1155,7 @@ function stepEnt(e) {
     e.d = sd * (maxD - 0.5);
     e.vT *= 1 - 0.6 * DT;
   }
+  e.d += rc;
   e.psi = Math.atan2(Math.sin(e.psi), Math.cos(e.psi));
 }
 
@@ -1167,8 +1205,16 @@ function aiInput(e, ents) {
     target = hz.d1 >= HW - 1 ? Math.min(target, hz.d0 - 45) : Math.max(target, hz.d1 + 45);
   }
   if (e.rival != null) for (const p of TR.pads) { let dp = p.s - sa; dp -= Math.round(dp / TR.len) * TR.len; if (dp > 150 && dp < 900 && Math.abs(Q2.kg) < 0.0006) { target = p.d; break; } }
+  if (TR.split) {
+    const sp = TR.split, sAh = ((e.s + 240 + Math.max(0, e.vT) * 0.35) % TR.len + TR.len) % TR.len;
+    if (sa > sp.s1 + 400 || sa < sp.s0 - 2600) e.routePref = null;
+    if (sAh > sp.s0 - 1500 && sAh < sp.s1) {
+      if (e.routePref == null) e.routePref = Math.random() < 0.5 ? -1 : 1;
+      target = splitW(sAh) > 0 ? routeC(sAh, e.routePref) + clamp(Q2.kg * 40000, -60, 60) : e.routePref * 70;
+    }
+  }
   for (const hz of TR.haz) if (hz.type === 'wisp' && hz.s0 - sa > -60 && hz.s0 - sa < 500) { const wd = wispD(hz, HW, S.raceTime); if (Math.abs(target - wd) < 90) target = wd > 0 ? wd - 100 : wd + 100; }
-  target = clamp(target, -HW + 40, HW - 40);
+  { const rc2 = TR.split ? routeC(e.s, routeOf(e, e.s)) : 0; target = clamp(target - rc2, -HW + 40, HW - 40) + rc2; }
   const want = Math.atan2(target - e.d, 320);
   e.in.steer = clamp((want - e.psi) * 3, -1, 1);
   e.in.acc = true; e.in.brk = false; e.in.drift = false;
@@ -2499,6 +2545,7 @@ const LIGHTS = ['#ffe060', '#ff5a8a', '#4fe0ff', '#7dffb0'];
 // een poort in 3D op afstand sv: twee palen en een balk, met per soort iets erbij
 function gate3d(out, sv, style) {
   const g = GATE[style]; if (!g) return;
+  if (splitW(sv) > 0) return;   // geen poort over een splitsing
   // geen poort bij een kurkentrekker of wandrit (de weg draait daar weg onder de poort)
   if (TR.loop) { const gi = Math.floor((((sv % TR.len) + TR.len) % TR.len) / TR.step); for (let k = -40; k <= 40; k++) if (TR.loop[(gi + k + TR.N) % TR.N]) return; }
   const Qg = at(sv, {}), T = norm([Qg.tx, Qg.ty, Qg.tz]), Rr = [Qg.rx, Qg.ry, Qg.rz], U = [Qg.ux, Qg.uy, Qg.uz];
@@ -2586,9 +2633,46 @@ function buildRoadMesh() {
     }
   }
   const edges = [-HW, -HW + 18, -5, 5, HW - 18, HW];
+  // stuk weg met midden ci..cj, halve breedte hwi..hwj en hoogte hi..hj (voor de splitsing): wegdek met curbs en twee vangrails
+  const roadSeg = (i, j, ci, cj, hwi, hwj, hi, hj) => {
+    const curb = (i >> 2) & 1, band = Math.floor(i / 6) & 1, Ui = U[i], Ri = R[i];
+    const E = k => [[-hwi, -hwj], [-hwi + 18, -hwj + 18], [hwi - 18, hwj - 18], [hwi, hwj]][k];
+    for (let k = 0; k < 3; k++) {
+      const col = k === 1 ? (band ? COL.asphA : COL.asphB) : (curb ? COL.curbR : COL.curbW), a = E(k), b = E(k + 1);
+      pushQuad(out, pos(i, ci + a[0], hi), pos(j, cj + a[1], hj), pos(j, cj + b[1], hj), pos(i, ci + b[0], hi), lit(col, Ui));
+    }
+    for (const sd of [-1, 1]) {
+      const wc = ((i / 3) | 0) & 1 ? COL.wallA : COL.wallB, ei = ci + sd * hwi, ej = cj + sd * hwj, fi = ei + sd * WALL_T, fj = ej + sd * WALL_T;
+      pushQuad(out, pos(i, ei, hi), pos(j, ej, hj), pos(j, ej, hj + WALL_H), pos(i, ei, hi + WALL_H), lit(wc, scale(Ri, -sd)));
+      pushQuad(out, pos(i, ei, hi + WALL_H), pos(j, ej, hj + WALL_H), pos(j, fj, hj + WALL_H), pos(i, fi, hi + WALL_H), lit(COL.wallTop, Ui));
+      pushQuad(out, pos(i, fi, hi + WALL_H), pos(j, fj, hj + WALL_H), pos(j, fj, -ROAD_T), pos(i, fi, -ROAD_T), lit(COL.side, scale(Ri, sd)));
+    }
+  };
+  const slopeAt = (i, j, di, dj, sd) => {
+    const a = pos(i, di, -ROAD_T), b = pos(j, dj, -ROAD_T); if (a[1] < GROUND_Y + 2 && b[1] < GROUND_Y + 2) return;
+    const ha = norm([R[i][0] * sd, 0, R[i][2] * sd]), hb = norm([R[j][0] * sd, 0, R[j][2] * sd]);
+    const fa = [a[0] + ha[0] * (a[1] - GROUND_Y) * 1.1, GROUND_Y, a[2] + ha[2] * (a[1] - GROUND_Y) * 1.1], fb = [b[0] + hb[0] * (b[1] - GROUND_Y) * 1.1, GROUND_Y, b[2] + hb[2] * (b[1] - GROUND_Y) * 1.1];
+    pushQuad(out, a, b, fb, fa, lit((Math.floor(i / 8) & 1) ? COL.grassA : COL.grassB, norm([ha[0], 1.1, ha[2]])));
+  };
   for (let i = 0; i < N; i++) {
     const j = (i + 1) % N, Ui = U[i], Ri = R[i];
     if (i >= TR.lipI && i < TR.landI) continue;   // het gat over het water
+    if (TR.split && (splitW(i * TR.step) > 0 || splitW(j * TR.step) > 0)) {
+      const sp = TR.split, ci = sp.D * splitW(i * TR.step), cj = sp.D * splitW(j * TR.step), EW2 = HW + WALL_T;
+      if (Math.min(ci, cj) <= EW2) {   // nog niet uit elkaar: een brede weg
+        roadSeg(i, j, 0, 0, HW + ci, HW + cj, 0, 0);
+        slopeAt(i, j, -(ci + EW2), -(cj + EW2), -1); slopeAt(i, j, ci + EW2, cj + EW2, 1);
+      } else {                         // twee routes met een grasveld ertussen; rechts op zijn eigen hoogte
+        const hi = sp.hr[i], hj = sp.hr[j];
+        roadSeg(i, j, -ci, -cj, HW, HW, 0, 0); roadSeg(i, j, ci, cj, HW, HW, hi, hj);
+        pushQuad(out, pos(i, -ci + EW2, -ROAD_T + 2), pos(j, -cj + EW2, -ROAD_T + 2), pos(j, cj - EW2, -ROAD_T + 2), pos(i, ci - EW2, -ROAD_T + 2), lit(COL.grassA, Ui));
+        slopeAt(i, j, -(ci + EW2), -(cj + EW2), -1); slopeAt(i, j, ci + EW2, cj + EW2, 1);
+        // neus van het eiland: een gestreept blok waar de routes uit elkaar gaan en weer samenkomen
+        const w0 = splitW((i - 1) * TR.step) * sp.D, w2 = splitW((j + 1) * TR.step) * sp.D;
+        if (w0 <= EW2 || w2 <= EW2) for (let q = -2; q < 2; q++) { const d0 = q * 40, d1 = d0 + 40; pushQuad(out, pos(i, d0, -ROAD_T), pos(i, d1, -ROAD_T), pos(i, d1, WALL_H * 2), pos(i, d0, WALL_H * 2), lit(q & 1 ? COL.chevA : COL.chevB, T[i])); }
+      }
+      continue;
+    }
     const curb = (i >> 2) & 1, band = Math.floor(i / 6) & 1, steep = Math.abs(TR.bank[i]) > 45;
     for (let k = 0; k < 5; k++) {
       let col = k === 0 || k === 4 ? (curb ? COL.curbR : COL.curbW) : k === 2 ? (curb ? COL.line : (band ? COL.asphA : COL.asphB)) : (band ? COL.asphA : COL.asphB);
@@ -2715,7 +2799,8 @@ function buildRoadMesh() {
     }
   }
   // gevaren op het wegdek: een strook van s0 tot s1 en d0 tot d1, iets boven de weg (up), met hoogte die mag oplopen
-  const wpt = (sv, d, up) => { at(sv, Q3); return [Q3.px + Q3.rx * d + Q3.ux * up, Q3.py + Q3.ry * d + Q3.uy * up, Q3.pz + Q3.rz * d + Q3.uz * up]; };
+  let hzRoute = 0;
+  const wpt = (sv, d, up) => { if (hzRoute) { d += routeC(sv, hzRoute); up += routeH(sv, hzRoute); } at(sv, Q3); return [Q3.px + Q3.rx * d + Q3.ux * up, Q3.py + Q3.ry * d + Q3.uy * up, Q3.pz + Q3.rz * d + Q3.uz * up]; };
   const strip = (s0, s1, d0, d1, col, up0 = 0.8, up1 = up0, stepL = 32, alt) => {
     const n = Math.max(1, Math.ceil((s1 - s0) / stepL));
     for (let k = 0; k < n; k++) {
@@ -2727,6 +2812,7 @@ function buildRoadMesh() {
   const HC = { ice: hex('#bfe8ff'), ice2: hex('#a6dcf8'), mud: hex('#7a5230'), mud2: hex('#6a4626'), lava: hex('#ff5a1a'), lava2: hex('#ffb030'),
     pad: hex('#30e0ff'), pad2: hex('#ffffff'), bump: hex('#ff8a2a'), bump2: hex('#20202c') };
   for (const hz of TR.haz || []) {
+    hzRoute = hz.route || 0;
     if (hz.type === 'ice') strip(hz.s0, hz.s1, -HW, HW, HC.ice, 0.6, 0.6, 40, HC.ice2);
     else if (hz.type === 'slow') strip(hz.s0, hz.s1, hz.d0, hz.d1, HC.mud, 0.6, 0.6, 40, HC.mud2);
     else if (hz.type === 'gap') strip(hz.s0, hz.s1, -HW, HW, HC.lava, 0.7, 0.7, 30, HC.lava2);
@@ -2744,6 +2830,7 @@ function buildRoadMesh() {
       strip(m, hz.s1 + 10, -HW, HW, HC.bump, 12, 0.8, 12, HC.bump2);
     }
   }
+  hzRoute = 0;
   for (const p of TR.pads || []) {
     // boostpad: drie pijlen op een blauwe plaat
     strip(p.s - PAD_HL, p.s + PAD_HL, p.d - PAD_HW, p.d + PAD_HW, HC.pad, 0.7);
@@ -2859,7 +2946,7 @@ function buildDecor() {
   const halfW = (k, h) => h * imgAspect(k) / 2;
   const roadFree = (x, z, hw2) => {
     const r = HW + WALL_T + hw2 + 8;
-    for (let j = 0; j < N; j++) { const dx = P[j * 3] - x, dz = P[j * 3 + 2] - z; if (dx * dx + dz * dz < r * r) return false; }
+    for (let j = 0; j < N; j++) { const dx = P[j * 3] - x, dz = P[j * 3 + 2] - z, rr = r + (TR.split ? TR.split.D * splitW(j * TR.step) : 0); if (dx * dx + dz * dz < rr * rr) return false; }
     return true;
   };
   rng = 7 + TR.idx * 131;
@@ -3032,7 +3119,8 @@ function entFrame(e, o) {
   const cs = Math.cos(e.psi), sn = Math.sin(e.psi);
   const T = [E.tx, E.ty, E.tz], R = [E.rx, E.ry, E.rz], U = norm([E.ux, E.uy, E.uz]);
   const f = norm(add(scale(T, cs), scale(R, sn))), r = norm(add(scale(T, -sn), scale(R, cs)));
-  const base = [E.px + R[0] * e.d, E.py + R[1] * e.d, E.pz + R[2] * e.d];
+  const rh = TR.split && routeOf(e, e.s) > 0 ? routeH(e.s, 1) : 0;
+  const base = [E.px + R[0] * e.d + U[0] * rh, E.py + R[1] * e.d + U[1] * rh, E.pz + R[2] * e.d + U[2] * rh];
   o.base = base; o.f = f; o.r = r; o.u = U; o.T = T;
   o.pos = add(base, scale(U, HOVER + e.z));
   return o;
