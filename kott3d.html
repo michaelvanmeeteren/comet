@@ -31,6 +31,8 @@ let HW = 150;                          // halve wegbreedte (zoals de banen in ko
 const STEP = 16;             // afstand tussen twee punten van het lint
 const LAPS = 3, SHIP_R = 22, HOVER = 5, SHIP_SIZE = 1.2;
 const WALL_H = 26, WALL_T = 10, ROAD_T = 16;
+// Versie van de 3D-versie, rechtsonder op het startscherm. Bij elke publicatie op de website eentje ophogen.
+const GAME_VERSION = '3D-16';
 const LOW_H = 540;           // aantal beeldlijnen (zoals FINE in komeet.html); daarna zonder vervaging vergroot
 const GROUND_Y = -40;        // grond iets onder het laagste stuk weg
 
@@ -3449,6 +3451,7 @@ function drawMenu(u) {
     RIVALS.forEach((r, i) => drawFace(i, W / 2 + (i % per - (per - 1) / 2) * 62 * u, H * 0.4 + (132 + 58 * Math.floor(i / per)) * u + Math.sin(G.time * 2.4 + i * 1.3) * 3 * u));
     if (Math.sin(G.time * 5) > -0.3) text('PRESS ENTER', W / 2, H * 0.78, 34 * u, '#fff', 'center', 900);
     text('O: options', W / 2, H - 14 * u, 15 * u, '#cfd3ff', 'center', 600, false);
+    text('VERSION ' + GAME_VERSION, W - 16 * u, H - 14 * u, 15 * u, '#7dffb0', 'right', 600);
     return;
   }
   const hint = 'arrows: select      Enter: continue      Esc: back';
