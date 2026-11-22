@@ -32,7 +32,7 @@ const STEP = 16;             // afstand tussen twee punten van het lint
 const LAPS = 3, SHIP_R = 22, HOVER = 5, SHIP_SIZE = 1.2;
 const WALL_H = 26, WALL_T = 10, ROAD_T = 16;
 // Versie van de 3D-versie, rechtsonder op het startscherm. Bij elke publicatie op de website eentje ophogen.
-const GAME_VERSION = '3D-23';
+const GAME_VERSION = '3D-24';
 const LOW_H = 1080;           // aantal beeldlijnen (zoals FINE in komeet.html); daarna zonder vervaging vergroot
 const GROUND_Y = -40;        // grond iets onder het laagste stuk weg
 
@@ -1250,10 +1250,13 @@ function startRace(intro) {
 }
 
 const keys = {};
+addEventListener('pointerdown', () => initAudio());   // browsers geven pas geluid na een klik of toets
 addEventListener('keydown', e => {
   const first = !keys[e.code];
   keys[e.code] = true;
+  const silent = !AC || AC.state !== 'running';
   initAudio();
+  if (silent && G3.state === 'menu' && ui.screen === 'title' && !OPT.open) return;
   if (e.code === 'KeyM') musicOn = !musicOn;
   if (OPT.open) { if (first) optKey(e.code); }
   else if (G3.state === 'menu') { if (first) { if (e.code === 'KeyO') optOpen(); else menuKey(e.code); } }
@@ -2102,7 +2105,7 @@ function musicSync(dt) {
 function songsWanted() {
   if (G3.state === 'menu') return ui.screen === 'title' ? [SONGS.title, SONGS.menu] : [SONGS.menu, SONGS.title];
   if (S.phase === 'done') return [placeOf(S.player) <= 3 ? SONGS.raceResult : SONGS.defeat, SONGS.raceResult];
-  if (!TR.def.pts) return [SONGS.title];
+  if (TR.idx === 0) return [SONGS.title];
   return [SONGS.cups[TR.def.cup % SONGS.cups.length][(TR.idx - 1) % 3]];
 }
 
@@ -3537,6 +3540,7 @@ function drawMenu(u) {
       const x = col ? W - 44 * u + (1 - k) * 120 * u : 44 * u - (1 - k) * 120 * u;
       if (k > 0) drawFace(i, x, H / 2 + (row - (per - 1) / 2) * gy + Math.sin(G.time * 2.4 + i * 1.3) * 3 * u);
     });
+    if (tt > 2.9 && (!AC || AC.state !== 'running')) text('PRESS ANY KEY FOR MUSIC', W / 2, H - bar - 92 * u, 16 * u, '#7dffb0', 'center', 700);
     if (tt > 2.9 && Math.sin(G.time * 5) > -0.3) text('PRESS ENTER', W / 2, H - bar - 48 * u, 30 * u, '#fff', 'center', 900);
     text('O: options', W / 2, H - 14 * u, 15 * u, '#cfd3ff', 'center', 600, false);
     text('VERSION ' + GAME_VERSION, W - 16 * u, H - 14 * u, 15 * u, '#7dffb0', 'right', 600);
