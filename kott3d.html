@@ -33,7 +33,7 @@ const LAPS = 3, SHIP_R = 22, HOVER = 5, SHIP_SIZE = 1.2;
 const WALL_H = 26, WALL_T = 10, ROAD_T = 16;
 const BERM = 420;   // vlakke berm naast de vangrail (op wegniveau) waar het decor op staat; daarachter de helling
 // Versie van de 3D-versie, rechtsonder op het startscherm. Bij elke publicatie op de website eentje ophogen.
-const GAME_VERSION = '3D-65';
+const GAME_VERSION = '3D-66';
 const LOW_H = 1080;           // aantal beeldlijnen (zoals FINE in komeet.html); daarna zonder vervaging vergroot
 const GROUND_Y = -40;        // grond iets onder het laagste stuk weg
 
@@ -2704,6 +2704,12 @@ function buildRoadMesh() {
       if (dx * dx + dz * dz < (HW * 2.2 + hi * 1.1 + 80) ** 2) { isBridge[i] = 1; break; }
     }
   }
+  // afstand tot het dichtstbijzijnde andere stuk weg (zijwaarts): de berm mag daar niet overheen
+  const nearO = new Float32Array(N).fill(1e9);
+  for (let i = 0; i < N; i += 2) for (let j = 0; j < N; j += 3) { let dj = Math.abs(i - j); dj = Math.min(dj, N - dj); if (dj < 60) continue;
+    const dd = Math.hypot(P[j * 3] - P[i * 3], P[j * 3 + 2] - P[i * 3 + 2]); if (dd < nearO[i]) nearO[i] = dd; }
+  for (let i = 1; i < N; i += 2) nearO[i] = Math.min(nearO[i - 1], nearO[(i + 1) % N]);
+  TR.nearO = nearO;
   const edges = [-HW, -HW + 18, -5, 5, HW - 18, HW];
   // stuk weg met midden ci..cj, halve breedte hwi..hwj en hoogte hi..hj (voor de splitsing): wegdek met curbs en twee vangrails
   const roadSeg = (i, j, ci, cj, hwi, hwj, hi, hj) => {
@@ -2773,7 +2779,7 @@ function buildRoadMesh() {
         const a = pos(i, sd * (HW + WALL_T), -ROAD_T), b = pos(j, sd * (HW + WALL_T), -ROAD_T);
         if (a[1] < GROUND_Y + 2 && b[1] < GROUND_Y + 2) continue;
         const ha = norm([R[i][0] * sd, 0, R[i][2] * sd]), hb = norm([R[j][0] * sd, 0, R[j][2] * sd]);
-        const bw = Math.min(BERM, (Math.min(a[1], b[1]) - GROUND_Y) * 4);   // lage weg: smallere berm
+        const bw = Math.max(0, Math.min(BERM, (Math.min(a[1], b[1]) - GROUND_Y) * 4, nearO[i] - 2 * (HW + WALL_T) - 80, nearO[j] - 2 * (HW + WALL_T) - 80));   // lage weg of een andere weg vlakbij: smallere berm
         const a2 = [a[0] + ha[0] * bw, a[1], a[2] + ha[2] * bw], b2 = [b[0] + hb[0] * bw, b[1], b[2] + hb[2] * bw];
         pushQuad(out, a, b, b2, a2, lit(COL.grassA, [0, 1, 0]));
         const fa = [a2[0] + ha[0] * (a[1] - GROUND_Y) * 1.1, GROUND_Y, a2[2] + ha[2] * (a[1] - GROUND_Y) * 1.1];
@@ -3062,7 +3068,7 @@ function buildDecor() {
       if (!clearOf(x, z, i, base + 30)) return false;
       // op de helling: de rand van de weg min de afstand tot de rand gedeeld door de helling
       const edgeY = P[i * 3 + 1] + R[i][1] * side * (HW + WALL_T) - ROAD_T;
-      const bw = Math.min(BERM, (edgeY - GROUND_Y) * 4);
+      const bw = Math.max(0, Math.min(BERM, (edgeY - GROUND_Y) * 4, (TR.nearO ? TR.nearO[i] : 1e9) - 2 * (HW + WALL_T) - 80));
       const y = isBridge[i] || TRACK_STYLE[TR.def.id] === 'skyway' ? GROUND_Y : Math.max(GROUND_Y, edgeY - Math.max(0, off - HW - WALL_T - bw) / 1.1);   // op de berm, of verderop op de helling
       const oh = OBJ_H[k] || 200;   // [hoogte, zweefhoogte] voor vliegende dingen
       if (!roadFree(x, z, halfW(k, (Array.isArray(oh) ? oh[0] : oh) * DECOR_SCALE))) return false;
