@@ -33,7 +33,7 @@ const LAPS = 3, SHIP_R = 22, HOVER = 5, SHIP_SIZE = 1.2;
 const WALL_H = 26, WALL_T = 10, ROAD_T = 16;
 const BERM = 420;   // vlakke berm naast de vangrail (op wegniveau) waar het decor op staat; daarachter de helling
 // Versie van de 3D-versie, rechtsonder op het startscherm. Bij elke publicatie op de website eentje ophogen.
-const GAME_VERSION = '3D-69';
+const GAME_VERSION = '3D-70';
 const LOW_H = 1080;           // aantal beeldlijnen (zoals FINE in komeet.html); daarna zonder vervaging vergroot
 const GROUND_Y = -40;        // grond iets onder het laagste stuk weg
 
@@ -695,7 +695,10 @@ function addLoop(pts, curv, step, def) {
     const f = q / len, th = dir * twistRoll(kind, f, WALL_DEG[def.id] * (def._wallScale || 1)), y = yF;   // vlak: niet tegelijk kantelen en klimmen of dalen
     // wandrit: alleen draaien om de middenlijn (geen bocht), en recht omhoog zodat de lage rand boven de grond blijft
     const lat = kind === 'wall' ? 0 : CR * Math.sin(th), up = kind === 'wall' ? (def.hw + 30) * Math.abs(Math.sin(th)) : CR * (1 - Math.cos(th));
-    cork.push([pa[0] + (pb[0] - pa[0]) * f + side[0] * lat, y + up, pa[2] + (pb[2] - pa[2]) * f + side[2] * lat, 0,
+    if (kind === 'wall') {   // wandrit volgt de (flauwe) bocht van de weg zelf: geen rechte lijn eroverheen, dus geen knik bij in- en uitrijden
+      const b = pts[(m + q) % N], b0 = pts[(m + q - 1 + N) % N], b1 = pts[(m + q + 1) % N], tq = norm([b1[0] - b0[0], 0, b1[2] - b0[2]]), sq = [-tq[2], 0, tq[0]];
+      cork.push([b[0], y + up, b[2], 0, q > 0 && q < len ? 1 : 0, -sq[0] * Math.sin(th), Math.cos(th), -sq[2] * Math.sin(th)]);
+    } else cork.push([pa[0] + (pb[0] - pa[0]) * f + side[0] * lat, y + up, pa[2] + (pb[2] - pa[2]) * f + side[2] * lat, 0,
       q > 0 && q < len ? 1 : 0, -side[0] * Math.sin(th), Math.cos(th), -side[2] * Math.sin(th)]);
   }
   // de punten van m tot m2 vervangen door de kurkentrekker; de start (punt 0) blijft vooraan staan
@@ -712,7 +715,7 @@ function addLoop(pts, curv, step, def) {
   // aansluitingen gladstrijken: een recht stuk tussen twee punten van een licht gebogen baan geeft daar een knik
   const M = out.length, near = new Uint8Array(M);
   for (let i = 0; i < M; i++) if (out[i][4] !== out[(i + 1) % M][4]) for (let k = -30; k <= 30; k++) near[(i + k + M) % M] = 1;
-  for (let pass = 0; pass < 3; pass++) {
+  for (let pass = 0; pass < (kind === 'wall' ? 0 : 3); pass++) {   // wandrit volgt de weg al: niets glad te strijken
     const nx = out.map(p => p[0]), nz = out.map(p => p[2]);
     for (let i = 0; i < M; i++) if (near[i] && !out[i][4]) { let sx = 0, sz = 0; for (let k = -8; k <= 8; k++) { const q = out[(i + k + M) % M]; sx += q[0]; sz += q[2]; } nx[i] = sx / 17; nz[i] = sz / 17; }
     for (let i = 0; i < M; i++) { out[i][0] = nx[i]; out[i][2] = nz[i]; }
@@ -847,7 +850,7 @@ function buildTrack(def, idx) {
     const dT = scale(sub(T[(i + 1) % N], T[(i - 1 + N) % N]), 1 / (2 * step));
     // rond een draai: de bocht die je zelf moet bijsturen bouwt rustig af en weer op (over ruim 1200), anders trekt hij je bij het uitrijden ineens opzij
     let dl = 99; for (let k = -80; k <= 80; k++) if (loop[(i + k + N) % N]) dl = Math.min(dl, Math.abs(k));
-    const wl = dl <= 6 ? 0 : dl >= 80 ? 1 : ((dl - 6) / 74) * ((dl - 6) / 74) * (3 - 2 * (dl - 6) / 74);
+    const wl = def._twist === 'wall' || dl >= 80 ? 1 : dl <= 6 ? 0 : ((dl - 6) / 74) * ((dl - 6) / 74) * (3 - 2 * (dl - 6) / 74);
     kg0.push(wl * dot(dT, R[i])); kn0.push(dot(dT, U[i]));   // in de kurkentrekker volgt het schip de weg vanzelf
   }
   const smooth = (a, w) => a.map((_, i) => { let s = 0; for (let j = -w; j <= w; j++) s += a[(i + j + N) % N]; return s / (2 * w + 1); });
