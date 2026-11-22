@@ -33,7 +33,7 @@ const LAPS = 3, SHIP_R = 22, HOVER = 5, SHIP_SIZE = 1.2;
 const WALL_H = 26, WALL_T = 10, ROAD_T = 16;
 const BERM = 420;   // vlakke berm naast de vangrail (op wegniveau) waar het decor op staat; daarachter de helling
 // Versie van de 3D-versie, rechtsonder op het startscherm. Bij elke publicatie op de website eentje ophogen.
-const GAME_VERSION = '3D-51';
+const GAME_VERSION = '3D-52';
 const LOW_H = 1080;           // aantal beeldlijnen (zoals FINE in komeet.html); daarna zonder vervaging vergroot
 const GROUND_Y = -40;        // grond iets onder het laagste stuk weg
 
@@ -746,8 +746,10 @@ function buildTrack(def, idx) {
   const kg0 = [], kn0 = [];
   for (let i = 0; i < N; i++) {
     const dT = scale(sub(T[(i + 1) % N], T[(i - 1 + N) % N]), 1 / (2 * step));
-    let lp = 0; for (let k = -6; k <= 6; k++) lp |= loop[(i + k + N) % N];   // ook vlak bij de overgang van een draai
-    kg0.push(lp ? 0 : dot(dT, R[i])); kn0.push(dot(dT, U[i]));   // in de kurkentrekker volgt het schip de weg vanzelf
+    // rond een draai: de bocht die je zelf moet bijsturen bouwt rustig af en weer op (over ruim 1200), anders trekt hij je bij het uitrijden ineens opzij
+    let dl = 99; for (let k = -80; k <= 80; k++) if (loop[(i + k + N) % N]) dl = Math.min(dl, Math.abs(k));
+    const wl = dl <= 6 ? 0 : dl >= 80 ? 1 : ((dl - 6) / 74) * ((dl - 6) / 74) * (3 - 2 * (dl - 6) / 74);
+    kg0.push(wl * dot(dT, R[i])); kn0.push(dot(dT, U[i]));   // in de kurkentrekker volgt het schip de weg vanzelf
   }
   const smooth = (a, w) => a.map((_, i) => { let s = 0; for (let j = -w; j <= w; j++) s += a[(i + j + N) % N]; return s / (2 * w + 1); });
   // schans en gat (alleen op de testbaan): het lintpunt het dichtst bij JUMP_AT en LAND_AT
