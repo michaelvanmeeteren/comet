@@ -32,7 +32,7 @@ const STEP = 16;             // afstand tussen twee punten van het lint
 const LAPS = 3, SHIP_R = 22, HOVER = 5, SHIP_SIZE = 1.2;
 const WALL_H = 26, WALL_T = 10, ROAD_T = 16;
 // Versie van de 3D-versie, rechtsonder op het startscherm. Bij elke publicatie op de website eentje ophogen.
-const GAME_VERSION = '3D-25';
+const GAME_VERSION = '3D-26';
 const LOW_H = 1080;           // aantal beeldlijnen (zoals FINE in komeet.html); daarna zonder vervaging vergroot
 const GROUND_Y = -40;        // grond iets onder het laagste stuk weg
 
@@ -444,7 +444,59 @@ function layoutKnot() {
   for (let k = 0; k < 36; k++) { const t = k / 36 * 2 * Math.PI; cp.push([S * (Math.sin(t) + 2 * Math.sin(2 * t)), S * (Math.cos(t) - 2 * Math.cos(2 * t)), 300 + 230 * Math.sin(3 * t), 22]); }
   return cp;
 }
+// ---- negen eigen baanvormen (maten in duizendtallen, K = 1000). Bogen hebben een vaste straal van minstens 1100,
+// zodat je met goed sturen vol gas kunt blijven geven. Hoeken oplopend = rechtsaf (z loopt naar beneden op de kaart).
+const K = 1000;
+function arcK(cx, cz, R, a0, a1, h0, h1) { const out = [], len = R * K * Math.abs(a1 - a0) * Math.PI / 180, n = Math.max(2, Math.round(len / 500)); for (let k = 0; k < n; k++) { const t = k / n, a = (a0 + (a1 - a0) * t) * Math.PI / 180; out.push([(cx + R * Math.cos(a)) * K, (cz + R * Math.sin(a)) * K, h0 + (h1 - h0) * t]); } return out; }
+function lineK(x0, z0, x1, z1, h0, h1) { const out = [], n = Math.max(1, Math.round(Math.hypot(x1 - x0, z1 - z0) * K / 500)); for (let k = 0; k < n; k++) { const t = k / n; out.push([(x0 + (x1 - x0) * t) * K, (z0 + (z1 - z0) * t) * K, h0 + (h1 - h0) * t]); } return out; }
+// slinger tussen twee punten op een rechte lijn langs x (begint en eindigt recht)
+function swayK(x0, x1, z, amp, waves, n, h) { const out = []; n = Math.round(Math.abs(x1 - x0) * K / 500); for (let k = 0; k < n; k++) { const t = k / n; out.push([(x0 + (x1 - x0) * t) * K, z * K + amp * Math.sin(2 * Math.PI * waves * t) * Math.sin(Math.PI * t), h]); } return out; }
+// kanteling uit de kromming bij elk controlepunt (rechte stukken vlak, krappe bochten tot 30 graden)
+function banked(pts) { const n = pts.length; return pts.map((p, i) => { const a = pts[(i - 1 + n) % n], c = pts[(i + 1) % n];
+  const cr = Math.abs((p[0] - a[0]) * (c[1] - p[1]) - (p[1] - a[1]) * (c[0] - p[0])), R = cr > 1e-3 ? Math.hypot(p[0] - a[0], p[1] - a[1]) * Math.hypot(c[0] - p[0], c[1] - p[1]) * Math.hypot(c[0] - a[0], c[1] - a[1]) / (2 * cr) : 1e9;
+  return [p[0], p[1], p[2], Math.min(30, Math.max(0, 36000 / R - 6))]; }); }
+const NINE = {
+  // Palm Beach: S langs het strand, om de baai de klif op, over de kaap met een lus om de punt, en langs de rotsen omlaag
+  k1: () => [...swayK(-3.8, 4, 0, 600, 1, 7, 60), ...arcK(4, 2.2, 2.2, -90, 90, 60, 420), ...lineK(4, 4.4, -1, 4.4, 420, 440), ...arcK(-1, 5.8, 1.4, -90, -180, 440, 440),
+    ...lineK(-2.4, 5.8, -2.4, 7, 440, 440), ...arcK(-3.8, 7, 1.4, 0, 180, 440, 400), ...lineK(-5.2, 7, -5.2, 1.4, 400, 70), ...arcK(-3.8, 1.4, 1.4, 180, 270, 70, 60)],
+  // Night Harbour: langs de kade en twee keer een pier op en af (de tweede over een ophaalbrug), terug langs de pakhuizen
+  k2: () => [...lineK(-6, 0, -4.1, 0, 40, 40), ...arcK(-4.1, 1.1, 1.1, -90, 0, 40, 40), ...lineK(-3, 1.1, -3, 4.5, 40, 60), ...arcK(-1.9, 4.5, 1.1, 180, 0, 60, 60),
+    ...lineK(-0.8, 4.5, -0.8, 1.1, 60, 40), ...arcK(0.3, 1.1, 1.1, 180, 270, 40, 40), ...lineK(0.3, 0, 0.9, 0, 40, 40), ...arcK(0.9, 1.1, 1.1, -90, 0, 40, 40),
+    ...lineK(2, 1.1, 2, 2.8, 40, 200), ...lineK(2, 2.8, 2, 4.5, 200, 60), ...arcK(3.1, 4.5, 1.1, 180, 0, 60, 60), ...lineK(4.2, 4.5, 4.2, -1, 60, 40),
+    ...arcK(2.7, -1, 1.5, 0, -90, 40, 40), ...lineK(2.7, -2.5, -6, -2.5, 40, 40), ...arcK(-6, -1.25, 1.25, -90, -270, 40, 40)],
+  // Blossom Lane: slinger door de kersenvallei, in een spiraal de tempelheuvel op, en over de helling terug
+  p1: () => [...swayK(-7, 2, 0, 650, 1.5, 8, 120), ...arcK(2, 1.6, 1.6, -90, 0, 120, 140), ...lineK(3.6, 1.6, 3.6, 2.4, 140, 150), ...arcK(2, 2.4, 1.6, 0, 450, 140, 660),
+    ...lineK(2, 4, -7, 4, 660, 150), ...arcK(-7, 2, 2, 90, 270, 150, 120)],
+  // Bamboo Rain: drie haarspelden de berghelling op, over de kam, en in een lange afdaling achterom terug
+  p2: () => [...lineK(-6, 0, 0, 0, 60, 220), ...arcK(0, -1.1, 1.1, 90, -90, 220, 300), ...lineK(0, -2.2, -5, -2.2, 300, 480), ...arcK(-5, -3.3, 1.1, 90, 270, 480, 560),
+    ...lineK(-5, -4.4, 0, -4.4, 560, 740), ...arcK(0, -5.5, 1.1, 90, -90, 740, 800), ...lineK(0, -6.6, -6.5, -6.6, 800, 800), ...arcK(-6.5, -4.6, 2, -90, -180, 800, 700),
+    ...lineK(-8.5, -4.6, -8.5, -2.5, 700, 420), ...arcK(-6, -2.5, 2.5, 180, 90, 420, 60)],
+  // Caravan Bazaar: lange karavaanweg over de duinen, dan de stad in: korte straten met haakse bochten
+  d2: () => [...lineK(-6.5, 0, -3, 0, 80, 150), ...lineK(-3, 0, 0.5, 0, 150, 90), ...lineK(0.5, 0, 2, 0, 90, 100), ...arcK(2, 1.5, 1.5, -90, 0, 100, 140), ...lineK(3.5, 1.5, 3.5, 3.5, 140, 260),
+    ...arcK(2.4, 3.5, 1.1, 0, 90, 260, 260), ...lineK(2.4, 4.6, 1, 4.6, 260, 260), ...arcK(1, 5.7, 1.1, -90, -180, 260, 260), ...lineK(-0.1, 5.7, -0.1, 6.7, 260, 260),
+    ...arcK(-1.2, 6.7, 1.1, 0, 90, 260, 260), ...lineK(-1.2, 7.8, -3, 7.8, 260, 260), ...arcK(-3, 6.7, 1.1, 90, 180, 260, 260), ...lineK(-4.1, 6.7, -4.1, 5.5, 260, 260),
+    ...arcK(-5.2, 5.5, 1.1, 0, -90, 260, 260), ...lineK(-5.2, 4.4, -6.5, 4.4, 260, 220), ...arcK(-6.5, 3.3, 1.1, 90, 180, 220, 180), ...lineK(-7.6, 3.3, -7.6, 1.1, 180, 90),
+    ...arcK(-6.5, 1.1, 1.1, 180, 270, 90, 80)],
+  // Marigold Road: feestboulevard met een chicane, rond het plein, en over de bloemenbrug: een lus die over zichzelf heen gaat
+  l1: () => [...swayK(-6, 3, 0, 500, 1.5, 7, 60), ...arcK(3, 1.5, 1.5, -90, 0, 60, 60), ...lineK(4.5, 1.5, 4.5, 3.5, 60, 60), ...arcK(3, 3.5, 1.5, 0, 90, 60, 60), ...lineK(3, 5, -1, 5, 60, 60),
+    ...arcK(-1, 3.5, 1.5, 90, 360, 60, 520), ...lineK(0.5, 3.5, 0.5, 7, 520, 260), ...arcK(-1, 7, 1.5, 0, 90, 240, 100), ...lineK(-1, 8.5, -6, 8.5, 100, 60),
+    ...arcK(-6, 7, 1.5, 90, 180, 60, 60), ...lineK(-7.5, 7, -7.5, 1.5, 60, 60), ...arcK(-6, 1.5, 1.5, 180, 270, 60, 60)],
+  // Festival of Lights: spiraal naar binnen omhoog naar de pagode, en over de lichtjesbrug terug naar buiten, over de ringen heen
+  l3: () => { const sp = []; for (let k = 0; k < 60; k++) { const t = k / 60, a = (-90 + 630 * t) * Math.PI / 180, R = 1.4 + 2.8 * (1 - t * t * (3 - 2 * t)); sp.push([R * Math.cos(a) * K, R * Math.sin(a) * K, 60 + 560 * t]); }
+    return [...lineK(-7, -4.2, 0, -4.2, 60, 60), ...sp, ...arcK(-2.8, 0, 1.4, 0, -90, 620, 640), ...lineK(-2.8, -1.4, -4.6, -1.4, 640, 600), ...lineK(-4.6, -1.4, -7, -1.4, 600, 300),
+      ...arcK(-7, -2.8, 1.4, 90, 270, 300, 60)]; },
+  // Frozen Throne: spiraal de eerste ijstoren op, brug over het dal, spiraal de troontoren af, en langs de gletsjer terug
+  f3: () => [...lineK(-4.3, 2.9, -4.3, 0, 80, 80), ...arcK(-3, 0, 1.3, 180, 630, 80, 620), ...lineK(-3, -1.3, 3, -1.3, 620, 620), ...arcK(3, 0, 1.3, 270, 720, 620, 80),
+    ...lineK(4.3, 0, 4.3, 2.9, 80, 80), ...arcK(3.2, 2.9, 1.1, 0, 90, 80, 80), ...lineK(3.2, 4, -3.2, 4, 80, 80), ...arcK(-3.2, 2.9, 1.1, 90, 180, 80, 80)],
+  // Big Bang: een lus die over het lange stuk gaat, hoog over de top, en een duikvlucht eronderdoor
+  g3: () => [...lineK(-6, 0, -4.5, 0, 420, 520), ...lineK(-4.5, 0, -3, 0, 520, 500), ...lineK(-3, 0, 4, 0, 500, 360), ...arcK(4, 1.5, 1.5, -90, 180, 360, 700), ...lineK(2.5, 1.5, 2.5, -2, 700, 700),
+    ...arcK(1, -2, 1.5, 0, -90, 700, 700), ...lineK(1, -3.5, -3, -3.5, 700, 680), ...arcK(-3, -2, 1.5, -90, -180, 680, 300), ...lineK(-4.5, -2, -4.5, 2, 300, 40),
+    ...arcK(-3, 2, 1.5, 180, 90, 40, 40), ...lineK(-3, 3.5, 0, 3.5, 40, 40), ...arcK(0, 5, 1.5, -90, 90, 40, 40), ...lineK(0, 6.5, -6, 6.5, 40, 40), ...arcK(-6, 5, 1.5, 90, 180, 40, 40),
+    ...lineK(-7.5, 5, -7.5, 1.5, 40, 360), ...arcK(-6, 1.5, 1.5, 180, 270, 360, 420)]
+};
+for (const id in NINE) NINE[id] = banked(NINE[id]());
 const LAYOUTS = { v3: { cp: layoutSpiralKeep(), glue: true }, f2: { cp: layoutSkiJump(), jump: true, jumpAt: [-200, 3500], landAt: [-1200, 3500] }, s3: { cp: layoutKnot() } };
+for (const id in NINE) LAYOUTS[id] = { cp: NINE[id] };
 const TRACKS = [{ id: 't0', name: 'Test Track', cup: 0, hw: 150, cp: CP, jump: true }].concat(TRACK_DEFS.map(d =>
   LAYOUTS[d.id] ? Object.assign({}, d, { pts: undefined }, LAYOUTS[d.id]) : d.id === 'p3' ? Object.assign({}, d, { pts: FIG8_PTS }) : d));
 
@@ -1189,7 +1241,7 @@ const POINTS = [10, 7, 5, 3, 2, 1];
 const MEDAL_COL = ['#4a4860', '#c8793a', '#cfd6e0', '#ffd24a'], MEDAL_NAME = ['', 'BRONZE', 'SILVER', 'GOLD'];
 const PAL_GHOST = ['#9ff', '#7de', '#5cd', '#4bc', '#268', '#aff', '#dff'];
 // opslag: keuzes, records met ghost per baan en voertuig, beste cupresultaat per cup en klasse
-const SAVE3 = 'kott3d.save.v16';   // opgehoogd: de banen kregen ruimere bochten (records, ghosts en medailletijden kloppen niet meer)
+const SAVE3 = 'kott3d.save.v17';   // opgehoogd: de banen kregen ruimere bochten (records, ghosts en medailletijden kloppen niet meer)
 const save = (() => { try { return Object.assign({ char: 0, car: 0, cls: 1, rec: {}, ghost: {}, cups: {} }, JSON.parse(localStorage.getItem(SAVE3)) || {}); } catch (e) { return { char: 0, car: 0, cls: 1, rec: {}, ghost: {}, cups: {} }; } })();
 function store() { try { localStorage.setItem(SAVE3, JSON.stringify(save)); } catch (e) {} }
 // spelstatus buiten de race: menu of race, en welke modus
@@ -1222,7 +1274,7 @@ function startRace(intro) {
   for (let r = 0; r < 3; r++) for (let c = 0; c < 2; c++) grid.push([TR.len - 70 - r * 95 - c * 40, c ? 55 : -55]);
   const mode = G3.state === 'menu' ? 'demo' : G3.mode;
   if (mode === 'online') { netBuildRace(grid); return; }
-  S.mul = mode === 'cup' ? CLASSES[ui.cls].mul : 1;
+  S.mul = mode === 'cup' || mode === 'tt' ? CLASSES[ui.cls].mul : 1;
   const ai = mode === 'cup' ? CLASSES[ui.cls].ai : 0;
   if (mode !== 'tt') {
     const riv = mode === 'cup' ? cupRun.rivals : (S.freeRivals = S.freeRivals || pickRivals(ui.char));
@@ -1240,7 +1292,7 @@ function startRace(intro) {
   if (mode === 'tt') {
     const g = save.ghost[recKey()];
     if (g) S.ghost = { frames: g, ent: newEnt(CARS[playerCar], PAL_GHOST, false, pg[0], pg[1], 1) };
-    S.medals = medalsFor(TR.idx, playerCar);
+    const km = S.mul; S.mul = 1; S.medals = medalsFor(TR.idx, playerCar).map(t => t / km); S.mul = km;   // medailletijden bij 100cc, omgerekend
   }
   S.phase = mode === 'demo' ? 'race' : intro ? 'intro' : 'count'; S.t = 0; S.raceTime = 0; S.finishOrder = [];
   S.radio = null; S.radioCool = 3; S.result = null;
@@ -1319,7 +1371,8 @@ function pickRivals(own) {
   for (let i = pool.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [pool[i], pool[j]] = [pool[j], pool[i]]; }
   return pool.slice(0, 5);
 }
-const recKey = () => TR.def.id + ':' + playerCar;
+const clsSuffix = () => ui.cls === 1 ? '' : ':c' + ui.cls;
+const recKey = () => TR.def.id + ':' + playerCar + (G3.mode === 'tt' ? clsSuffix() : '');
 // medailletijden: de computer rijdt de baan een keer alleen met dit voertuig (zoals getMedals in komeet.html)
 const medalCache = {};
 function medalsFor(idx, car) {
@@ -1340,7 +1393,7 @@ function medalsAny(idx, car) {
   if (save.medalT[key]) return save.medalT[key];
   if (TR.idx === idx) return (save.medalT[key] = medalsFor(idx, car)) && (store(), save.medalT[key]);
   const keep = Object.assign({}, TR), keepMul = S.mul;
-  buildTrack(TRACKS[idx], idx); TR.haz = []; TR.pads = []; if (TR.def.pts) placeHaz3d();
+  buildTrack(TRACKS[idx], idx); TR.haz = []; TR.pads = []; if (TR.idx > 0) placeHaz3d();
   S.mul = 1;
   const m = medalsFor(idx, car);
   S.mul = keepMul;
@@ -1506,7 +1559,7 @@ function netOnMessage(m) {
       NET.room = m.code ? m : null; if (m.code) { NET.err = ''; NET.typing = false; }
       break;
     case 'start':
-      NET.race = { id: m.raceId, host: m.host, grid: m.grid, bots: m.bots, seed: m.seed, cls: m.cls, done: {}, omode: m.omode, cupRace: m.cupRace || 0 };
+      NET.race = { id: m.raceId, host: m.host, grid: m.grid, bots: m.bots, seed: m.seed, cls: m.cls, items: m.items == null ? 1 : m.items, done: {}, omode: m.omode, cupRace: m.cupRace || 0 };
       if (m.omode === 1 && (m.cupRace === 0 || !NET.cup)) NET.cup = { pts: {}, names: {}, done: false };
       if (m.omode !== 1) NET.cup = null;
       S.goAt = m.time - NET.offset + 5500;
@@ -1612,7 +1665,7 @@ function onlineKey(code) {
   }
   if (code.startsWith('Digit') && room.state === 'race') return true;
   if (!isHost) return true;
-  if (U || D) NET.sel = (NET.sel + (D ? 1 : 3)) % 4;
+  if (U || D) NET.sel = (NET.sel + (D ? 1 : 4)) % 5;
   const cupMode = room.omode === 1, busy = cupMode && room.cupRace > 0;
   if (NET.sel === 0 && (L || R) && !busy) { netSet({ omode: cupMode ? 0 : 1, cupRace: 0 }); NET.cup = null; }
   if (NET.sel === 1 && (L || R) && !busy) {
@@ -1622,6 +1675,7 @@ function onlineKey(code) {
   }
   if (NET.sel === 2 && (L || R)) netSet({ bots: clamp((room.bots || 0) + (R ? 1 : -1), 0, Math.max(0, 6 - room.players.length)) });
   if (NET.sel === 3 && (L || R)) netSet({ cls: ((room.cls == null ? 1 : room.cls) + (R ? 1 : 2)) % 3 });
+  if (NET.sel === 4 && (L || R)) netSet({ items: room.items === 0 ? 1 : 0 });
   if (OK && room.state === 'lobby') {
     if (cupMode && NET.cup && NET.cup.done) { NET.cup = null; netSet({ cupRace: 0 }); return true; }
     NET.send({ t: 'start', track: cupMode ? cupTrack(room.cup || 0, room.cupRace || 0) : room.track || 1 });
@@ -1644,11 +1698,12 @@ function menuKey(code) {
     case 'title': if (ok) ui.screen = 'mode'; break;
     case 'mode':
       if (lr) ui.mode = ((ui.mode % 3) + lr + NM) % NM;
-      if (ok) ui.screen = ui.mode === 2 || ui.mode === 3 ? 'char' : ui.mode === 1 ? 'cls' : 'cup';
+      if (ok) ui.screen = ui.mode === 2 ? 'char' : 'cls';
       if (back) ui.screen = 'title';
       break;
     case 'cls':
       if (lr) ui.cls = (ui.cls + lr + 3) % 3;
+      if (code === 'KeyI' && ui.mode === 1) { save.items = save.items === false; store(); }
       if (ok) ui.screen = 'cup';
       if (back) ui.screen = 'mode';
       break;
@@ -1656,7 +1711,7 @@ function menuKey(code) {
       if (lr) ui.cup = (ui.cup + lr + CUPS.length) % CUPS.length;
       if (ud) { const n = ui.cup + ud * 4; if (n >= 0 && n < CUPS.length) ui.cup = n; beep(520, 0.06, 'square', 0.04); }
       if (ok) ui.screen = ui.mode === 0 ? 'track' : 'char';
-      if (back) ui.screen = ui.mode === 1 ? 'cls' : 'mode';
+      if (back) ui.screen = 'cls';
       break;
     case 'track':
       if (lr) ui.track = (ui.track + lr + 3) % 3;
@@ -1737,6 +1792,8 @@ function itemsReset() {
   IT.boxes.length = IT.slicks.length = IT.zaps.length = 0;
   for (const e of S.ents) Object.assign(e, { item: null, itemN: 0, rollT: 0, shieldT: 0, spinT: 0, aiItemT: 0, itemKey: false });
   if (G3.mode === 'tt' && G3.state !== 'menu') return;
+  S.noItems = (G3.mode === 'cup' && save.items === false) || (G3.mode === 'online' && NET.race && NET.race.items === 0);
+  if (S.noItems) return;
   const busy = sv => TR.haz.some(h => sv > h.s0 - 250 && sv < h.s1 + 250) || TR.pads.some(p => Math.abs(wrapDs(p.s - sv)) < 320)
     || (TR.def.jump && gapPos(sv) > -900 && gapPos(sv) < TR.gapL + 300);
   for (const f of [0.15, 0.4, 0.65, 0.88]) {
@@ -3191,9 +3248,9 @@ const KUI = (() => {
     for (const e of S.ents) if (e !== P) dot(e, false);
     dot(P, true);
   }
-  const recOf = tr => { const t = OUT.save.rec[tr.id + ':' + ui.car]; return t ? { total: t, car: ui.car } : null; };
+  const recOf = tr => { const t = OUT.save.rec[tr.id + ':' + ui.car + clsSuffix()]; return t ? { total: t, car: ui.car } : null; };
   const record = () => recOf(T);
-  const getMedals = (tr, car) => medalsAny(TRACKS_ALL.indexOf(tr.def || tr), car);
+  const getMedals = (tr, car) => medalsAny(TRACKS_ALL.indexOf(tr.def || tr), car).map(t => t / CLASSES[ui.cls].mul);
   const medalFor = tr => { const r = recOf(tr); if (!r) return (OUT.save.medal || {})[tr.id] || 0; const m = getMedals(tr, ui.car); return r.total <= m[2] ? 3 : r.total <= m[1] ? 2 : r.total <= m[0] ? 1 : 0; };
   let G = {}, T = {};
   function trackTip(tr) {
@@ -3224,7 +3281,7 @@ function drawIntro(u) {
   if (open < 1) return;
   const slide = Math.round(Math.max(0, 1 - (t - 0.2) * 4) * 60 * u);
   if (!cupRun && G.mode !== 'online' && !tt) { text(T.def && T.def.pts ? CUPS[T.cup].name + ' - FREE RACE' : CUPS[T.cup].name + ' - FREE RACE', 40 * u - slide, H - bar - 78 * u, 20 * u, '#ffb833', 'left', 800); text(T.name.toUpperCase(), 40 * u - slide, H - bar - 22 * u, 60 * u, '#fff', 'left', 900); return; }
-  text(CUPS[T.cup].name + (tt ? ' - TIME TRIAL' : G.mode === 'online' ? (NET.race && NET.race.omode === 1 ? ' - ONLINE CUP - RACE ' + (NET.race.cupRace + 1) + '/3' : ' - ONLINE ' + CLASSES[ui.cls].name) : ' - RACE ' + (cupRun.race + 1) + '/3'), 40 * u - slide, H - bar - 78 * u, 20 * u, '#ffb833', 'left', 800);
+  text(CUPS[T.cup].name + (tt ? ' - TIME TRIAL' + (ui.cls === 1 ? '' : ' ' + CLASSES[ui.cls].name) : G.mode === 'online' ? (NET.race && NET.race.omode === 1 ? ' - ONLINE CUP - RACE ' + (NET.race.cupRace + 1) + '/3' : ' - ONLINE ' + CLASSES[ui.cls].name) : ' - RACE ' + (cupRun.race + 1) + '/3'), 40 * u - slide, H - bar - 78 * u, 20 * u, '#ffb833', 'left', 800);
   if (roadWx(T.index)) text(roadWx(T.index).label, W - 40 * u + slide, H - bar - 30 * u, 16 * u, '#9fd8ff', 'right', 800);
   text(T.name.toUpperCase(), 40 * u - slide, H - bar - 22 * u, 60 * u, '#fff', 'left', 900);
   const tip = trackTip(T);
@@ -3551,7 +3608,7 @@ function drawMenu(u) {
   }
   const hint = 'arrows: select      Enter: continue      Esc: back';
   if (ui.screen === 'mode') {
-    header(u, 'CHOOSE A MODE', hint + '      T: 3D test track');
+    header(u, 'CHOOSE A MODE', hint);
     // drie kaarten, elk met een eigen kleur en een plaatje; de gekozen kaart komt omhoog, de andere zakken weg in het donker
     const gap = 30 * u, cw = Math.min(330 * u, (W - 60 * u - 2 * gap) / 3), ch = 430 * u, x0 = W / 2 - (cw * 3 + gap * 2) / 2, y0 = H * 0.19;
     const items = [
@@ -3604,7 +3661,8 @@ function drawMenu(u) {
   }
   if (ui.screen === 'online') { drawOnlineMenu(u); return; }
   if (ui.screen === 'cls') {
-    header(u, 'CHOOSE A CLASS', hint);
+    header(u, ui.mode === 0 ? 'TIME TRIAL - CHOOSE A CLASS' : 'CHOOSE A CLASS', hint + (ui.mode === 1 ? '      I: items on/off' : ''));
+    if (ui.mode === 1) text('ITEMS: ' + (OUT.save.items === false ? 'OFF' : 'ON'), W / 2, H * 0.26 + 340 * u, 22 * u, OUT.save.items === false ? '#ff4f8a' : '#7dffb0', 'center', 900);
     const cw = Math.min(280 * u, (W - 80 * u) / 3 - 20 * u), ch = 300 * u, gap = 20 * u, x0 = W / 2 - (cw * 3 + gap * 2) / 2, y0 = H * 0.26;
     const cols = ['#7dffb0', '#ffb833', '#ff4f8a'];
     CLASSES.forEach((cl, i) => {
@@ -3751,7 +3809,7 @@ function drawItemIcon(k, cx, cy, size) {
   }
 }
 function drawItemSlot(u) {
-  if (G.mode === 'tt' || G.intro > 0) return;
+  if (G.mode === 'tt' || G.intro > 0 || S.noItems) return;
   const P = G.player, bw = 210 * u, bh = 78 * u, x = W / 2 - bw / 2, y = 18 * u, box = bh - 16 * u;
   panel(x, y, bw, bh, 0.82);
   // vakje voor het icoontje
@@ -3811,18 +3869,18 @@ function drawItemSlot(u) {
     });
     const sx = px + pw * 0.6, sw = pw * 0.4;
     card(sx, y0, sw, 330 * u, false);
-    const rowsS = [['MODE', cupMode ? 'CUP' : 'RACE'], cupMode ? ['CUP', CUPS[room.cup || 0].name] : ['TRACK', TRACKS_ALL[room.track || 1].name], ['BOTS', String(room.bots || 0)], ['CLASS', CLASSES[room.cls == null ? 1 : room.cls].name]];
+    const rowsS = [['MODE', cupMode ? 'CUP' : 'RACE'], cupMode ? ['CUP', CUPS[room.cup || 0].name] : ['TRACK', TRACKS_ALL[room.track || 1].name], ['BOTS', String(room.bots || 0)], ['CLASS', CLASSES[room.cls == null ? 1 : room.cls].name], ['ITEMS', room.items === 0 ? 'OFF' : 'ON']];
     rowsS.forEach(([k, v], i) => {
       const y = y0 + (40 + 34 * i) * u, on = isHost && NET.sel === i;
       if (on) { ctx.fillStyle = 'rgba(255,255,255,0.1)'; ctx.fillRect(Math.round(sx + 8 * u), Math.round(y - 22 * u), Math.round(sw - 16 * u), Math.round(30 * u)); }
       text(k, sx + 18 * u, y, 13 * u, on ? '#ffb833' : '#cfd3ff', 'left', 700);
       text(v, sx + sw - 18 * u, y, 15 * u, '#fff', 'right', 800, false);
     });
-    if (cupMode) text('race ' + ((room.cupRace || 0) + 1) + '/3', sx + sw / 2, y0 + 190 * u, 15 * u, '#7dffb0', 'center', 700, false);
+    if (cupMode) text('race ' + ((room.cupRace || 0) + 1) + '/3', sx + sw / 2, y0 + 210 * u, 15 * u, '#7dffb0', 'center', 700, false);
     if (NET.cup && Object.keys(NET.cup.pts).length) {
       const rowsP = Object.entries(NET.cup.pts).sort((a, b) => b[1] - a[1]);
-      text(NET.cup.done ? 'FINAL STANDINGS' : 'STANDINGS', sx + sw / 2, y0 + 220 * u, 14 * u, '#ffb833', 'center', 800);
-      rowsP.slice(0, 6).forEach(([k, v], i) => { text((NET.cup.names[k] || '?'), sx + 18 * u, y0 + (244 + 16 * i) * u, 12 * u, k == NET.id ? '#ffb833' : '#fff', 'left', 600, false); text(v + ' pt', sx + sw - 18 * u, y0 + (244 + 16 * i) * u, 12 * u, '#fff', 'right', 600, false); });
+      text(NET.cup.done ? 'FINAL STANDINGS' : 'STANDINGS', sx + sw / 2, y0 + 236 * u, 14 * u, '#ffb833', 'center', 800);
+      rowsP.slice(0, 6).forEach(([k, v], i) => { text((NET.cup.names[k] || '?'), sx + 18 * u, y0 + (258 + 16 * i) * u, 12 * u, k == NET.id ? '#ffb833' : '#fff', 'left', 600, false); text(v + ' pt', sx + sw - 18 * u, y0 + (258 + 16 * i) * u, 12 * u, '#fff', 'right', 600, false); });
     }
     text(room.state === 'race' ? 'race in progress...' : isHost ? (cupMode && NET.cup && NET.cup.done ? 'Enter: new cup' : 'Enter: start the race') : 'waiting for the host...', W / 2, y0 + 360 * u, 18 * u, '#ffb833', 'center', 800, false);
   }
