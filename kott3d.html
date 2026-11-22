@@ -32,7 +32,7 @@ const STEP = 16;             // afstand tussen twee punten van het lint
 const LAPS = 3, SHIP_R = 22, HOVER = 5, SHIP_SIZE = 1.2;
 const WALL_H = 26, WALL_T = 10, ROAD_T = 16;
 // Versie van de 3D-versie, rechtsonder op het startscherm. Bij elke publicatie op de website eentje ophogen.
-const GAME_VERSION = '3D-29';
+const GAME_VERSION = '3D-30';
 const LOW_H = 1080;           // aantal beeldlijnen (zoals FINE in komeet.html); daarna zonder vervaging vergroot
 const GROUND_Y = -40;        // grond iets onder het laagste stuk weg
 
@@ -3360,26 +3360,23 @@ function drawHud(u, speed, runT) {
     if (full) { ctx.fillStyle = 'rgba(255,255,255,0.35)'; ctx.fillRect(x, by - h, segW - gap, Math.max(1, Math.round(2 * u))); }   // glimlijntje bovenop
   }
   text('BOOST', bx, by - 16 * u, 14 * u, P.energy > 0.02 ? '#fff' : '#ff4f8a', 'left', 700);
-  // snelheidsmeter met wijzer: 0 tot 800 km/h over driekwart cirkel, linksonder naar rechtsonder
-  const dr = Math.round(96 * u), dcx = Math.round(W - pad - dr - 8 * u), dcy = Math.round(by - hMax - 26 * u - dr * 0.78), KMAX = 800;
-  const ang = v => (135 + 270 * Math.min(1, Math.max(0, v / KMAX))) * Math.PI / 180;
+  // snelheidsmeter met wijzer, doorzichtig, linksonder (boven de plaats): 0 tot 360 over 300 graden, wijzer en schaal wit
+  const kph = Math.round(speed * 0.22), KMAX = 360, dr = Math.round(104 * u);
+  const dcx = Math.round(pad + dr + 10 * u), dcy = Math.round(H - pad - (tt ? 0 : 120 * u) - dr * 0.9);
+  const ang = v => (120 + 300 * Math.min(1, Math.max(0, v / KMAX))) * Math.PI / 180;
   const dot = (x, y, w) => ctx.fillRect(Math.round(x - w / 2), Math.round(y - w / 2), w, w);
-  const ray = (a, r0, r1, w) => { const n = Math.ceil(Math.abs(r1 - r0)); for (let k = 0; k <= n; k++) { const r = r0 + (r1 - r0) * k / n; dot(dcx + Math.cos(a) * r, dcy + Math.sin(a) * r, w); } };
-  ctx.fillStyle = 'rgba(8,5,22,0.72)'; fillDisc(dcx, dcy, dr + 6 * u);
-  const lw = Math.max(2, Math.round(2 * u));
-  for (let v = 0; v <= KMAX; v += 25) {
-    const big = v % 100 === 0, mid = v % 50 === 0;
-    ctx.fillStyle = v >= 600 ? '#ff4f8a' : '#fff';
-    ray(ang(v), dr - (big ? 14 : mid ? 9 : 5) * u, dr, big ? lw + 1 : lw);
-    if (big) text(String(v), dcx + Math.cos(ang(v)) * (dr - 30 * u), dcy + Math.sin(ang(v)) * (dr - 30 * u) + 6 * u, 13 * u, v >= 600 ? '#ff4f8a' : '#fff', 'center', 700);
+  const ray = (a, r0, r1, w, ox) => { const n = Math.ceil(Math.abs(r1 - r0)); for (let k = 0; k <= n; k++) { const r = r0 + (r1 - r0) * k / n; dot(dcx + Math.cos(a) * r + ox, dcy + Math.sin(a) * r + ox, w); } };
+  const lw = Math.max(1, Math.round(1.6 * u)), sh = Math.max(1, Math.round(1.5 * u));
+  for (const pass of [0, 1]) {   // eerst een donkere schaduw, dan wit
+    ctx.fillStyle = pass ? '#fff' : 'rgba(0,0,0,0.55)';
+    for (let v = 0; v <= KMAX; v += 10) ray(ang(v), dr - (v % 20 === 0 ? 12 : 7) * u, dr, v % 20 === 0 ? lw + 1 : lw, pass ? 0 : sh);
   }
+  for (let v = 0; v <= KMAX; v += 20) text(String(v), dcx + Math.cos(ang(v)) * (dr - 27 * u), dcy + Math.sin(ang(v)) * (dr - 27 * u) + 5 * u, 12 * u, '#fff', 'center', 700);
+  text('KPH', dcx, dcy - dr * 0.28, 14 * u, '#fff', 'center', 700);
   // wijzer, met een klein beetje traagheid zodat hij niet trilt
-  P.needle = P.needle == null ? kmh : P.needle + (kmh - P.needle) * 0.35;
-  ctx.fillStyle = 'rgba(0,0,0,0.45)'; ray(ang(P.needle), -10 * u, dr - 16 * u, Math.max(3, Math.round(4 * u)));
-  ctx.fillStyle = P.boosting ? '#8ff' : '#ff4f8a'; ray(ang(P.needle), -10 * u, dr - 16 * u, Math.max(2, Math.round(3 * u)));
-  ctx.fillStyle = '#fff'; fillDisc(dcx, dcy, 7 * u); ctx.fillStyle = '#16101a'; fillDisc(dcx, dcy, 3 * u);
-  text(String(kmh), dcx, dcy + dr * 0.55, 30 * u, P.boosting ? '#8ff' : '#fff', 'center', 900);
-  text('KM/H', dcx, dcy + dr * 0.55 + 18 * u, 12 * u, acc, 'center', 700);
+  P.needle = P.needle == null ? kph : P.needle + (kph - P.needle) * 0.35;
+  ctx.fillStyle = 'rgba(0,0,0,0.55)'; ray(ang(P.needle), -14 * u, dr - 18 * u, Math.max(2, Math.round(3 * u)), sh);
+  ctx.fillStyle = P.boosting ? '#8ff' : '#fff'; ray(ang(P.needle), -14 * u, dr - 18 * u, Math.max(2, Math.round(3 * u)), 0);
   if (P.draft > 0.6 && G.state === 'race' && !G.paused) text('SLIPSTREAM', W / 2, H * 0.2, 18 * u, '#7de8ff', 'center', 800);
   if (P.onIce && G.state === 'race') text(LOOKS[T.index].names.ice, W / 2, H - pad - 8 * u, 26 * u, '#bfefff', 'center', 900);
   else if (P.onSlow && G.state === 'race') text(LOOKS[T.index].names.slow, W / 2, H - pad - 8 * u, 26 * u, '#ffcf8a', 'center', 900);
