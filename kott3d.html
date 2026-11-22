@@ -33,7 +33,7 @@ const LAPS = 3, SHIP_R = 22, HOVER = 5, SHIP_SIZE = 1.2;
 const WALL_H = 26, WALL_T = 10, ROAD_T = 16;
 const BERM = 420;   // vlakke berm naast de vangrail (op wegniveau) waar het decor op staat; daarachter de helling
 // Versie van de 3D-versie, rechtsonder op het startscherm. Bij elke publicatie op de website eentje ophogen.
-const GAME_VERSION = '3D-47';
+const GAME_VERSION = '3D-48';
 const LOW_H = 1080;           // aantal beeldlijnen (zoals FINE in komeet.html); daarna zonder vervaging vergroot
 const GROUND_Y = -40;        // grond iets onder het laagste stuk weg
 
@@ -591,9 +591,9 @@ function addLoop(pts, curv, step, def) {
   // wandrit: kantelen naar de buitenkant, met het wegdek naar het midden van de baan (dan blijf je de baan zien)
   let cx = 0, cz = 0; for (const p of pts) { cx += p[0] / N; cz += p[2] / N; }
   const dir = kind === 'wall' && ((cx - pa[0]) * side[0] + (cz - pa[2]) * side[2]) > 0 ? -1 : 1;
-  const sm = x => x * x * (3 - 2 * x), cork = [];
+  const sm = x => x * x * (3 - 2 * x), cork = [], yF = (pa[1] + pb[1]) / 2;
   for (let q = 0; q <= len; q++) {
-    const f = q / len, th = dir * twistRoll(kind, f, WALL_DEG[def.id]), y = pa[1] + (pb[1] - pa[1]) * f;
+    const f = q / len, th = dir * twistRoll(kind, f, WALL_DEG[def.id]), y = yF;   // vlak: niet tegelijk kantelen en klimmen of dalen
     // wandrit: alleen draaien om de middenlijn (geen bocht), en recht omhoog zodat de lage rand boven de grond blijft
     const lat = kind === 'wall' ? 0 : CR * Math.sin(th), up = kind === 'wall' ? (def.hw + 30) * Math.abs(Math.sin(th)) : CR * (1 - Math.cos(th));
     cork.push([pa[0] + (pb[0] - pa[0]) * f + side[0] * lat, y + up, pa[2] + (pb[2] - pa[2]) * f + side[2] * lat, 0,
@@ -604,7 +604,11 @@ function addLoop(pts, curv, step, def) {
   for (let i = 0; i < N; i++) {
     const inside = m < m2 ? (i >= m && i <= m2) : (i >= m || i <= m2);
     if (i === m) out.push(...cork);
-    else if (!inside) out.push(pts[i]);
+    else if (!inside) {
+      // aanloop en uitloop (ruim 1400 lang) zacht naar dezelfde vlakke hoogte, zodat golven of heuvels niet tot in de wandrit doorlopen
+      const W = Math.round(1450 / step), db = (m - i + N) % N, da = (i - m2 + N) % N, d = Math.min(db, da);
+      if (d < W) { const w = sm(1 - d / W), p = pts[i].slice(); p[1] = p[1] * (1 - w) + yF * w; out.push(p); } else out.push(pts[i]);
+    }
   }
   // aansluitingen gladstrijken: een recht stuk tussen twee punten van een licht gebogen baan geeft daar een knik
   const M = out.length, near = new Uint8Array(M);
@@ -1313,7 +1317,7 @@ function startRace(intro) {
     });
   }
   const pg = mode === 'tt' ? [TR.len - 70, 0] : grid[5];
-  S.player = newEnt(CARS[playerCar], CARS[playerCar].pal, mode === 'demo', pg[0], pg[1], 1);
+  S.player = newEnt(CARS[playerCar], mode === 'demo' ? CARS[playerCar].pal : RIVALS[ui.char].pal, mode === 'demo', pg[0], pg[1], 1);
   S.player.isPlayer = true;
   S.ents.push(S.player);
   // ghost: de beste rit op deze baan met dit voertuig
@@ -1642,7 +1646,7 @@ function netBuildRace(grid) {
   const rnd = mulberry32(R.seed || 1), used = new Set(room.players.map(p => p.char));
   R.grid.forEach((id, i) => {
     const pl = room.players.find(p => p.id === id) || { name: 'RACER', char: 0, car: 0 }, g = grid[i % 6];
-    if (id === NET.id) { S.player = newEnt(CARS[ui.car], CARS[ui.car].pal, false, g[0], g[1], 1); S.player.isPlayer = true; S.player.face = ui.char; S.ents.push(S.player); }
+    if (id === NET.id) { S.player = newEnt(CARS[ui.car], RIVALS[ui.char].pal, false, g[0], g[1], 1); S.player.isPlayer = true; S.player.face = ui.char; S.ents.push(S.player); }
     else { const e = newEnt(CARS[pl.car % 4], RIVALS[pl.char % 18].pal, false, g[0], g[1], 1); e.remote = id; e.netName = pl.name; e.face = pl.char % 18; e.net = []; S.ents.push(e); }
   });
   const pool = RIVALS.map((_, i) => i).filter(i => !used.has(i));
@@ -3323,7 +3327,7 @@ const KUI = (() => {
     const mu = H / 720, order = liveOrder();
     // mini-portretten: elke rijder als klein gezichtje op zijn plek, met zijn plaats ernaast; jij groter, met een witte rand die knippert
     const faceOf = e => e.isPlayer || e === P ? ui.char : e.rival != null ? e.rival : e.face;
-    const dot = (e, big) => { const fr = entFrame(e, {}), [x, y] = at2(fr.pos[0], fr.pos[2]), fi = faceOf(e), half = Math.round((big ? 13 : 10) * mu);
+    const dot = (e, big) => { const fr = entFrame(e, {}), [x, y] = at2(fr.pos[0], fr.pos[2]), fi = faceOf(e), half = Math.round(10 * mu);   // jij even groot als de rest; je herkent jezelf aan de knipperende witte rand
       if (fi == null) { ctx.fillStyle = e.pal[2]; fillDisc(x, y, Math.round(5 * mu)); return; }
       if (big && Math.sin(G.time * 6) > 0) { ctx.fillStyle = '#fff'; ctx.fillRect(x - half - 2, y - half - 2, 2 * half + 4, 2 * half + 4); }
       drawFace(fi, x, y, (2 * half) / (24 * Math.round(H / 360 * 4) / 4));
@@ -3848,19 +3852,20 @@ function drawMenu(u) {
     const cw = Math.min(250 * u, (W - 100 * u) / 4 - 16 * u), ch = 400 * u, gap = 16 * u;
     const x0 = W / 2 - (cw * 4 + gap * 3) / 2, y0 = H * 0.2;
     CARS.forEach((c, i) => {
-      const x = x0 + i * (cw + gap), sel = ui.car === i;
-      card(x, y0, cw, ch, sel, c.pal[2]);
-      text(c.name, x + cw / 2, y0 + 44 * u, 26 * u, sel ? c.pal[2] : '#fff', 'center', 900);
-      drawCarTop(x + cw / 2, y0 + 130 * u + (sel ? Math.sin(G.time * 4) * 3 * u : 0), 2.3 * u, c, RIVALS[ui.char].pal);
+      const x = x0 + i * (cw + gap), sel = ui.car === i, ap = RIVALS[ui.char].pal;   // in de kleur van je dier
+      card(x, y0, cw, ch, sel, ap[2]);
+      text(c.name, x + cw / 2, y0 + 44 * u, 26 * u, sel ? ap[2] : '#fff', 'center', 900);
+      drawCarTop(x + cw / 2, y0 + 130 * u + (sel ? Math.sin(G.time * 4) * 3 * u : 0), 2.3 * u, Object.assign({}, c, { pal: ap }), ap);
+      // balken uit de echte waarden van het voertuig (zelfde schaal voor alle vier)
       const stats = [
-        ['Top speed', (c.top - 1050) / 200], ['Acceleration', (c.acc - 520) / 420],
+        ['Top speed', (c.top - 1000) / 250], ['Acceleration', (c.acc - 520) / 460], ['Steering', (c.turn - 1.3) / 0.8],
         ['Grip', (c.grip - 4.2) / 4.4], ['Boost', (0.36 - c.drain) / 0.17], ['Weight', (c.mass - 0.7) / 1.3]
       ];
       stats.forEach((s, k) => {
-        const yy = y0 + (232 + 24 * k) * u, bw = cw - 150 * u;
+        const yy = y0 + (222 + 22 * k) * u, bw = cw - 150 * u;
         text(s[0], x + 20 * u, yy, 13 * u, '#cfd3ff', 'left', 600, false);
         ctx.fillStyle = 'rgba(255,255,255,0.14)'; ctx.fillRect(x + 122 * u, yy - 10 * u, bw, 9 * u);
-        ctx.fillStyle = c.pal[2]; ctx.fillRect(x + 122 * u, yy - 10 * u, bw * Math.max(0.08, Math.min(1, s[1])), 9 * u);
+        ctx.fillStyle = RIVALS[ui.char].pal[2]; ctx.fillRect(x + 122 * u, yy - 10 * u, bw * Math.max(0.08, Math.min(1, s[1])), 9 * u);
       });
       const words = c.desc.split(' '), half = Math.ceil(words.length / 2);
       text(words.slice(0, half).join(' '), x + cw / 2, y0 + 366 * u, 13 * u, '#fff', 'center', 500, false);
