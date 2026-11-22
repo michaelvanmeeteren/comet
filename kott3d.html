@@ -33,7 +33,7 @@ const LAPS = 3, SHIP_R = 22, HOVER = 5, SHIP_SIZE = 1.2;
 const WALL_H = 26, WALL_T = 10, ROAD_T = 16;
 const BERM = 420;   // vlakke berm naast de vangrail (op wegniveau) waar het decor op staat; daarachter de helling
 // Versie van de 3D-versie, rechtsonder op het startscherm. Bij elke publicatie op de website eentje ophogen.
-const GAME_VERSION = '3D-54';
+const GAME_VERSION = '3D-55';
 const LOW_H = 1080;           // aantal beeldlijnen (zoals FINE in komeet.html); daarna zonder vervaging vergroot
 const GROUND_Y = -40;        // grond iets onder het laagste stuk weg
 
@@ -572,7 +572,7 @@ const TRACK_STYLE = { k1: 'dunes', k2: 'docks', k3: 'coaster', p1: 'rolling', p2
   s1: 'hops', s2: 'skyway', s3: 'knot', d1: 'dunes', d2: 'rolling', d3: 'plateau', l1: 'flat', l2: 'terraces', l3: 'summit',
   f1: 'bobsled', f2: 'skijump', f3: 'summit', g1: 'aurora', g2: 'velodrome', g3: 'chaos' };
 const VELODROME = Object.keys(TRACK_STYLE).filter(k => TRACK_STYLE[k] === 'velodrome');
-const WALL_TRACKS = Object.keys(WALL_DEG), WALL_IN = 950, WALL_HOLD = 900, WALL_R = 240;
+const WALL_TRACKS = Object.keys(WALL_DEG), WALL_IN = 2200, WALL_HOLD = 1000, WALL_R = 240;
 // rolhoek (radialen) langs een draai, f van 0 tot 1
 function twistRoll(kind, f, deg) {
   const sm = x => x * x * (3 - 2 * x);
@@ -591,6 +591,7 @@ function addLoop(pts, curv, step, def) {
   for (let k = 0; k < N * 2; k++) { const i = k % N, nearStart = i * step < 900 || i * step > N * step - 1600; if (curv[i] < 1 / 2500 && !nearStart) { run++; if (run > bestLen && run < N) { bestLen = run; best = i; } } else run = 0; }
   // voor en na de wandrit minstens 1000 rechtdoor (anders stuur je nog door een bocht terwijl de weg al kantelt); op een kort recht stuk een kortere wandrit
   if (kind === 'wall') CL = Math.min(CL, bestLen * step - 2000);
+  def._wallScale = kind === 'wall' ? Math.min(1, CL / (2 * WALL_IN + WALL_HOLD)) : 1;
   if (CL < 2000 || bestLen * step < CL + 200) { def._twist = null; return pts; }
   const len = Math.round(CL / step), m = (best - Math.floor(bestLen / 2) - Math.floor(len / 2) + N * 2) % N, m2 = (m + len) % N;
   const pa = pts[m], pb = pts[m2], t = norm([pb[0] - pa[0], 0, pb[2] - pa[2]]), side = [-t[2], 0, t[0]];
@@ -599,7 +600,7 @@ function addLoop(pts, curv, step, def) {
   const dir = kind === 'wall' && ((cx - pa[0]) * side[0] + (cz - pa[2]) * side[2]) > 0 ? -1 : 1;
   const sm = x => x * x * (3 - 2 * x), cork = [], yF = (pa[1] + pb[1]) / 2;
   for (let q = 0; q <= len; q++) {
-    const f = q / len, th = dir * twistRoll(kind, f, WALL_DEG[def.id]), y = yF;   // vlak: niet tegelijk kantelen en klimmen of dalen
+    const f = q / len, th = dir * twistRoll(kind, f, WALL_DEG[def.id] * (def._wallScale || 1)), y = yF;   // vlak: niet tegelijk kantelen en klimmen of dalen
     // wandrit: alleen draaien om de middenlijn (geen bocht), en recht omhoog zodat de lage rand boven de grond blijft
     const lat = kind === 'wall' ? 0 : CR * Math.sin(th), up = kind === 'wall' ? (def.hw + 30) * Math.abs(Math.sin(th)) : CR * (1 - Math.cos(th));
     cork.push([pa[0] + (pb[0] - pa[0]) * f + side[0] * lat, y + up, pa[2] + (pb[2] - pa[2]) * f + side[2] * lat, 0,
