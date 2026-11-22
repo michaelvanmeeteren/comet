@@ -32,19 +32,19 @@ const STEP = 16;             // afstand tussen twee punten van het lint
 const LAPS = 3, SHIP_R = 22, HOVER = 5, SHIP_SIZE = 1.2;
 const WALL_H = 26, WALL_T = 10, ROAD_T = 16;
 // Versie van de 3D-versie, rechtsonder op het startscherm. Bij elke publicatie op de website eentje ophogen.
-const GAME_VERSION = '3D-42';
+const GAME_VERSION = '3D-43';
 const LOW_H = 1080;           // aantal beeldlijnen (zoals FINE in komeet.html); daarna zonder vervaging vergroot
 const GROUND_Y = -40;        // grond iets onder het laagste stuk weg
 
 // ---------------------------------------------------------------- voertuigen (uit komeet.html)
 const CARS = [
-  { id: 'valk', name: 'FALCON', desc: 'All-rounder with no weak spots', top: 1150, acc: 720, turn: 1.75, grip: 6.5, boostTop: 1560, boostAcc: 1100, drain: 0.30, tough: 1.0, mass: 1.0, w: 1.0, l: 1.0,
+  { id: 'valk', name: 'FALCON', desc: 'All-rounder with no weak spots', top: 1175, acc: 760, turn: 1.75, grip: 6.5, boostTop: 1580, boostAcc: 1100, drain: 0.30, tough: 1.0, mass: 1.0, w: 1.0, l: 1.0,
     pal: ['#fff2e0', '#e8d2c4', '#ff8a2a', '#e06a12', '#2a1830', '#ffcf40', '#1b2a44'] },
-  { id: 'pijl', name: 'ARROW', desc: 'Twin hulls, top speed, slides easily', top: 1235, acc: 630, turn: 1.6, grip: 5.2, boostTop: 1630, boostAcc: 1000, drain: 0.32, tough: 0.85, mass: 0.85, w: 0.82, l: 1.18,
+  { id: 'pijl', name: 'ARROW', desc: 'Twin hulls, top speed, slides easily', top: 1195, acc: 620, turn: 1.55, grip: 5.0, boostTop: 1600, boostAcc: 1000, drain: 0.32, tough: 0.85, mass: 0.85, w: 0.82, l: 1.18,
     pal: ['#fff7c2', '#efe09a', '#ffd21f', '#d9a800', '#2a2410', '#ffffff', '#3a2a10'] },
-  { id: 'kever', name: 'BEETLE', desc: 'Nimble saucer with lots of grip', top: 1085, acc: 900, turn: 1.98, grip: 8.2, boostTop: 1480, boostAcc: 1250, drain: 0.30, tough: 1.0, mass: 0.95, w: 1.06, l: 0.86,
+  { id: 'kever', name: 'BEETLE', desc: 'Nimble saucer with lots of grip', top: 1160, acc: 950, turn: 1.98, grip: 8.2, boostTop: 1560, boostAcc: 1250, drain: 0.30, tough: 1.0, mass: 0.95, w: 1.06, l: 0.86,
     pal: ['#e9ffd0', '#cdeeb0', '#6fdc3a', '#48b020', '#12240f', '#d8ff5a', '#143018'] },
-  { id: 'mammoet', name: 'MAMMOTH', desc: 'Heavy: long boost, shoves rivals aside', top: 1170, acc: 590, turn: 1.6, grip: 6.8, boostTop: 1600, boostAcc: 1150, drain: 0.21, tough: 1.6, mass: 1.9, w: 1.22, l: 1.05,
+  { id: 'mammoet', name: 'MAMMOTH', desc: 'Heavy: long boost, shoves rivals aside', top: 1180, acc: 600, turn: 1.6, grip: 6.8, boostTop: 1590, boostAcc: 1150, drain: 0.21, tough: 1.6, mass: 1.9, w: 1.22, l: 1.05,
     pal: ['#e3ecff', '#c3d0ee', '#4f86ff', '#2e5fd8', '#101a33', '#9fd0ff', '#0d1a40'] }
 ];
 const MODELS = {
@@ -1307,7 +1307,7 @@ function startRace(intro) {
   if (mode !== 'tt') {
     const riv = mode === 'cup' ? cupRun.rivals : (S.freeRivals = S.freeRivals || pickRivals(ui.char));
     riv.forEach((r, i) => {
-      const e = newEnt(CARS[RIVALS[r].car], RIVALS[r].pal, true, grid[i][0], grid[i][1], 0.975 + 0.012 * i + ai);
+      const e = newEnt(CARS[RIVALS[r].car], RIVALS[r].pal, true, grid[i][0], grid[i][1], 0.99 + 0.012 * i + ai);
       e.rival = r; e.slot = i; S.ents.push(e);
     });
   }
@@ -1416,7 +1416,7 @@ const medalCache = {};
 function medalsFor(idx, car) {
   const key = idx + ':' + car;
   if (medalCache[key]) return medalCache[key];
-  if (save.medalT && save.medalT[TRACKS[idx].id + ':' + car]) return (medalCache[key] = save.medalT[TRACKS[idx].id + ':' + car]);
+  if (save.medalT2 && save.medalT2[TRACKS[idx].id + ':' + car]) return (medalCache[key] = save.medalT2[TRACKS[idx].id + ':' + car]);
   const keepT = S.raceTime, e = newEnt(CARS[car], CARS[car].pal, true, TR.len - 70, 0, 1);
   e.item = null; e.spinT = 0; e.shieldT = 0;
   let n = 0;
@@ -1429,15 +1429,15 @@ const medalQueue = [];
 // zonder wachten: bekend dan de tijden, anders null en in de rij om uit te rekenen
 function medalsSoon(idx, car) {
   const key = TRACKS[idx].id + ':' + car;
-  if (save.medalT && save.medalT[key]) return save.medalT[key];
+  if (save.medalT2 && save.medalT2[key]) return save.medalT2[key];
   if (!medalQueue.some(q => q[0] === idx && q[1] === car)) medalQueue.push([idx, car]);
   return null;
 }
 function medalsAny(idx, car) {
   const key = TRACKS[idx].id + ':' + car;
-  save.medalT = save.medalT || {};
-  if (save.medalT[key]) return save.medalT[key];
-  if (TR.idx === idx) return (save.medalT[key] = medalsFor(idx, car)) && (store(), save.medalT[key]);
+  save.medalT2 = save.medalT2 || {};
+  if (save.medalT2[key]) return save.medalT2[key];
+  if (TR.idx === idx) return (save.medalT2[key] = medalsFor(idx, car)) && (store(), save.medalT2[key]);
   const keep = Object.assign({}, TR), keepMul = S.mul;
   buildTrack(TRACKS[idx], idx); TR.haz = []; TR.pads = []; if (TR.idx > 0) placeHaz3d();
   S.mul = 1;
@@ -1445,7 +1445,7 @@ function medalsAny(idx, car) {
   S.mul = keepMul;
   for (const k in TR) delete TR[k];
   Object.assign(TR, keep); HW = TR.def.hw;
-  save.medalT[key] = m; store();
+  save.medalT2[key] = m; store();
   return m;
 }
 function nameOf(e) { return e.isPlayer ? 'YOU' : e.netName ? e.netName : e.rival != null ? RIVALS[e.rival].name : 'GHOST'; }
@@ -1647,7 +1647,7 @@ function netBuildRace(grid) {
   const pool = RIVALS.map((_, i) => i).filter(i => !used.has(i));
   for (let b = 0; b < R.bots; b++) {
     const r = pool.splice(Math.floor(rnd() * pool.length), 1)[0], g = grid[(R.grid.length + b) % 6];
-    const e = newEnt(CARS[RIVALS[r].car], RIVALS[r].pal, isHost, g[0], g[1], 0.975 + 0.012 * b + CLASSES[R.cls == null ? 1 : R.cls].ai);
+    const e = newEnt(CARS[RIVALS[r].car], RIVALS[r].pal, isHost, g[0], g[1], 0.99 + 0.012 * b + CLASSES[R.cls == null ? 1 : R.cls].ai);
     e.rival = r; e.slot = b; e.bot = b; if (!isHost) { e.botRemote = b; e.net = []; }
     S.ents.push(e);
   }
