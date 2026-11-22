@@ -33,7 +33,7 @@ const LAPS = 3, SHIP_R = 22, HOVER = 5, SHIP_SIZE = 1.2;
 const WALL_H = 26, WALL_T = 10, ROAD_T = 16;
 const BERM = 420;   // vlakke berm naast de vangrail (op wegniveau) waar het decor op staat; daarachter de helling
 // Versie van de 3D-versie, rechtsonder op het startscherm. Bij elke publicatie op de website eentje ophogen.
-const GAME_VERSION = '3D-59';
+const GAME_VERSION = '3D-60';
 const LOW_H = 1080;           // aantal beeldlijnen (zoals FINE in komeet.html); daarna zonder vervaging vergroot
 const GROUND_Y = -40;        // grond iets onder het laagste stuk weg
 
@@ -125,25 +125,25 @@ const CP = [
 const TRACK_DEFS_NEW = [
   { id: 'o1', name: 'Coral Tube', cup: 8, hw: 150, haz: { pads: 7, current: 3, bumps: 1 } },
   { id: 'o2', name: 'Kelp Forest', cup: 8, hw: 150, haz: { pads: 7, current: 4 } },
-  { id: 'o3', name: 'Trench Run', cup: 8, hw: 150, haz: { pads: 8, current: 3, chain: 1 } },
+  { id: 'o3', name: 'Trench Run', cup: 8, hw: 150, split: { auto: true, mode: 'level' }, haz: { pads: 8, current: 3, chain: 1 } },
   { id: 'c1', name: 'Frosting Ring', cup: 9, hw: 150, haz: { pads: 7, slow: 2, bumps: 1 } },
   { id: 'c2', name: 'Gumdrop Hills', cup: 9, hw: 150, haz: { pads: 7, slow: 2, bumps: 2, launch: 1 }, split: { s0: 18900, s1: 26200, IN: 1700, OUT: 1700, D: 480, level: 340 } },
   { id: 'c3', name: 'Choco Falls', cup: 9, hw: 150, haz: { pads: 7, slow: 1, chain: 1 } },
-  { id: 'h1', name: 'Willow Bog', cup: 10, hw: 150, haz: { pads: 7, wisp: 4, slow: 1 } },
+  { id: 'h1', name: 'Willow Bog', cup: 10, hw: 150, split: { auto: true, mode: 'hump' }, haz: { pads: 7, wisp: 4, slow: 1 } },
   { id: 'h2', name: 'Lantern Marsh', cup: 10, hw: 150, haz: { pads: 7, wisp: 5 } },
   { id: 'h3', name: 'Crypt Hollow', cup: 10, hw: 150, haz: { pads: 8, wisp: 4, chain: 1 } },
   { id: 'm1', name: 'Cog Boulevard', cup: 11, hw: 150, haz: { pads: 7, geyser: 4, chain: 1 } },
   { id: 'm2', name: 'Steam Works', cup: 11, hw: 150, haz: { pads: 7, geyser: 4 } },
-  { id: 'm3', name: 'Clocktower', cup: 11, hw: 150, haz: { pads: 8, geyser: 3, chain: 1 } }
+  { id: 'm3', name: 'Clocktower', cup: 11, hw: 150, split: { auto: true, mode: 'level' }, haz: { pads: 8, geyser: 3, chain: 1 } }
 ];
 const TRACK_DEFS = [
-  { id: 'k1', name: 'Palm Beach', cup: 0, hw: 150, haz: { pads: 6, wave: 2, chain: 1, bank: 1 },
+  { id: 'k1', name: 'Palm Beach', cup: 0, hw: 150, split: { auto: true, mode: 'hump' }, haz: { pads: 6, wave: 2, chain: 1, bank: 1 },
     pts: [[1500,4200],[1500,2300],[2600,1300],[4400,1200],[6200,1500],[7000,2800],[6600,4200],[5200,4700],[4800,5800],[5600,6800],[4600,7300],[2800,7000],[1700,6000]] },
-  { id: 'k2', name: 'Night Harbour', cup: 0, hw: 150, haz: { pads: 7, wave: 2, slow: 1, bank: 1, bumps: 1 },
+  { id: 'k2', name: 'Night Harbour', cup: 0, hw: 150, split: { auto: true, mode: 'hump' }, haz: { pads: 7, wave: 2, slow: 1, bank: 1, bumps: 1 },
     pts: [[1200,5200],[1200,3000],[1500,1500],[2800,1000],[4000,1500],[4300,2700],[3400,3500],[3800,4500],[5200,4300],[5800,3000],[5600,1600],[6600,1000],[7300,1900],[7200,4200],[6900,6000],[5800,7000],[4200,6600],[3200,7200],[1900,6900]] },
   { id: 'k3', name: 'Funfair Pier', cup: 0, hw: 150, haz: { pads: 7, wave: 1, slow: 1, chain: 2, bank: 2, bumps: 1, launch: 1 },
     pts: [[1000,6800],[1000,1600],[1800,900],[2700,1500],[2700,4600],[3500,5400],[4400,4700],[4400,1800],[5300,900],[6500,1100],[7200,2200],[7000,4000],[6000,5000],[6300,6300],[5500,7200],[3000,7300],[1700,7400]] },
-  { id: 'p1', minR: 430, name: 'Blossom Lane', cup: 1, hw: 150, haz: { pads: 6, ice: 2, chain: 2, bank: 1 },
+  { id: 'p1', minR: 430, name: 'Blossom Lane', cup: 1, hw: 150, split: { auto: true, mode: 'level' }, haz: { pads: 6, ice: 2, chain: 2, bank: 1 },
     pts: [[1200,4400],[1200,2400],[2200,1200],[4200,1000],[6200,1200],[7300,2200],[7300,3800],[6400,4800],[6600,6200],[5600,7200],[3600,7200],[2000,6800],[1200,5800]] },
   { id: 'p2', minR: 430, name: 'Bamboo Rain', cup: 1, hw: 150, haz: { pads: 7, ice: 4, bank: 1, bumps: 1 },
     pts: [[1100,3600],[1100,2000],[2000,1100],[4000,1000],[6400,1000],[7300,1900],[7300,3400],[6400,4300],[4800,4400],[4000,5200],[4000,6400],[3100,7300],[1900,7200],[1100,6200],[1100,4800]] },
@@ -151,23 +151,23 @@ const TRACK_DEFS = [
     pts: [[1200,2600],[1800,1300],[3400,1000],[6000,1000],[7100,1500],[7400,2400],[7100,3300],[6000,3800],[4200,3800],[3000,3900],[2500,4600],[3000,5300],[4200,5400],[6000,5400],[6900,5600],[7400,6400],[6900,7200],[6000,7400],[4000,7400],[1900,7300],[1100,6400],[1100,4400]] },
   { id: 'v1', minR: 430, name: 'Lava Moat', cup: 2, hw: 150, haz: { pads: 6, gap: 2, slow: 1, bank: 1 },
     pts: [[1200,3200],[1700,1700],[3200,1000],[5400,1000],[6900,1600],[7400,3000],[6800,4300],[5400,4700],[4600,5600],[4700,6700],[3800,7400],[2400,7200],[1300,6200],[1100,4600]] },
-  { id: 'v2', name: 'Dungeon Run', cup: 2, hw: 145, haz: { pads: 7, gap: 1, jump: 1, bumps: 2, bank: 1, launch: 1 },
+  { id: 'v2', name: 'Dungeon Run', cup: 2, hw: 145, split: { auto: true, mode: 'hump' }, haz: { pads: 7, gap: 1, jump: 1, bumps: 2, bank: 1, launch: 1 },
     pts: [[1000,1800],[2200,1000],[6000,1000],[7200,1800],[7000,3200],[5600,3400],[2800,3000],[1900,3900],[2700,4900],[5600,4800],[7100,5300],[7200,6700],[6000,7300],[2400,7300],[1200,6600],[900,4600]] },
   { id: 'v3', minR: 430, name: 'Tyrant Keep', cup: 2, hw: 145, haz: { pads: 6, gap: 2, slow: 1, bank: 2, chain: 1 },
     pts: [[1000,4200],[1000,2200],[1900,1100],[3600,1000],[6000,1000],[7200,1900],[7300,3600],[7300,5600],[6600,7000],[5200,7300],[4300,6500],[4300,4800],[4300,3400],[3600,2800],[2900,3400],[2900,5200],[2900,6600],[2000,7300],[1200,6600],[1000,5400]] },
-  { id: 's1', minR: 430, name: 'Meteor Field', cup: 3, hw: 150, haz: { pads: 6, jump: 2, bumps: 2, bank: 1, launch: 1 }, grav: 0.55,
+  { id: 's1', minR: 430, name: 'Meteor Field', cup: 3, hw: 150, split: { auto: true, mode: 'level' }, haz: { pads: 6, jump: 2, bumps: 2, bank: 1, launch: 1 }, grav: 0.55,
     pts: [[1100,4000],[1100,2200],[1900,1100],[3200,1100],[3900,2000],[3900,4000],[3900,5400],[4700,6300],[5700,5600],[5700,3800],[5700,2000],[6500,1100],[7300,1900],[7300,4000],[7300,6200],[6500,7300],[4400,7400],[2400,7400],[1300,6800],[1100,5400]] },
   { id: 's2', minR: 430, name: 'Ring Road', cup: 3, hw: 145, haz: { pads: 6, jump: 2, bumps: 1, ice: 1, bank: 1, launch: 1 }, grav: 0.55,
     pts: [[1000,4100],[1000,2300],[1500,1400],[2400,1000],[4100,1000],[5800,1000],[6700,1400],[7200,2300],[7200,4000],[6700,5200],[5600,5700],[4900,6500],[4000,7300],[2600,7300],[1500,6800],[1000,5800]] },
   { id: 's3', minR: 430, name: 'Supernova', cup: 3, hw: 145, haz: { pads: 7, jump: 2, bumps: 2, bank: 2, chain: 1, launch: 2, cannon: 1 }, grav: 0.55,
     pts: [[1000,4600],[1000,2800],[1300,1700],[2000,1100],[2800,1100],[3300,1900],[3500,2700],[4100,3200],[4700,2700],[4900,1900],[5400,1100],[6200,1100],[6900,1700],[7200,2800],[7200,4600],[7200,5800],[6700,6900],[5600,7400],[4100,7400],[2600,7400],[1500,6900],[1000,5800]] },
-  { id: 'd1', name: 'Oasis Run', cup: 4, hw: 150, minR: 430, haz: { pads: 6, bumps: 3, slow: 2 },
+  { id: 'd1', name: 'Oasis Run', cup: 4, hw: 150, minR: 430, split: { auto: true, mode: 'level' }, haz: { pads: 6, bumps: 3, slow: 2 },
     pts: [[1200,4300],[1200,2600],[1900,1400],[3400,1000],[5400,1100],[6800,1800],[7300,3200],[7000,4800],[6000,5600],[5600,6600],[4600,7300],[3000,7300],[1700,6700],[1200,5600]] },
   { id: 'd2', name: 'Caravan Bazaar', cup: 4, hw: 150, minR: 430, haz: { pads: 7, bumps: 2, slow: 2, chain: 1, bank: 1 },
     pts: [[1100,4000],[1100,2200],[1900,1100],[3600,1000],[5600,1000],[6900,1500],[7400,2700],[6900,3900],[5600,4300],[4800,5000],[4900,6200],[4200,7200],[2800,7400],[1600,6800],[1100,5600]] },
   { id: 'd3', name: 'Canyon Port', cup: 4, hw: 150, minR: 430, haz: { pads: 7, bumps: 2, jump: 1, slow: 1, bank: 2, launch: 1 },
     pts: [[1000,3000],[1500,1600],[2900,1000],[4400,1500],[5200,2800],[6200,3400],[7200,2800],[7400,4200],[7000,5800],[6000,7000],[4400,7400],[2600,7200],[1400,6400],[1000,4800]] },
-  { id: 'l1', name: 'Marigold Road', cup: 5, hw: 150, minR: 430, haz: { pads: 8, chain: 2, bank: 1, launch: 1 },
+  { id: 'l1', name: 'Marigold Road', cup: 5, hw: 150, minR: 430, split: { auto: true, mode: 'hump' }, haz: { pads: 8, chain: 2, bank: 1, launch: 1 },
     pts: [[1300,4000],[1300,2400],[2200,1300],[3800,1000],[5200,1400],[5800,2600],[6800,3000],[7400,4200],[7200,5800],[6200,7000],[4600,7400],[3000,7000],[2400,5800],[1500,5200]] },
   { id: 'l2', name: 'Monsoon Jungle', cup: 5, hw: 150, minR: 430, haz: { pads: 7, chain: 2, ice: 2, bank: 1 },
     pts: [[1100,2800],[1900,1400],[3600,1000],[5400,1300],[6200,2400],[6000,3800],[6800,4800],[7400,6000],[6600,7200],[5000,7400],[3600,6800],[3000,5600],[1900,5200],[1100,4200]] },
@@ -175,7 +175,7 @@ const TRACK_DEFS = [
     pts: [[1100,4200],[1100,2400],[1900,1200],[3600,1000],[5600,1000],[7000,1600],[7400,3000],[6600,4000],[5000,4200],[4200,5000],[4600,6000],[6000,6200],[7200,6600],[6800,7400],[5000,7400],[2800,7400],[1500,6800],[1100,5600]] },
   { id: 'f1', name: 'Glacier Moat', cup: 6, hw: 150, minR: 430, haz: { pads: 6, ice: 3, jump: 1, bank: 2 }, grip: 0.78,
     pts: [[1200,5600],[1200,3600],[2000,2000],[3600,1100],[5400,1000],[6800,1600],[7400,3000],[7000,4600],[5800,5600],[4600,6400],[3400,7200],[2000,7000]] },
-  { id: 'f2', name: 'Crystal Crypt', cup: 6, hw: 150, minR: 430, haz: { pads: 7, ice: 3, jump: 1, bank: 1 }, grip: 0.78,
+  { id: 'f2', name: 'Crystal Crypt', cup: 6, hw: 150, minR: 430, split: { auto: true, mode: 'level' }, haz: { pads: 7, ice: 3, jump: 1, bank: 1 }, grip: 0.78,
     pts: [[1000,4200],[1000,2200],[1800,1100],[3800,1000],[6200,1000],[7300,1800],[7300,3400],[6400,4300],[6400,5600],[7200,6600],[6400,7400],[4200,7400],[2200,7400],[1100,6600],[1000,5400]] },
   { id: 'f3', name: 'Frozen Throne', cup: 6, hw: 150, minR: 430, haz: { pads: 7, ice: 3, bank: 2, bumps: 1 }, grip: 0.78,
     pts: [[1000,4000],[1000,2000],[1900,1000],[3200,1100],[3700,2200],[3700,4000],[4400,5000],[5400,4400],[5400,2400],[6000,1200],[7000,1100],[7400,2200],[7400,4400],[7400,6200],[6600,7300],[4400,7400],[2400,7400],[1200,6600],[1000,5200]] },
@@ -846,7 +846,7 @@ function buildTrack(def, idx) {
   const loopS = l0 >= 0 ? [l0 * step, l1 * step] : null;
   TR.split = null;
   Object.assign(TR, { loop, loopS, kh, def, idx, lipI, landI, lipS: def.jump ? lipI * step : NaN, gapL: def.jump ? (landI - lipI) * step : 0, N, len, step, P, T, R, U, kg: smooth(kg0, 4), kn: smooth(kn0, 4), bank: bs });
-  if (def.split) TR.split = makeSplit(def.split);
+  if (def.split) { const cfg = def.split.auto ? (def._splitCfg !== undefined ? def._splitCfg : (def._splitCfg = findSplit(def, def.split))) : def.split; if (cfg) TR.split = makeSplit(cfg); }
 }
 
 // Gevaren en boostpads op passende plekken, vast per baan (zelfde regels als placeHazards in komeet.html).
@@ -899,7 +899,8 @@ function placeHaz3d() {
   if (TR.split) {
     const sp = TR.split, h0 = sp.s0 + sp.IN;
     for (let k = 0; k < 3; k++) pads.push({ s: h0 + 700 + k * 380, d: -sp.D });                       // links: boostketen over de heuvels
-    haz.push({ type: 'jump', s0: sp.s1 - sp.OUT - 760, s1: sp.s1 - sp.OUT - 700, route: 1 });         // rechts: schans aan het eind van de brug
+    const top = sp.mode === 'hump' ? (sp.s0 + sp.IN + sp.s1 - sp.OUT) / 2 : sp.s1 - sp.OUT - 700;
+    haz.push({ type: 'jump', s0: top - 60, s1: top, route: 1 });   // rechts: schans aan het eind van de brug, of op de top van de heuvel
   }
   // gaten dichten: nergens langer dan 5000 zonder boostpad
   for (let round = 0; round < 30; round++) {
@@ -947,12 +948,33 @@ function routeH(s, r) {
   return sp.hr[i] * (1 - t) + sp.hr[(i + 1) % TR.N] * t;
 }
 const routeOf = (e, s) => splitW(s) > 0 ? (e.d >= 0 ? 1 : -1) : 0;
+function findSplit(def, cfg) {
+  const { N, step, P, T, kg } = TR, LEN = cfg.len || 6000, w = Math.round(LEN / step), D = cfg.D || 480, clear = D + 2 * HW + 300;
+  let best = null, bestScore = -1;
+  for (let i0 = 0; i0 < N; i0 += 8) {
+    const s0 = i0 * step; if (s0 < 2500 || s0 + LEN > TR.len - 2500) continue;
+    let ok = true, mk = 0;
+    for (let k = 0; k <= w && ok; k++) { const i = (i0 + k) % N; mk = Math.max(mk, Math.abs(kg[i])); if (Math.abs(kg[i]) > 1 / 2500 || Math.abs(T[i][1]) > 0.16 || (TR.loop && TR.loop[i])) ok = false; }
+    if (!ok) continue;
+    if (def.jump && TR.lipI >= 0) { const ls = TR.lipI * step; if (ls > s0 - 2500 && ls < s0 + LEN + 4500) continue; }
+    // geen ander stuk weg binnen bereik van de routes
+    let near = 1e9;
+    for (let k = 0; k <= w && ok; k += 4) { const i = (i0 + k) % N;
+      for (let j = 0; j < N; j += 4) { const rel = (j - i0 + N) % N; if (rel <= w + 120 || rel >= N - 120) continue;
+        const dd = Math.hypot(P[j * 3] - P[i * 3], P[j * 3 + 2] - P[i * 3 + 2]); if (dd < near) near = dd; if (dd < clear) { ok = false; break; } } }
+    if (!ok) continue;
+    const score = near - mk * 4e6;
+    if (score > bestScore) { bestScore = score; best = s0; }
+  }
+  return best == null ? null : Object.assign({ s0: best, s1: best + LEN, IN: 1700, OUT: 1700, D, level: 340 }, cfg, { s0: best, s1: best + LEN });
+}
 function makeSplit(cfg) {
   const sp = Object.assign({}, cfg), N = TR.N, hr = new Float32Array(N);
   for (let i = 0; i < N; i++) {
     const sv = i * TR.step; if (sv <= sp.s0 + sp.IN || sv >= sp.s1 - sp.OUT) continue;
     const a = Math.min(1, (sv - sp.s0 - sp.IN) / 800, (sp.s1 - sp.OUT - sv) / 800), w = a * a * (3 - 2 * a);
-    hr[i] = w * Math.max(0, sp.level - TR.P[i * 3 + 1]);
+    if (sp.mode === 'hump') { const f = (sv - sp.s0 - sp.IN) / (sp.s1 - sp.OUT - sp.s0 - sp.IN); hr[i] = 220 * Math.pow(Math.sin(Math.PI * f), 2); }
+    else hr[i] = w * Math.max(0, sp.level - TR.P[i * 3 + 1]);
   }
   for (let pass = 0; pass < 4; pass++) { const c = Array.from(hr); for (let i = 0; i < N; i++) { let q = 0; for (let k = -6; k <= 6; k++) q += c[(i + k + N) % N]; hr[i] = q / 13; } }
   sp.hr = hr; return sp;
@@ -1210,7 +1232,7 @@ function aiInput(e, ents) {
     if (sa > sp.s1 + 400 || sa < sp.s0 - 2600) e.routePref = null;
     if (sAh > sp.s0 - 1500 && sAh < sp.s1) {
       if (e.routePref == null) e.routePref = Math.random() < 0.5 ? -1 : 1;
-      target = splitW(sAh) > 0 ? routeC(sAh, e.routePref) + clamp(Q2.kg * 40000, -60, 60) : e.routePref * 70;
+      target = e.routePref * Math.max(85, Math.abs(routeC(sAh, e.routePref))) + clamp(Q2.kg * 40000, -40, 40);   // aan de gekozen kant blijven tot de routes uit elkaar zijn
     }
   }
   for (const hz of TR.haz) if (hz.type === 'wisp' && hz.s0 - sa > -60 && hz.s0 - sa < 500) { const wd = wispD(hz, HW, S.raceTime); if (Math.abs(target - wd) < 90) target = wd > 0 ? wd - 100 : wd + 100; }
@@ -2764,6 +2786,7 @@ function buildRoadMesh() {
   }
   // diepzee: de weg loopt door een glazen buis (ribben in een boog over de weg)
   if (TR.def.cup === 8) for (let i = 0; i < N; i += 11) {
+    if (splitW(i * TR.step) > 0) continue;
     const j = (i + 1) % N, glass = hex('#9fe6ff'), rim = hex('#e8fbff'), RAD = HW + 40;
     for (let k = 0; k < 12; k++) {
       const a0 = Math.PI * k / 12, a1 = Math.PI * (k + 1) / 12, p = (ii, a, r) => pos(ii, -Math.cos(a) * r, Math.sin(a) * r * 0.85);
