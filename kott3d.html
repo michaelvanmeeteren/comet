@@ -33,7 +33,7 @@ const LAPS = 3, SHIP_R = 22, HOVER = 5, SHIP_SIZE = 1.2;
 const WALL_H = 26, WALL_T = 10, ROAD_T = 16;
 const BERM = 420;   // vlakke berm naast de vangrail (op wegniveau) waar het decor op staat; daarachter de helling
 // Versie van de 3D-versie, rechtsonder op het startscherm. Bij elke publicatie op de website eentje ophogen.
-const GAME_VERSION = '3D-70';
+const GAME_VERSION = '3D-71';
 const LOW_H = 1080;           // aantal beeldlijnen (zoals FINE in komeet.html); daarna zonder vervaging vergroot
 const GROUND_Y = -40;        // grond iets onder het laagste stuk weg
 
@@ -3383,8 +3383,8 @@ function drawHazSprites() {
   if (!TR.haz) return;
   const t = S.raceTime;
   for (const hz of TR.haz) {
-    if (hz.type !== 'icefall' && hz.type !== 'lava') continue;
-    const sm = (hz.s0 + hz.s1) / 2; let dm = (hz.d0 + hz.d1) / 2;
+    if (!TIMED[hz.type]) continue;
+    const sm = (hz.s0 + hz.s1) / 2, d0 = hz.d0 == null ? -HW * 0.8 : hz.d0, d1 = hz.d1 == null ? HW * 0.8 : hz.d1; let dm = (d0 + d1) / 2;
     at(sm, HQ); if (Math.hypot(HQ.px - cam.pos[0], HQ.pz - cam.pos[2]) > 9000) continue;
     const T = TIMED[hz.type], x = ((t + hz.ph) % T[0] + T[0]) % T[0], ph = timedPhase(hz, t);
     let name = null, up = 0, k;
@@ -3393,6 +3393,20 @@ function drawHazSprites() {
       if (x < 0.14) { name = 'icec'; up = 200 * (1 - x / 0.14); }   // valt
       else if (x < 0.8) name = 'iced';                              // spat uiteen
       else { up = 200; name = ph.p === 1 && Math.sin(t * (10 + ph.w * 18)) > 0 ? 'iceb' : 'icea'; if (ph.p === 1) dm += Math.sin(t * 45) * 4 * ph.w; }   // hangt, kraakt en trilt
+    } else if (hz.type === 'piston') {   // stoomhamer
+      k = (d1 - d0) * 0.85 / 44;
+      if (ph.p === 2) name = ph.a < 0.25 ? 'hamc' : 'hamd';
+      else if (x < T[1] + 0.3) name = 'hamd';
+      else if (ph.p === 1) { name = Math.sin(t * (10 + ph.w * 18)) > 0 ? 'hamb' : 'hama'; dm += Math.sin(t * 50) * 3 * ph.w; }
+      else name = 'hama';
+    } else if (hz.type === 'geyser' || hz.type === 'bubble') {   // stoomgeiser of bellenbron: een paar naast elkaar over de strook
+      const P = hz.type === 'geyser' ? 'gey' : 'bubv'; k = 2.5;
+      name = P + (ph.p === 2 ? (ph.a > 0.8 ? 'd' : 'c') : x < T[1] + 0.4 ? 'd' : ph.p === 1 ? 'b' : 'a');
+      if (!ART.obj[name]) continue;
+      const tx = cachedTex(ART.obj[name]); if (!tx.ready) continue;
+      const n = Math.max(1, Math.round((d1 - d0) / 110));
+      for (let q = 0; q < n; q++) hazQuad(tx, k, d0 + (q + 0.5) * (d1 - d0) / n, ph.p === 2 && (q & 1) ? 0.9 : 1);
+      continue;
     } else {
       k = 2.6;
       if (ph.p === 2) name = ph.a < 0.18 ? 'lavab' : ph.a < 0.8 ? (Math.floor(t * 9) & 1 ? 'lavac' : 'lavab') : 'lavad';
@@ -3401,11 +3415,24 @@ function drawHazSprites() {
     }
     if (!name || !ART.obj[name]) continue;
     const tx = cachedTex(ART.obj[name]); if (!tx.ready) continue;
-    const h = tx.h * k, w = tx.w * k, c = [HQ.px + HQ.rx * dm + HQ.ux * up, HQ.py + HQ.ry * dm + HQ.uy * up, HQ.pz + HQ.rz * dm + HQ.uz * up], data = [];
-    for (const [cx, cy] of [[-0.5, 0], [0.5, 0], [0.5, 1], [-0.5, 0], [0.5, 1], [-0.5, 1]]) data.push(c[0], c[1], c[2], cx, cy, w, h);
-    gl.bindBuffer(gl.ARRAY_BUFFER, hazBB.buf); gl.bufferSubData(gl.ARRAY_BUFFER, 0, new Float32Array(data));
-    gl.bindTexture(gl.TEXTURE_2D, tx.tex); gl.bindVertexArray(hazBB.vao); gl.drawArrays(gl.TRIANGLES, 0, 6);
+    hazQuad(tx, k, dm, 1, up);
   }
+  // start: lichten boven de startpoort, vlaggen op de palen en de starter naast de weg
+  if (ART.obj.lighta && TR.step) {
+    const cnt = S.phase === 'count', lt = cnt ? (S.t < 1 ? 'lighta' : S.t < 2 ? 'lightb' : 'lightc') : S.raceTime < 2.5 && S.phase === 'race' ? 'lightd' : 'lighta';
+    const sg = TR.step; at(sg, HQ);
+    const L = cachedTex(ART.obj[lt]); if (L.ready) hazQuad(L, 3, 0, 1, 182);
+    const F = cachedTex(ART.obj['finflag' + 'abcd'[Math.floor(flick * 7) % 4]]); if (F.ready) for (const sd of [-1, 1]) hazQuad(F, 1.3, sd * (HW + 22), 1, 175);
+    const wave = cnt ? (S.t < 2 ? 'meera' : 'meerb') : S.raceTime < 3 ? (Math.floor(flick * 6) & 1 ? 'meerc' : 'meerd') : (Math.floor(flick * 2.5) & 1 ? 'meerc' : 'meerd');
+    at(sg + 380, HQ); const M = cachedTex(ART.obj[wave]); if (M.ready) hazQuad(M, 1.9, HW + WALL_T + 45, 1, 0);
+  }
+}
+// een staand plaatje op de weg (positie in HQ), onderkant op hoogte up
+function hazQuad(tx, k, dm, sc, up) {
+  up = up || 0; const h = tx.h * k * sc, w = tx.w * k * sc, c = [HQ.px + HQ.rx * dm + HQ.ux * up, HQ.py + HQ.ry * dm + HQ.uy * up, HQ.pz + HQ.rz * dm + HQ.uz * up], data = [];
+  for (const [cx, cy] of [[-0.5, 0], [0.5, 0], [0.5, 1], [-0.5, 0], [0.5, 1], [-0.5, 1]]) data.push(c[0], c[1], c[2], cx, cy, w, h);
+  gl.bindBuffer(gl.ARRAY_BUFFER, hazBB.buf); gl.bufferSubData(gl.ARRAY_BUFFER, 0, new Float32Array(data));
+  gl.bindTexture(gl.TEXTURE_2D, tx.tex); gl.bindVertexArray(hazBB.vao); gl.drawArrays(gl.TRIANGLES, 0, 6);
 }
 
 // ---------------------------------------------------------------- bewegende dingen op de baan
@@ -3528,11 +3555,14 @@ function drawDynamic() {
       const lane = (col, up) => pushQuad(out, wp(hz.s0, d0, up), wp(hz.s1, d0, up), wp(hz.s1, d1, up), wp(hz.s0, d1, up), col);
       if (hz.type === 'geyser') {
         lane(ph.p === 2 ? [1, 0.55, 0.2] : blink ? [1, 0.35, 0.1] : [0.25, 0.22, 0.26], 1.2);   // rooster gloeit en knippert voor de uitbarsting
+        if (!ART.obj.geya) {
         const n = ph.p === 2 ? 12 : ph.p === 1 ? 2 + Math.floor(ph.w * 6) : 1;
         for (let q = 0; q < n; q++) { const rise = ph.p === 2 ? ((q / n + ph.a * 1.4) % 1) * 280 : ((q / n + t * 0.8) % 1) * (20 + (ph.w || 0) * 60), sv = hz.s0 + 30 + (q * 37) % 100, d = d0 + ((q * 53) % 100) / 100 * (d1 - d0);
           cube(sv, d, rise, ph.p === 2 ? 11 + rise * 0.05 : 5, q + t, [[0.94, 0.94, 0.97]]); }
+        }
       } else if (hz.type === 'piston') {
         lane(ph.p === 2 ? [1, 0.25, 0.15] : blink ? [1, 0.2, 0.1] : [0.35, 0.3, 0.2], 1.2);
+        if (!ART.obj.hama) {
         // hangt hoog en veilig; bij de waarschuwing trilt hij en knippert het rood; dan slaat hij in een flits neer en komt rustig weer omhoog
         const T = TIMED.piston, x = ((t + hz.ph) % T[0] + T[0]) % T[0];
         const hh = ph.p === 2 ? 4 : ph.p === 1 ? 200 + ph.w * 25 + (blink ? 3 : -3) * ph.w : 4 + 196 * Math.min(1, (x - T[1]) / 0.6) ** 0.7;
@@ -3545,6 +3575,7 @@ function drawDynamic() {
         if (ph.p === 2) for (let q = 0; q < 10; q++) { const a = q * 0.628, r = 30 + ph.a * 110; cube(sm + Math.cos(a) * r * 0.6, dm + Math.sin(a) * r, 6 + ph.a * 30, 8 - ph.a * 5, a, [[0.75, 0.7, 0.62]]); }   // stofwolk bij de klap
         for (let q = -2; q <= 2; q++) cube(sm, dm + q * hw2 * 0.4, hh + 2, hw2 * 0.2, 0, [q & 1 ? [0.1, 0.1, 0.1] : [1, 0.82, 0.1]]);
         if (ph.p === 1) cube(sm, dm, 410, 9, t * 4, [blink ? [1, 0.1, 0.1] : [0.4, 0.05, 0.05]]);   // rood zwaailicht
+        }
       } else if (hz.type === 'icefall') {
         const sh = ph.p === 1 ? 0.3 + ph.w * 0.7 : ph.p === 2 ? 1 : 0.25;   // schaduw groeit tot de pegel valt
         pushQuad(out, wp(sm - 50 * sh, dm - 55 * sh, 1.3), wp(sm + 50 * sh, dm - 55 * sh, 1.3), wp(sm + 50 * sh, dm + 55 * sh, 1.3), wp(sm - 50 * sh, dm + 55 * sh, 1.3), blink ? [0.05, 0.1, 0.2] : [0.15, 0.2, 0.3]);
@@ -3557,9 +3588,11 @@ function drawDynamic() {
         if (ph.p === 2 && !ART.obj.lavab) for (let q = 0; q < 12; q++) { const hh = ((q / 12 + ph.a * 1.2) % 1) * 240; cube(sm - 60 + (q * 41) % 120, d0 + ((q * 29) % 100) / 100 * (d1 - d0), hh, 10 + hh * 0.03, q, [q & 1 ? [1, 0.5, 0.05] : [1, 0.8, 0.2]]); }
       } else if (hz.type === 'bubble') {
         lane(ph.p === 2 ? [0.5, 0.9, 1] : blink ? [0.35, 0.75, 1] : [0.15, 0.4, 0.55], 1.2);
+        if (!ART.obj.bubva) {
         const n = ph.p === 2 ? 14 : ph.p === 1 ? 4 + Math.floor(ph.w * 6) : 2;
         for (let q = 0; q < n; q++) { const rise = ph.p === 2 ? ((q / n + ph.a * 1.5) % 1) * 260 : ((q / n + t * 0.7) % 1) * 70, sv = hz.s0 + 20 + (q * 31) % 120, d = d0 + ((q * 47) % 100) / 100 * (d1 - d0);
           cube(sv, d, rise, ph.p === 2 ? 7 : 4, 0, [[0.8, 0.95, 1]]); }
+        }
       }
     }
   }
