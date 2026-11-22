@@ -32,7 +32,7 @@ const STEP = 16;             // afstand tussen twee punten van het lint
 const LAPS = 3, SHIP_R = 22, HOVER = 5, SHIP_SIZE = 1.2;
 const WALL_H = 26, WALL_T = 10, ROAD_T = 16;
 // Versie van de 3D-versie, rechtsonder op het startscherm. Bij elke publicatie op de website eentje ophogen.
-const GAME_VERSION = '3D-35';
+const GAME_VERSION = '3D-36';
 const LOW_H = 1080;           // aantal beeldlijnen (zoals FINE in komeet.html); daarna zonder vervaging vergroot
 const GROUND_Y = -40;        // grond iets onder het laagste stuk weg
 
@@ -1420,6 +1420,14 @@ function medalsFor(idx, car) {
   const base = n * DT;
   return (medalCache[key] = [base * 1.1, base * 1.0, base * 0.94]);
 }
+const medalQueue = [];
+// zonder wachten: bekend dan de tijden, anders null en in de rij om uit te rekenen
+function medalsSoon(idx, car) {
+  const key = TRACKS[idx].id + ':' + car;
+  if (save.medalT && save.medalT[key]) return save.medalT[key];
+  if (!medalQueue.some(q => q[0] === idx && q[1] === car)) medalQueue.push([idx, car]);
+  return null;
+}
 function medalsAny(idx, car) {
   const key = TRACKS[idx].id + ':' + car;
   save.medalT = save.medalT || {};
@@ -1775,7 +1783,7 @@ function menuKey(code) {
   // de baan op de achtergrond volgt de keuze (zoals ui.bgWant in komeet.html)
   if (ui.screen !== 'title' && ui.mode !== 2) {
     const want = 1 + ui.cup * 3 + (ui.screen === 'track' || ((ui.screen === 'car' || ui.screen === 'char') && ui.mode === 0) ? ui.track : 0);
-    if (want !== ui.bg) { ui.bg = want; loadTrack(ui.bg); }
+    if (want !== ui.bg) { ui.bg = want; ui.bgAt = performance.now() + 250; }
   }
 }
 // Titelscherm zoals in komeet.html: het logo-plaatje (art/obj/logo.png) met snelheidsstrepen, alle portretten,
@@ -1784,6 +1792,9 @@ const LOGO_IMG = new Image(); if (ART.obj.logo) LOGO_IMG.src = ART.obj.logo;
 let logoBox = null;
 const REEL_SHOT = 3.0, REEL_PER = 2;
 function titleTick(dt) {
+  if (ui.bgAt && performance.now() > ui.bgAt && G3.state === 'menu') { ui.bgAt = 0; if (TR.idx !== ui.bg) loadTrack(ui.bg); }
+  // medailletijden voor de baankaarten: een per beeld uitrekenen in plaats van alles tegelijk
+  if (G3.state === 'menu' && medalQueue.length) { const [i, c] = medalQueue.shift(); medalsAny(i, c); }
   if (G3.state === 'menu' && ui.screen !== 'title') ui.menuT = (ui.menuT || 0) + dt;   // menu's: doorlopende vlucht
   if (G3.state !== 'menu' || ui.screen !== 'title') return;
   const was = Math.floor(ui.reelT / REEL_SHOT);
@@ -2635,6 +2646,9 @@ function shipFor(e) {
 }
 
 // ---------------------------------------------------------------- decor (plaatjes uit art/sprites.js)
+const texCache = {};
+function cachedTex(src) { return texCache[src] || (texCache[src] = texFrom(src)); }
+function whenReady(t, f) { if (t.ready) f(); else (t.cbs = t.cbs || []).push(f); }
 function texFrom(src, wrap) {
   const t = gl.createTexture();
   const img = new Image();
@@ -2650,6 +2664,7 @@ function texFrom(src, wrap) {
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
     info.w = img.width; info.h = img.height; info.ready = true;
     if (info.onready) info.onready();
+    for (const f of info.cbs || []) f();
   };
   img.src = src;
   return info;
@@ -2794,9 +2809,9 @@ function buildDecor() {
   add('harbourcrane', 4200, GROUND_Y, -3800, 650); add('boat', 7600, GROUND_Y, 3200, 260); add('boat', -7400, GROUND_Y, -1800, 220); add('buoy', 7900, GROUND_Y, -2600, 90);
   }
   for (const name in groups) {
-    const list = groups[name], t1 = texFrom(ART.obj[name]), t2 = ART.obj[name + '2'] ? texFrom(ART.obj[name + '2']) : null;
+    const list = groups[name], t1 = cachedTex(ART.obj[name]), t2 = ART.obj[name + '2'] ? cachedTex(ART.obj[name + '2']) : null;
     const g = { name, list, tex: [t1, t2].filter(Boolean), vao: null, count: 0 };
-    t1.onready = () => {
+    whenReady(t1, () => {
       const asp = t1.w / t1.h, data = [];
       for (const [x, y, z, h] of list) {
         const w = h * asp;
@@ -2811,7 +2826,7 @@ function buildDecor() {
       gl.enableVertexAttribArray(L('aSize')); gl.vertexAttribPointer(L('aSize'), 2, gl.FLOAT, false, 28, 20);
       gl.bindVertexArray(null);
       g.vao = vao; g.count = data.length / 7;
-    };
+    });
     decor.push(g);
   }
 }
@@ -3286,7 +3301,8 @@ const KUI = (() => {
   const recOf = tr => { const t = OUT.save.rec[tr.id + ':' + ui.car + clsSuffix()]; return t ? { total: t, car: ui.car } : null; };
   const record = () => recOf(T);
   const getMedals = (tr, car) => medalsAny(TRACKS_ALL.indexOf(tr.def || tr), car).map(t => t / CLASSES[ui.cls].mul);
-  const medalFor = tr => { const r = recOf(tr); if (!r) return (OUT.save.medal || {})[tr.id] || 0; const m = getMedals(tr, ui.car); return r.total <= m[2] ? 3 : r.total <= m[1] ? 2 : r.total <= m[0] ? 1 : 0; };
+  const menuMedals = (tr, car) => { const m = medalsSoon(TRACKS_ALL.indexOf(tr.def || tr), car); return m && m.map(t => t / CLASSES[ui.cls].mul); };
+  const medalFor = tr => { const r = recOf(tr); if (!r) return (OUT.save.medal || {})[tr.id] || 0; const m = menuMedals(tr, ui.car); if (!m) return 0; return r.total <= m[2] ? 3 : r.total <= m[1] ? 2 : r.total <= m[0] ? 1 : 0; };
   let G = {}, T = {};
   function trackTip(tr) {
   const n = t => tr.haz.filter(h => h.type === t).length;
@@ -3754,7 +3770,7 @@ function drawMenu(u) {
         const mx = x + 22 * u + (m - 1) * (cw - 44 * u) / 3;
         ctx.globalAlpha = got >= m ? 1 : 0.45;
         medalDot(mx + 8 * u, y0 + 348 * u, 8 * u, m);
-        text(fmt(getMedals(tr, ui.car)[m - 1]).slice(0, -2), mx + 22 * u, y0 + 353 * u, 13 * u, '#fff', 'left', 600, false);
+        const mm = menuMedals(tr, ui.car); text(mm ? fmt(mm[m - 1]).slice(0, -2) : '-:--', mx + 22 * u, y0 + 353 * u, 13 * u, '#fff', 'left', 600, false);
         ctx.globalAlpha = 1;
       }
       text('times for ' + CARS[ui.car].name, x + cw / 2, y0 + 384 * u, 12 * u, '#cfd3ff', 'center', 500, false);
@@ -4091,7 +4107,7 @@ let distMap = null;
 function buildDistMap() {
   const n = 384, half = TR.center[2] + 600, x0 = TR.center[0] - half, z0 = TR.center[1] - half, cell = 2 * half / n;
   const d = new Float32Array(n * n).fill(1e9);
-  for (let i = 0; i < TR.N; i++) {
+  for (let i = 0; i < TR.N; i += 2) {   // om het andere punt: de vakjes zijn groter dan de afstand tussen twee punten
     if (TR.loop[i]) continue;
     const foot = HW + WALL_T + Math.max(0, TR.P[i * 3 + 1] - GROUND_Y) * 1.1;   // tot waar de helling reikt
     const r = Math.ceil(foot / cell) + 1, cx = (TR.P[i * 3] - x0) / cell, cz = (TR.P[i * 3 + 2] - z0) / cell;
@@ -4136,7 +4152,7 @@ function loadTrack(idx, intro) {
   TR.center = [cx, cz, rr + 1400];
   buildDistMap();
   if (roadMesh) gl.deleteVertexArray(roadMesh.vao);
-  for (const g of decor) { if (g.vao) gl.deleteVertexArray(g.vao); for (const t of g.tex) { t.dead = true; gl.deleteTexture(t.tex); } }
+  for (const g of decor) { if (g.vao) gl.deleteVertexArray(g.vao); g.dead = true; }   // plaatjes blijven bewaard (texCache)
   if (skyTex) { skyTex.dead = true; gl.deleteTexture(skyTex.tex); }
   decor = []; mapPts = null;
   TR.haz = []; TR.pads = [];
