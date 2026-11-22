@@ -32,7 +32,7 @@ const STEP = 16;             // afstand tussen twee punten van het lint
 const LAPS = 3, SHIP_R = 22, HOVER = 5, SHIP_SIZE = 1.2;
 const WALL_H = 26, WALL_T = 10, ROAD_T = 16;
 // Versie van de 3D-versie, rechtsonder op het startscherm. Bij elke publicatie op de website eentje ophogen.
-const GAME_VERSION = '3D-26';
+const GAME_VERSION = '3D-27';
 const LOW_H = 1080;           // aantal beeldlijnen (zoals FINE in komeet.html); daarna zonder vervaging vergroot
 const GROUND_Y = -40;        // grond iets onder het laagste stuk weg
 
@@ -3670,7 +3670,6 @@ function drawMenu(u) {
       card(x, y0, cw, ch, sel, cols[i]);
       text(cl.name, x + cw / 2, y0 + 76 * u, 46 * u, sel ? cols[i] : '#fff', 'center', 900);
       text(cl.sub, x + cw / 2, y0 + 114 * u, 15 * u, '#fff', 'center', 700, false);
-      cl.info.forEach((l, k) => text(l, x + cw / 2, y0 + (168 + 30 * k) * u, 12 * u, '#cfd3ff', 'center', 500, false));
       for (let k = 0; k <= i; k++) { ctx.fillStyle = cols[i]; ctx.fillRect(Math.round(x + cw / 2 + (k - i / 2) * 22 * u - 7 * u), Math.round(y0 + 262 * u), Math.round(14 * u), Math.round(14 * u)); }
     });
     return;
