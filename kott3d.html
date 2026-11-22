@@ -33,7 +33,7 @@ const LAPS = 3, SHIP_R = 22, HOVER = 5, SHIP_SIZE = 1.2;
 const WALL_H = 26, WALL_T = 10, ROAD_T = 16;
 const BERM = 420;   // vlakke berm naast de vangrail (op wegniveau) waar het decor op staat; daarachter de helling
 // Versie van de 3D-versie, rechtsonder op het startscherm. Bij elke publicatie op de website eentje ophogen.
-const GAME_VERSION = '3D-62';
+const GAME_VERSION = '3D-63';
 const LOW_H = 1080;           // aantal beeldlijnen (zoals FINE in komeet.html); daarna zonder vervaging vergroot
 const GROUND_Y = -40;        // grond iets onder het laagste stuk weg
 
@@ -1463,6 +1463,8 @@ let cupRun = null;
 // portretten (f0 tot f17 in art/sprites.js) voor menu en boordradio
 const FACE_IMG = [];
 for (let i = 0; i < 18; i++) { const im = new Image(); if (ART.obj['f' + i]) im.src = ART.obj['f' + i]; FACE_IMG.push(im); }
+const FACE_TALK = [];   // zelfde portretten met open mond (praten in de boordradio)
+for (let i = 0; i < 18; i++) { const im = new Image(); if (ART.obj['f' + i + 't']) im.src = ART.obj['f' + i + 't']; FACE_TALK.push(im); }
 const S = { phase: 'count', t: 0, ents: [], player: null, raceTime: 0, finishOrder: [] };
 const RIVAL_PALS = [
   ['#ffe0f0', '#f0c0d8', '#ff4f9a', '#d82a78', '#2a1020', '#ffffff', '#301028'],
@@ -2984,6 +2986,18 @@ function buildDecor() {
     for (let j = 0; j < N; j++) { const dx = P[j * 3] - x, dz = P[j * 3 + 2] - z, rr = r + (TR.split ? TR.split.D * splitW(j * TR.step) : 0); if (dx * dx + dz * dz < rr * rr) return false; }
     return true;
   };
+  // gigantische bouwwerken aan de horizon: ver weg rond de baan, heel hoog, wazig in de mist
+  {
+    const MEGA = [['megaship', 'megaface'], ['megapagoda', 'megapagoda'], ['megavolcano', 'megachurch'], ['megaplanet', 'megacrystal'], ['megapharaoh', 'megaface'], ['megapalace', 'megapalace'],
+      ['megaice', 'megachurch'], ['megacrystal', 'megaplanet'], ['megawhale', 'megakraken', 'megacoral'], ['megacake', 'megalolli'], ['megacastle', 'megachurch'], ['megaclock', 'megafactory']][TR.def.cup] || [];
+    const [cx, cz, rr] = TR.center || [0, 0, 6000], a0 = (TR.idx * 1.7) % 6.283, n = Math.max(3, MEGA.length);
+    for (let k = 0; k < n; k++) {
+      const name = MEGA[k % MEGA.length]; if (!ART.obj[name]) continue;
+      const a = a0 + k * 6.283 / n, dist = rr + 2200 + (k % 2) * 900, x = cx + Math.cos(a) * dist, z = cz + Math.sin(a) * dist;
+      if (!freeAt(x, z, 1200)) continue;
+      add(name, x, GROUND_Y, z, TR.def.cup === 8 ? 1200 : 1500 + (k % 2) * 300);
+    }
+  }
   rng = 7 + TR.idx * 131;
   // decor volgens de indeling uit komeet.html: rijen, herkenningspunten en publiek, op de helling of de grond
   const di = TR.idx - 1, base = HW + WALL_T + 8;
@@ -3459,7 +3473,7 @@ const KUI = (() => {
   const MM = 190, WORLD = 8192, CHAR_COLS = 6, SHOT_T = 1.5, INTRO_SPOTS = [];
   const SPR_BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5].map(v => (v + 0.5) / 16);
   const ART_OBJ = {};
-  for (const k of ['logo', 'trophy', 'e0', 'e1', 'e2', 'e3', 'e4', 'e5', 'e6', 'e7']) if (ART.obj[k]) { const im = new Image(); im.onload = () => { ART_OBJ[k] = im; }; im.src = ART.obj[k]; }
+  for (const k of ['logo', 'trophy', 'e0', 'e1', 'e2', 'e3', 'e4', 'e5', 'e6', 'e7', 'e8', 'e9', 'e10', 'e11', 'trophygold', 'trophysilver', 'trophybronze', 'podium', 'confetti']) if (ART.obj[k]) { const im = new Image(); im.onload = () => { ART_OBJ[k] = im; }; im.src = ART.obj[k]; }
   const TRACKS_ALL = TRACKS_OUTER, TRACKS = TRACKS_ALL.slice(1);
   const LOOKS = TRACKS.map(t => ({ names: THEMES[CUPS[t.cup].theme].names }));
   const roadWx = () => null;
@@ -3551,10 +3565,10 @@ const KUI = (() => {
 }
   // portretten zoals drawFace in komeet.html: teamkleur met raster, het geschilderde portret, een rand
   let faceCache = {};
-  function buildFace(i, ss) {
+  function buildFace(i, ss, talk) {
     // portretten verschillen in maat en in hoe groot het dier erin staat: schaal op het dier zelf (de niet-doorzichtige
     // pixels), zodat ze allemaal even groot in hun vak staan; dicht bij 1x precies 1x (pixel voor pixel), veel groter zonder vervaging
-    const pic = FACE_IMG[i], ready = pic && pic.complete && pic.naturalWidth, want = 24 * ss;
+    const pic = talk && FACE_TALK[i] && FACE_TALK[i].naturalWidth ? FACE_TALK[i] : FACE_IMG[i], ready = pic && pic.complete && pic.naturalWidth, want = 24 * ss;
     const W2 = Math.round(want), b = Math.max(1, Math.round(ss * 0.75)), size = W2 + 2 * b, pal = RIVALS[i].pal;
     const c = document.createElement('canvas'); c.width = c.height = size;
     const k = c.getContext('2d');
@@ -3580,11 +3594,11 @@ const KUI = (() => {
     k.fillRect(0, 0, size, b); k.fillRect(0, size - b, size, b); k.fillRect(0, 0, b, size); k.fillRect(size - b, 0, b, size);
     return c;
   }
-  function drawFace(i, cx, cy, sc) {
+  function drawFace(i, cx, cy, sc, talk) {
     if (i == null || !RIVALS[i]) return;
-    const ss = Math.round((sc || 1) * H / 360 * 4) / 4, key = ss + ':' + i;
+    const ss = Math.round((sc || 1) * H / 360 * 4) / 4, key = ss + ':' + i + (talk ? 't' : '');
     let c = faceCache[key];
-    if (!c || c.unready) c = faceCache[key] = buildFace(i, ss);
+    if (!c || c.unready) c = faceCache[key] = buildFace(i, ss, talk);
     ctx.drawImage(c, Math.round(cx - c.width / 2), Math.round(cy - c.height / 2));
   }
   // kaartje van een baan uit de controlepunten (zelfde wereldmaat als in komeet.html)
@@ -3784,7 +3798,7 @@ function drawHud(u, speed, runT) {
     ctx.globalAlpha = Math.max(0, Math.min(1, G.radio.t * 4, G.radio.age * 8));
     const talking = G.radio.age < G.radio.text.length * VOICES[G.radio.rival].step;
     panel(rx, ry, rwd, rh, 0.8);
-    drawFace(G.radio.rival, rx + 40 * u, ry + rh / 2 + (talking && Math.sin(G.time * 28) > 0 ? 1 : 0));
+    drawFace(G.radio.rival, rx + 40 * u, ry + rh / 2, 1, talking && Math.sin(G.time * 22) > 0);   // mond open en dicht terwijl hij praat
     text(rv.name, rx + 82 * u, ry + 32 * u, 14 * u, rv.pal[2], 'left', 800);
     text(G.radio.text.slice(0, Math.ceil(G.radio.age / VOICES[G.radio.rival].step)), rx + 82 * u, ry + 58 * u, 13 * u, '#fff', 'left', 600, false);
     ctx.globalAlpha = 1;
@@ -3832,7 +3846,18 @@ function drawCupResult(u) {
     const tc = G.cupPos <= 3 ? MEDAL_COL[4 - G.cupPos] : '#cfd3ff';
     text(CUPS[ui.cup].name + ' - FINAL STANDINGS', W / 2, py + 44 * u, 26 * u, '#ffb833', 'center', 900);
     text(G.cupPos === 1 ? 'CHAMPION!' : ord(G.cupPos).toUpperCase() + ' PLACE', W / 2, py + 92 * u, 44 * u, tc, 'center', 900);
-    if (G.cupPos === 1 && ART_OBJ.trophy) { const tro = ART_OBJ.trophy; ctx.drawImage(tro, Math.round(px + 30 * u), Math.round(py + 30 * u)); ctx.drawImage(tro, Math.round(px + pw - 30 * u - tro.width), Math.round(py + 30 * u)); }
+    const tro = G.cupPos <= 3 ? ART_OBJ[['trophygold', 'trophysilver', 'trophybronze'][G.cupPos - 1]] : null;
+    if (tro) { const th = Math.round(64 * u), tw = Math.round(tro.width * th / tro.height); ctx.drawImage(tro, Math.round(px + 26 * u), Math.round(py + 20 * u), tw, th); ctx.drawImage(tro, Math.round(px + pw - 26 * u - tw), Math.round(py + 20 * u), tw, th); }
+    // podium naast het paneel, met de drie besten erop
+    const pod = ART_OBJ.podium, side = W - (px + pw);
+    if (pod && side > 220 * u) {
+      const ph2 = Math.round(Math.min(220 * u, side * 0.8)), pw2 = Math.round(pod.width * ph2 / pod.height), x0 = Math.round(px + pw + (side - pw2) / 2), y0 = Math.round(py + ph - ph2 - 20 * u);
+      ctx.imageSmoothingEnabled = false; ctx.drawImage(pod, x0, y0, pw2, ph2);
+      const spots = [[0.5, 0.06], [0.2, 0.3], [0.8, 0.42]];
+      rows.slice(0, 3).forEach((r, k) => drawFace(r.player ? ui.char : r.rival, x0 + pw2 * spots[k][0], y0 + ph2 * spots[k][1] - 30 * u + Math.sin(G.time * 3 + k) * 3 * u));
+      const conf = ART_OBJ.confetti;
+      if (conf && G.cupPos <= 3) { const cw2 = Math.round(pw2 * 0.9), ch2 = Math.round(conf.height * cw2 / conf.width); ctx.globalAlpha = 0.85 + 0.15 * Math.sin(G.time * 5); ctx.drawImage(conf, Math.round(x0 + (pw2 - cw2) / 2), Math.round(y0 - ch2 - 30 * u + Math.sin(G.time * 2) * 6 * u), cw2, ch2); ctx.globalAlpha = 1; }
+    }
     const top = rows[0].player ? rows[1] : rows[0];
     quote = { rival: top.rival, text: lineFor(top.rival, rows[0].player ? 'lose' : 'win', G.quoteSeed + 1) };
   } else {
