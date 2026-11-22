@@ -33,7 +33,7 @@ const LAPS = 3, SHIP_R = 22, HOVER = 5, SHIP_SIZE = 1.2;
 const WALL_H = 26, WALL_T = 10, ROAD_T = 16;
 const BERM = 420;   // vlakke berm naast de vangrail (op wegniveau) waar het decor op staat; daarachter de helling
 // Versie van de 3D-versie, rechtsonder op het startscherm. Bij elke publicatie op de website eentje ophogen.
-const GAME_VERSION = '3D-60';
+const GAME_VERSION = '3D-61';
 const LOW_H = 1080;           // aantal beeldlijnen (zoals FINE in komeet.html); daarna zonder vervaging vergroot
 const GROUND_Y = -40;        // grond iets onder het laagste stuk weg
 
@@ -3607,7 +3607,9 @@ const KUI = (() => {
     for (let i = 0; i < TR.N; i += 4) { x0 = Math.min(x0, TR.P[i * 3]); x1 = Math.max(x1, TR.P[i * 3]); z0 = Math.min(z0, TR.P[i * 3 + 2]); z1 = Math.max(z1, TR.P[i * 3 + 2]); }
     const k = sz / Math.max(x1 - x0, z1 - z0) * 0.92, ox = mx + (sz - (x1 - x0) * k) / 2, oy = my + (sz - (z1 - z0) * k) / 2;
     const at2 = (x, z) => [Math.round(ox + (x - x0) * k), Math.round(oy + (z - z0) * k)];
-    for (const [col, t] of [['#16101a', 5], ['#ffffff', 3]]) { ctx.fillStyle = col; for (let i = 0; i < TR.N; i += 3) { const [x, y] = at2(TR.P[i * 3], TR.P[i * 3 + 2]); ctx.fillRect(x - (t >> 1), y - (t >> 1), t, t); } }
+    const mpts = [];   // middenlijn, en bij een splitsing de twee routes
+    for (let i = 0; i < TR.N; i += 3) { const w = TR.split ? splitW(i * TR.step) : 0; if (w > 0) { const c = TR.split.D * w, hr = norm([TR.R[i][0], 0, TR.R[i][2]]); for (const sd of [-1, 1]) mpts.push([TR.P[i * 3] + hr[0] * c * sd, TR.P[i * 3 + 2] + hr[2] * c * sd]); } else mpts.push([TR.P[i * 3], TR.P[i * 3 + 2]]); }
+    for (const [col, t] of [['#16101a', 5], ['#ffffff', 3]]) { ctx.fillStyle = col; for (const [px, pz] of mpts) { const [x, y] = at2(px, pz); ctx.fillRect(x - (t >> 1), y - (t >> 1), t, t); } }
     // stippen: elke rijder een rondje in zijn eigen kleur met een donkere rand en zijn plaats ernaast; jij groter met een witte rand
     const mu = H / 720, order = liveOrder();
     // mini-portretten: elke rijder als klein gezichtje op zijn plek, met zijn plaats ernaast; jij groter, met een witte rand die knippert
@@ -4423,15 +4425,18 @@ function trackOutline(def) {
   const keepTR = Object.assign({}, TR), keepHW = HW;
   buildTrack(def, TRACKS_OUTER.indexOf(def));
   const P = TR.P, N = TR.N, raw = [];
-  for (let i = 0; i < N; i++) raw.push([P[i * 3], P[i * 3 + 2], P[i * 3 + 1]]);
+  for (let i = 0; i < N; i++) { const w = TR.split ? splitW(i * TR.step) : 0;
+    if (w > 0) { const c = TR.split.D * w, hr = norm([TR.R[i][0], 0, TR.R[i][2]]); raw.push([P[i * 3] - hr[0] * c, P[i * 3 + 2] - hr[2] * c, P[i * 3 + 1]], [P[i * 3] + hr[0] * c, P[i * 3 + 2] + hr[2] * c, P[i * 3 + 1] + TR.split.hr[i]]); }
+    else raw.push([P[i * 3], P[i * 3 + 2], P[i * 3 + 1]]); }
   for (const k in TR) delete TR[k];
   Object.assign(TR, keepTR); HW = keepHW;
   let x0 = 1e9, x1 = -1e9, z0 = 1e9, z1 = -1e9;
   for (const [x, z] of raw) { x0 = Math.min(x0, x); x1 = Math.max(x1, x); z0 = Math.min(z0, z); z1 = Math.max(z1, z); }
   // stukken die over een ander stuk weg heen gaan (brug): die komen er in het voorbeeld bovenop
   const over = [], r2 = (def.hw * 2.4) ** 2;
-  for (let i = 0; i < N; i++) for (let j = 0; j < N; j += 2) {
-    if (Math.abs(i - j) < 40 || N - Math.abs(i - j) < 40) continue;
+  const RN = raw.length;
+  for (let i = 0; i < RN; i++) for (let j = 0; j < RN; j += 2) {
+    if (Math.abs(i - j) < 80 || RN - Math.abs(i - j) < 80) continue;
     const dx = raw[i][0] - raw[j][0], dz = raw[i][1] - raw[j][1];
     if (dx * dx + dz * dz < r2 && raw[i][2] > raw[j][2] + 70) { over.push(raw[i]); break; }
   }
