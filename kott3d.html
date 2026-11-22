@@ -33,7 +33,7 @@ const LAPS = 3, SHIP_R = 22, HOVER = 5, SHIP_SIZE = 1.2;
 const WALL_H = 26, WALL_T = 10, ROAD_T = 16;
 const BERM = 420;   // vlakke berm naast de vangrail (op wegniveau) waar het decor op staat; daarachter de helling
 // Versie van de 3D-versie, rechtsonder op het startscherm. Bij elke publicatie op de website eentje ophogen.
-const GAME_VERSION = '3D-48';
+const GAME_VERSION = '3D-49';
 const LOW_H = 1080;           // aantal beeldlijnen (zoals FINE in komeet.html); daarna zonder vervaging vergroot
 const GROUND_Y = -40;        // grond iets onder het laagste stuk weg
 
@@ -1614,7 +1614,7 @@ function netOnMessage(m) {
       NET.room = m.code ? m : null; if (m.code) { NET.err = ''; NET.typing = false; }
       break;
     case 'start':
-      NET.race = { id: m.raceId, host: m.host, grid: m.grid, bots: m.bots, seed: m.seed, cls: m.cls, items: m.items == null ? 1 : m.items, done: {}, omode: m.omode, cupRace: m.cupRace || 0 };
+      NET.race = { id: m.raceId, host: m.host, grid: m.grid, bots: m.bots, seed: m.seed, cls: m.cls, items: m.items == null ? 0 : m.items, done: {}, omode: m.omode, cupRace: m.cupRace || 0 };
       if (m.omode === 1 && (m.cupRace === 0 || !NET.cup)) NET.cup = { pts: {}, names: {}, done: false };
       if (m.omode !== 1) NET.cup = null;
       S.goAt = m.time - NET.offset + 5500;
@@ -1730,7 +1730,7 @@ function onlineKey(code) {
   }
   if (NET.sel === 2 && (L || R)) netSet({ bots: clamp((room.bots || 0) + (R ? 1 : -1), 0, Math.max(0, 6 - room.players.length)) });
   if (NET.sel === 3 && (L || R)) netSet({ cls: ((room.cls == null ? 1 : room.cls) + (R ? 1 : 2)) % 3 });
-  if (NET.sel === 4 && (L || R)) netSet({ items: room.items === 0 ? 1 : 0 });
+  if (NET.sel === 4 && (L || R)) netSet({ items: room.items === 1 ? 0 : 1 });
   if (OK && room.state === 'lobby') {
     if (cupMode && NET.cup && NET.cup.done) { NET.cup = null; netSet({ cupRace: 0 }); return true; }
     NET.send({ t: 'start', track: cupMode ? cupTrack(room.cup || 0, room.cupRace || 0) : room.track || 1 });
@@ -1741,7 +1741,7 @@ function onlineKey(code) {
 // ---------------------------------------------------------------- menu's
 // title -> mode -> (cup -> class | track) -> char -> car -> race. Pijlen kiezen, Enter bevestigt, Esc gaat terug.
 const MODES = [['CUP RACE', 'Three races against five rivals, points per race'], ['TIME TRIAL', 'Alone against the clock and your own ghost'],
-  ['FREE RACE', 'Any track, five rivals, items on'], ['ONLINE', 'Race friends: make a room or join one with a code']];
+  ['FREE RACE', 'Any track, five rivals'], ['ONLINE', 'Race friends: make a room or join one with a code']];
 function menuKey(code) {
   if (ui.screen === 'online') { if (onlineKey(code)) return; if (code === 'Escape' || code === 'Backspace') { ui.screen = 'car'; } return; }
   const lr = code === 'ArrowRight' || code === 'KeyD' ? 1 : code === 'ArrowLeft' || code === 'KeyA' ? -1 : 0;
@@ -1758,7 +1758,6 @@ function menuKey(code) {
       break;
     case 'cls':
       if (lr) ui.cls = (ui.cls + lr + 3) % 3;
-      if (code === 'KeyI' && ui.mode === 1) { save.items = save.items === false; store(); }
       if (ok) ui.screen = 'cup';
       if (back) ui.screen = 'mode';
       break;
@@ -1850,7 +1849,8 @@ function itemsReset() {
   IT.boxes.length = IT.slicks.length = IT.zaps.length = 0;
   for (const e of S.ents) Object.assign(e, { item: null, itemN: 0, rollT: 0, shieldT: 0, spinT: 0, aiItemT: 0, itemKey: false });
   if (G3.mode === 'tt' && G3.state !== 'menu') return;
-  S.noItems = (G3.mode === 'cup' && save.items === false) || (G3.mode === 'online' && NET.race && NET.race.items === 0);
+  // items alleen online, als de host ze aanzet (standaard uit); in de cup en de vrije race nooit
+  S.noItems = !(G3.mode === 'online' && NET.race && NET.race.items === 1);
   if (S.noItems) return;
   const busy = sv => TR.haz.some(h => sv > h.s0 - 250 && sv < h.s1 + 250) || TR.pads.some(p => Math.abs(wrapDs(p.s - sv)) < 320)
     || (TR.def.jump && gapPos(sv) > -900 && gapPos(sv) < TR.gapL + 300);
@@ -3788,8 +3788,7 @@ function drawMenu(u) {
   }
   if (ui.screen === 'online') { drawOnlineMenu(u); return; }
   if (ui.screen === 'cls') {
-    header(u, ui.mode === 0 ? 'TIME TRIAL - CHOOSE A CLASS' : 'CHOOSE A CLASS', hint + (ui.mode === 1 ? '      I: items on/off' : ''));
-    if (ui.mode === 1) text('ITEMS: ' + (OUT.save.items === false ? 'OFF' : 'ON'), W / 2, H * 0.26 + 340 * u, 22 * u, OUT.save.items === false ? '#ff4f8a' : '#7dffb0', 'center', 900);
+    header(u, ui.mode === 0 ? 'TIME TRIAL - CHOOSE A CLASS' : 'CHOOSE A CLASS', hint);
     const cw = Math.min(280 * u, (W - 80 * u) / 3 - 20 * u), ch = 300 * u, gap = 20 * u, x0 = W / 2 - (cw * 3 + gap * 2) / 2, y0 = H * 0.26;
     const cols = ['#7dffb0', '#ffb833', '#ff4f8a'];
     CLASSES.forEach((cl, i) => {
@@ -3871,7 +3870,7 @@ function drawMenu(u) {
       text(words.slice(0, half).join(' '), x + cw / 2, y0 + 366 * u, 13 * u, '#fff', 'center', 500, false);
       text(words.slice(half).join(' '), x + cw / 2, y0 + 384 * u, 13 * u, '#fff', 'center', 500, false);
     });
-    text('Drive: arrows or WASD     Boost: space     Drift: shift     Item: E     Pause: Esc', W / 2, y0 + ch + 30 * u, 15 * u, '#ffb833', 'center', 700, false);
+    text('Drive: arrows or WASD     Boost: space     Drift: shift     ' + (ui.mode === 2 ? 'Item: E     ' : '') + 'Pause: Esc', W / 2, y0 + ch + 30 * u, 15 * u, '#ffb833', 'center', 700, false);
     if (ui.mode === 1) {
       const sp = Math.min(190 * u, (W - 60 * u) / 5), rx0 = W / 2 - sp * 2.5, ry = y0 + ch + 74 * u;
       ui.rivals.forEach((ci, i) => {
@@ -3996,7 +3995,7 @@ function drawItemSlot(u) {
     });
     const sx = px + pw * 0.6, sw = pw * 0.4;
     card(sx, y0, sw, 330 * u, false);
-    const rowsS = [['MODE', cupMode ? 'CUP' : 'RACE'], cupMode ? ['CUP', CUPS[room.cup || 0].name] : ['TRACK', TRACKS_ALL[room.track || 1].name], ['BOTS', String(room.bots || 0)], ['CLASS', CLASSES[room.cls == null ? 1 : room.cls].name], ['ITEMS', room.items === 0 ? 'OFF' : 'ON']];
+    const rowsS = [['MODE', cupMode ? 'CUP' : 'RACE'], cupMode ? ['CUP', CUPS[room.cup || 0].name] : ['TRACK', TRACKS_ALL[room.track || 1].name], ['BOTS', String(room.bots || 0)], ['CLASS', CLASSES[room.cls == null ? 1 : room.cls].name], ['ITEMS', room.items === 1 ? 'ON' : 'OFF']];
     rowsS.forEach(([k, v], i) => {
       const y = y0 + (40 + 34 * i) * u, on = isHost && NET.sel === i;
       if (on) { ctx.fillStyle = 'rgba(255,255,255,0.1)'; ctx.fillRect(Math.round(sx + 8 * u), Math.round(y - 22 * u), Math.round(sw - 16 * u), Math.round(30 * u)); }
