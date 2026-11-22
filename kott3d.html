@@ -32,7 +32,7 @@ const STEP = 16;             // afstand tussen twee punten van het lint
 const LAPS = 3, SHIP_R = 22, HOVER = 5, SHIP_SIZE = 1.2;
 const WALL_H = 26, WALL_T = 10, ROAD_T = 16;
 // Versie van de 3D-versie, rechtsonder op het startscherm. Bij elke publicatie op de website eentje ophogen.
-const GAME_VERSION = '3D-33';
+const GAME_VERSION = '3D-34';
 const LOW_H = 1080;           // aantal beeldlijnen (zoals FINE in komeet.html); daarna zonder vervaging vergroot
 const GROUND_Y = -40;        // grond iets onder het laagste stuk weg
 
@@ -1366,6 +1366,11 @@ function tick() {
       if (e.lap >= 2) { if (!e.best || e.lapT < e.best) e.best = e.lapT; e.lastLap = e.lapT; e.laps.push(e.lapT); }
       e.lapT = 0; e.lap = lap;
       if (e.progress >= LAPS * TR.len) { e.finished = true; e.finishT = S.raceTime; S.finishOrder.push(e); }
+      // eigen ronde voltooid: melding met de rondetijd, en een aankondiging van de laatste ronde
+      else if (e === S.player && lap >= 3) {
+        if (lap === LAPS + 1) { showMsg('FINAL LAP!', '#ff4f8a', 2.4); beep(660, 0.12, 'square', 0.06); setTimeout(() => beep(990, 0.25, 'square', 0.06), 140); }
+        else { showMsg('LAP ' + (lap - 1) + '/' + LAPS + '  ' + fmt(e.lastLap), '#7dffb0', 2); beep(880, 0.15, 'square', 0.05); }
+      }
     }
   }
   collide(S.ents);
@@ -2154,6 +2159,8 @@ function getSong(name) {
 }
 function musicSync(dt) {
   if (!AC) return;                                  // geluid mag pas na de eerste toetsdruk
+  const fastLap = G3.state !== 'menu' && S.phase === 'race' && S.player && S.player.lap === LAPS + 1 && !S.player.finished;
+  MUSIC.fast = fastLap;   // laatste ronde: muziek iets sneller
   // eerste kandidaat die bestaat; zolang die nog laadt, speelt de ingebouwde muziek
   let target = null;
   for (const name of songsWanted()) {
@@ -2170,7 +2177,7 @@ function musicSync(dt) {
     const v = el.volume + Math.max(-dt * 1.6, Math.min(dt * 1.6, goal - el.volume));
     el.volume = Math.max(0, Math.min(1, v));
     if (o === target) {
-      el.playbackRate = 1;
+      const rate = fastLap ? 1.08 : 1; if (Math.abs(el.playbackRate - rate) > 0.004) el.playbackRate += Math.sign(rate - el.playbackRate) * Math.min(Math.abs(rate - el.playbackRate), 0.01);   // in kleine stapjes
       if (el.paused) { el.currentTime = 0; el.play().catch(() => {}); }
     } else if (el.volume <= 0.001 && !el.paused) el.pause();
   }
