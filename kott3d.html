@@ -32,7 +32,7 @@ const STEP = 16;             // afstand tussen twee punten van het lint
 const LAPS = 3, SHIP_R = 22, HOVER = 5, SHIP_SIZE = 1.2;
 const WALL_H = 26, WALL_T = 10, ROAD_T = 16;
 // Versie van de 3D-versie, rechtsonder op het startscherm. Bij elke publicatie op de website eentje ophogen.
-const GAME_VERSION = '3D-45';
+const GAME_VERSION = '3D-46';
 const LOW_H = 1080;           // aantal beeldlijnen (zoals FINE in komeet.html); daarna zonder vervaging vergroot
 const GROUND_Y = -40;        // grond iets onder het laagste stuk weg
 
@@ -2317,7 +2317,9 @@ void main(){
 const FS_BB = `#version 300 es
 precision highp float; in vec3 vW; in vec2 vUV; uniform sampler2D uTex; out vec4 o;
 ${GLSL_COMMON}
-void main(){ vec4 c = texture(uTex, vUV); if (c.a < 0.5) discard; o = vec4(fog(c.rgb, vW), 1.0); }`;
+void main(){ vec4 c = texture(uTex, vUV); if (c.a < 0.5) discard;
+  float f = clamp((distance(vW, uCam) - uFogR.x) / (uFogR.y - uFogR.x), 0.0, 1.0);   // zachte mist: geen korrel op verre plaatjes
+  o = vec4(mix(c.rgb, uFog, f * f * (3.0 - 2.0 * f)), 1.0); }`;
 
 function compile(type, src) {
   const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s);
@@ -2670,7 +2672,7 @@ function texFrom(src, wrap) {
     gl.bindTexture(gl.TEXTURE_2D, t);
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, img);
     if (!wrap) gl.generateMipmap(gl.TEXTURE_2D);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, wrap ? gl.NEAREST : gl.NEAREST_MIPMAP_LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, wrap ? gl.NEAREST : gl.LINEAR_MIPMAP_LINEAR);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, wrap || gl.CLAMP_TO_EDGE);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
@@ -2693,6 +2695,7 @@ const DECOR_BY_CUP = [null,
 const DECOR_KINDS = [['palm', 300, 7], ['parasol', 120, 2], ['beachA', 110, 1], ['beachB', 110, 1], ['flags', 190, 1], ['lifeguard', 260, 0.6],
   ['sandcastle', 70, 0.8], ['towels', 50, 0.6], ['surfer', 120, 0.6], ['crab', 40, 0.6], ['icecream', 150, 0.5], ['pierlamp', 200, 0.6]];
 // verhouding breedte/hoogte van een plaatje uit art/sprites.js, gelezen uit de kop van de png
+const DECOR_SCALE = 1.2;   // decor langs de weg iets groter, zodat het boven de vangrail uitkomt
 const aspectCache = {};
 function imgAspect(name) {
   if (aspectCache[name]) return aspectCache[name];
@@ -2743,15 +2746,15 @@ function buildDecor() {
       // geen decor vlak naast een wandrit: de wegrand staat daar hoog in de lucht
       if (TR.loop) for (let k2 = -50; k2 <= 50; k2 += 5) if (TR.loop[(i + k2 + N) % N]) return false;
       const hr = norm([R[i][0], 0, R[i][2]]), ohk = OBJ_H[k] || 200;
-      off = Math.max(off, HW + WALL_T + halfW(k, Array.isArray(ohk) ? ohk[0] : ohk) + 12);   // breed plaatje: verder van de rail
+      off = Math.max(off, HW + WALL_T + halfW(k, (Array.isArray(ohk) ? ohk[0] : ohk) * DECOR_SCALE) + 12);   // breed plaatje: verder van de rail
       const x = P[i * 3] + hr[0] * off * side, z = P[i * 3 + 2] + hr[2] * off * side;
       if (!clearOf(x, z, i, base + 30)) return false;
       // op de helling: de rand van de weg min de afstand tot de rand gedeeld door de helling
       const edgeY = P[i * 3 + 1] + R[i][1] * side * (HW + WALL_T) - ROAD_T;
-      const y = isBridge[i] || TRACK_STYLE[TR.def.id] === 'skyway' ? GROUND_Y : Math.max(GROUND_Y, edgeY - Math.max(0, off - HW - WALL_T) / 1.1);
+      const y = isBridge[i] || TRACK_STYLE[TR.def.id] === 'skyway' ? GROUND_Y : Math.max(GROUND_Y, edgeY - 24);   // op de berm naast de rail, net onder de wegrand
       const oh = OBJ_H[k] || 200;   // [hoogte, zweefhoogte] voor vliegende dingen
-      if (!roadFree(x, z, halfW(k, Array.isArray(oh) ? oh[0] : oh))) return false;
-      add(k, x, y + (Array.isArray(oh) ? oh[1] : 0), z, Array.isArray(oh) ? oh[0] : oh);
+      if (!roadFree(x, z, halfW(k, (Array.isArray(oh) ? oh[0] : oh) * DECOR_SCALE))) return false;
+      add(k, x, y + (Array.isArray(oh) ? oh[1] : 0), z, (Array.isArray(oh) ? oh[0] : oh) * DECOR_SCALE);
       return true;
     };
     const sideOf = (sv, side) => {
