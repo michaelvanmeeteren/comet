@@ -33,7 +33,7 @@ const LAPS = 3, SHIP_R = 22, HOVER = 5, SHIP_SIZE = 1.2;
 const WALL_H = 26, WALL_T = 10, ROAD_T = 16;
 const BERM = 420;   // vlakke berm naast de vangrail (op wegniveau) waar het decor op staat; daarachter de helling
 // Versie van de 3D-versie, rechtsonder op het startscherm. Bij elke publicatie op de website eentje ophogen.
-const GAME_VERSION = '3D-55';
+const GAME_VERSION = '3D-56';
 const LOW_H = 1080;           // aantal beeldlijnen (zoals FINE in komeet.html); daarna zonder vervaging vergroot
 const GROUND_Y = -40;        // grond iets onder het laagste stuk weg
 
@@ -2019,12 +2019,12 @@ function thud(strength) {
   g.gain.exponentialRampToValueAtTime(0.001, AC.currentTime + 0.2);
   o.connect(g); g.connect(sfxGain); o.start(); o.stop(AC.currentTime + 0.22);
 }
-function whoosh() {
+function whoosh(vol) {
   if (!AC) return;
   const s = AC.createBufferSource(), f = AC.createBiquadFilter(), g = AC.createGain();
   s.buffer = noiseBuf; f.type = 'bandpass'; f.Q.value = 1.5;
   f.frequency.setValueAtTime(400, AC.currentTime); f.frequency.exponentialRampToValueAtTime(2600, AC.currentTime + 0.35);
-  g.gain.setValueAtTime(0.12, AC.currentTime); g.gain.exponentialRampToValueAtTime(0.001, AC.currentTime + 0.45);
+  g.gain.setValueAtTime(vol || 0.12, AC.currentTime); g.gain.exponentialRampToValueAtTime(0.001, AC.currentTime + 0.45);
   s.connect(f); f.connect(g); g.connect(sfxGain); s.start(); s.stop(AC.currentTime + 0.5);
 }
 const VOICES = [
@@ -2162,7 +2162,9 @@ function soundEvents() {
   if (ev.wall) thud(0.35);
   if (ev.jump) whoosh();
   if (ev.land) thud(0.25);
-  if (ev.pad) { beep(660, 0.12, 'sawtooth', 0.05); beep(990, 0.18, 'sawtooth', 0.04); }
+  if (ev.pad) { beep(660, 0.12, 'sawtooth', 0.05); beep(990, 0.18, 'sawtooth', 0.04); whoosh(0.2); }
+  // eigen boost: een whoosh bij het begin
+  const mb = S.player.in.boost && S.player.energy > 0.01; if (mb && !S.player.wasBoost) { whoosh(0.16); beep(330, 0.2, 'sawtooth', 0.035); } S.player.wasBoost = mb;
   if (ev.drift) beep([0, 700, 900, 1200][ev.drift], 0.15, 'square', 0.06);
   if (ev.splash || ev.fall) splash();
   if (ev.bump) thud(0.15);
@@ -2959,9 +2961,12 @@ function updateCamera(dt) {
   cam.tw = (cam.tw || 0) + (inTw - (cam.tw || 0)) * (1 - Math.exp(-dt * 3));
   const fol = 0.65 - 0.32 * cam.tw, upWant = norm(add(scale([0, 1, 0], 1 - fol), scale(fr.u, fol)));
   cam.u = norm(add(cam.u, scale(sub(upWant, cam.u), ku)));
-  const back = 175 + Math.min(60, S.player.speed * 0.03);
+  const bz = S.player.boosting ? 1 : 0; cam.bk = (cam.bk || 0) + (bz - (cam.bk || 0)) * (1 - Math.exp(-dt * (bz ? 6 : 2.5)));
+  if (bz && !cam.wasB) cam.shake = 0.22; cam.wasB = bz; cam.shake = Math.max(0, (cam.shake || 0) - dt);
+  const back = 175 + Math.min(60, S.player.speed * 0.03) + 28 * cam.bk;
   cam.pos = add(add(fr.pos, scale(cam.f, -back)), scale(cam.u, 62));
   cam.look = add(add(fr.pos, scale(cam.f, 140)), scale(cam.u, 18));
+  if (cam.shake > 0) { const a = cam.shake / 0.22 * 3.5; cam.pos = add(cam.pos, [Math.sin(S.raceTime * 90) * a, Math.cos(S.raceTime * 77) * a, 0]); }
 }
 
 // ---------------------------------------------------------------- tekenen
@@ -2969,7 +2974,7 @@ let flick = 0;
 function render(dt) {
   flick += dt;
   updateCamera(dt);
-  const asp = W / H, fov = 62 * Math.PI / 180;
+  const asp = W / H, fov = (62 + 7 * (G3.state === 'menu' ? 0 : cam.bk || 0)) * Math.PI / 180;   // bij boosten iets wijder
   const proj = perspective(fov, asp, 4, 40000), view = lookAt(cam.pos, cam.look, cam.u);
   const VP = mul(proj, view.m);
   gl.viewport(0, 0, W, H);
@@ -3060,6 +3065,7 @@ const IT_COLS = { hue: ['#ff4f8a', '#ffb833', '#7dffb0', '#4fc3ff', '#c070ff'].m
   shield: hex('#7dffb0'), shieldHi: hex('#e8fff2'), star: hex('#ffd24a') };
 // golfkleuren: diep, midden, licht, glans, schuim (twee tinten), spat, natte weg
 const WAVE_COLS = ['#1a6fa8', '#2286c4', '#2f9fd8', '#4cbde8', '#8adcf4', '#e4f8ff', '#ffffff', '#2c3a4e'].map(hex);
+const FX = {};
 function drawDynamic() {
   const out = [], t = S.raceTime;
   const wp = (sv, d, up) => { at(sv, DQ); return [DQ.px + DQ.rx * d + DQ.ux * up, DQ.py + DQ.ry * d + DQ.uy * up, DQ.pz + DQ.rz * d + DQ.uz * up]; };
@@ -3152,7 +3158,25 @@ function drawDynamic() {
     cube(zp.s, zp.d, 22, 11, flick * 8, [IC.zap, IC.zapHi]);
     cube(zp.s, zp.d, 22, 6, -flick * 10, [IC.white]);
   }
+  // rookwolkjes van het driften: oud spul weg, de rest groeit en stijgt
+  FX.smoke = (FX.smoke || []).filter(p => t - p.t < 0.7 && t >= p.t);
+  for (const p of FX.smoke) { const a = (t - p.t) / 0.7; cube(p.s, p.d, p.h + a * 18, 3 + a * 7, p.r, [[0.85 - a * 0.25, 0.86 - a * 0.25, 0.9 - a * 0.25]]); }
   for (const e of S.ents) {
+    const cs = Math.cos(e.psi), sn = Math.sin(e.psi), behind = (L, side) => [e.s - cs * L - sn * side, e.d - sn * L + cs * side];
+    // boost: een vlammenstaart achter het schip (wit-blauw), flakkerend
+    if (e.boosting && !e.finished) for (let q = 0; q < 6; q++) {
+      const fl = Math.sin(flick * 40 + q * 1.7) * 3, [bs, bd] = behind(30 + q * 11 + fl, 0);
+      cube(bs, bd, e.z + 9 - q * 0.6, Math.max(1.2, 6.5 - q * 0.95), flick * 9 + q, [q < 2 ? [0.95, 1, 1] : q < 4 ? [0.45, 0.88, 1] : [0.25, 0.55, 1]]);
+    }
+    // driften: vonken onder de achterkant, van kleur per niveau (wit, blauw, oranje, roze), en rookwolkjes
+    if (e.in.drift && e.driftT > 0.15 && !e.air && e.speed > 380) {
+      const lv = driftLevel(e.driftT), col = [[1, 1, 1], [0.35, 0.75, 1], [1, 0.62, 0.15], [1, 0.35, 0.85]][lv];
+      for (const side of [-13, 13]) for (let q = 0; q < 3; q++) {
+        const j = Math.sin(flick * 60 + q * 2.1 + side) * 6, [bs, bd] = behind(20 + q * 7 + j, side + j * 0.5);
+        cube(bs, bd, e.z + 2 + Math.abs(j) * 0.4, lv ? 2.4 : 1.6, flick * 12 + q, [col]);
+      }
+      if (FX.smoke.length < 90 && (FX.n = (FX.n || 0) + 1) % 2 === 0) for (const side of [-13, 13]) { const [bs, bd] = behind(24, side); FX.smoke.push({ s: bs, d: bd, h: e.z + 3, t, r: Math.random() * 3 }); }
+    }
     // schild: een dunne gloeiende ring rond het schip met draaiende vonkjes (het zicht blijft vrij); knippert als hij bijna op is
     if (e.shieldT > 0 && !(e.shieldT < 2 && (flick * 8) % 1 < 0.5)) {
       const n = up(e.s);
