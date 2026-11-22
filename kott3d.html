@@ -32,7 +32,7 @@ const STEP = 16;             // afstand tussen twee punten van het lint
 const LAPS = 3, SHIP_R = 22, HOVER = 5, SHIP_SIZE = 1.2;
 const WALL_H = 26, WALL_T = 10, ROAD_T = 16;
 // Versie van de 3D-versie, rechtsonder op het startscherm. Bij elke publicatie op de website eentje ophogen.
-const GAME_VERSION = '3D-21';
+const GAME_VERSION = '3D-22';
 const LOW_H = 1080;           // aantal beeldlijnen (zoals FINE in komeet.html); daarna zonder vervaging vergroot
 const GROUND_Y = -40;        // grond iets onder het laagste stuk weg
 
@@ -3154,7 +3154,20 @@ const KUI = (() => {
     ctx.drawImage(c, Math.round(cx - c.width / 2), Math.round(cy - c.height / 2));
   }
   // kaartje van een baan uit de controlepunten (zelfde wereldmaat als in komeet.html)
+  // baanvoorbeeld: de echte 3D-vorm van bovenaf als doorgetrokken brede lijn; hogere stukken (bruggen) liggen er bovenop
   function pixelTrack(c, tr, x, y, size, col, t) {
+    if (!tr._mp) tr._mp = trackOutline(tr);
+    if (t < 4) return;   // de lichte lijn wordt in dezelfde beurt getekend
+    const m = tr._mp, sc = size * 0.94 / m.span, ox = x + (size - m.w * sc) / 2, oy = y + (size - m.h * sc) / 2;
+    const tw = Math.max(5, Math.round(size / 22)), ti = Math.max(3, tw - Math.max(2, Math.round(tw / 3)));
+    const fg = c.__trackCol || '#b8b4d0';
+    // eerst alle rand, dan alle vulling; daarna nog eens de stukken die over een andere weg heen gaan
+    for (const layer of [m.pts, m.over]) for (const [w, cl] of [[tw, col], [ti, fg]]) {
+      c.fillStyle = cl;
+      for (const [px, py] of layer) c.fillRect(Math.round(ox + px * sc) - (w >> 1), Math.round(oy + py * sc) - (w >> 1), w, w);
+    }
+  }
+  function pixelTrackOld(c, tr, x, y, size, col, t) {
     if (!tr._mp) { const p = tr.pts, n = p.length; tr._mp = []; for (let i = 0; i < n; i++) for (let k = 0; k < 12; k++) { const a = p[(i - 1 + n) % n], b = p[i], cc = p[(i + 1) % n], d = p[(i + 2) % n], q = k / 12; tr._mp.push([crom(a[0], b[0], cc[0], d[0], q), crom(a[1], b[1], cc[1], d[1], q)]); } }
     const sc = size / WORLD, o = Math.floor(t / 2);
     c.fillStyle = col;
@@ -3595,8 +3608,8 @@ function drawMenu(u) {
       card(x, y0, cw, ch, sel, th.ui);
       text(tr.name.toUpperCase(), x + cw / 2, y0 + 46 * u, 26 * u, sel ? th.accent : '#fff', 'center', 900);
       const sz = 190 * u;
-      pixelTrack(ctx, tr, x + (cw - sz) / 2, y0 + 60 * u, sz, '#16101a', 5);
-      pixelTrack(ctx, tr, x + (cw - sz) / 2, y0 + 60 * u, sz, sel ? th.ui : '#b8b4d0', 3);
+      ctx.__trackCol = sel ? th.ui : '#b8b4d0';
+      pixelTrack(ctx, tr, x + (cw - sz) / 2, y0 + 70 * u, sz, '#16101a', 5);
       text('Record', x + 22 * u, y0 + 310 * u, 15 * u, '#ffb833', 'left', 700, false);
       text(fmt(rec ? rec.total : null), x + cw - 22 * u, y0 + 310 * u, 16 * u, '#fff', 'right', 700, false);
       const got = medalFor(tr);
@@ -3914,6 +3927,25 @@ function drawGlyphs(str, x, y, f, k) {
 // tekst met de linkerbovenhoek op (x, y); sc 1 = klein (3x5), 2 = gewoon (5x7), groter = het 5x7-lettertype vergroot
 const fmt = t => { const m = Math.floor(t / 60), s = t - m * 60; return m + ':' + (s < 10 ? '0' : '') + s.toFixed(2); };
 let mapPts = null;
+function trackOutline(def) {
+  const keepTR = Object.assign({}, TR), keepHW = HW;
+  buildTrack(def, TRACKS_OUTER.indexOf(def));
+  const P = TR.P, N = TR.N, raw = [];
+  for (let i = 0; i < N; i++) raw.push([P[i * 3], P[i * 3 + 2], P[i * 3 + 1]]);
+  for (const k in TR) delete TR[k];
+  Object.assign(TR, keepTR); HW = keepHW;
+  let x0 = 1e9, x1 = -1e9, z0 = 1e9, z1 = -1e9;
+  for (const [x, z] of raw) { x0 = Math.min(x0, x); x1 = Math.max(x1, x); z0 = Math.min(z0, z); z1 = Math.max(z1, z); }
+  // stukken die over een ander stuk weg heen gaan (brug): die komen er in het voorbeeld bovenop
+  const over = [], r2 = (def.hw * 2.4) ** 2;
+  for (let i = 0; i < N; i++) for (let j = 0; j < N; j += 2) {
+    if (Math.abs(i - j) < 40 || N - Math.abs(i - j) < 40) continue;
+    const dx = raw[i][0] - raw[j][0], dz = raw[i][1] - raw[j][1];
+    if (dx * dx + dz * dz < r2 && raw[i][2] > raw[j][2] + 70) { over.push(raw[i]); break; }
+  }
+  const sh = ([x, z]) => [x - x0, z - z0];
+  return { pts: raw.map(sh), over: over.map(sh), w: x1 - x0, h: z1 - z0, span: Math.max(x1 - x0, z1 - z0) };
+}
 
 // ---------------------------------------------------------------- start
 // Afstandskaart voor de grond: per vakje de afstand tot de voet van de helling naast de weg (of de weg zelf, bij een brug).
