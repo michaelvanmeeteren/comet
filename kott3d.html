@@ -33,7 +33,7 @@ const LAPS = 3, SHIP_R = 22, HOVER = 5, SHIP_SIZE = 1.2;
 const WALL_H = 26, WALL_T = 10, ROAD_T = 16;
 const BERM = 420;   // vlakke berm naast de vangrail (op wegniveau) waar het decor op staat; daarachter de helling
 // Versie van de 3D-versie, rechtsonder op het startscherm. Bij elke publicatie op de website eentje ophogen.
-const GAME_VERSION = '3D-52';
+const GAME_VERSION = '3D-53';
 const LOW_H = 1080;           // aantal beeldlijnen (zoals FINE in komeet.html); daarna zonder vervaging vergroot
 const GROUND_Y = -40;        // grond iets onder het laagste stuk weg
 
@@ -729,9 +729,10 @@ function buildTrack(def, idx) {
   // kanteling met teken; daarna begrensd hoe snel hij mag veranderen (BANK_RATE graden per lintpunt), heen en terug,
   // zodat twee steile bochten na elkaar geleidelijk via vlak van de ene naar de andere kant gaan
   // vlak voor en na een draai geen gewone kanteling: anders verspringen de assen bij de overgang
-  const nearLoop = new Uint8Array(N);
-  for (let i = 0; i < N; i++) if (loop[i]) for (let k = -40; k <= 40; k++) nearLoop[(i + k + N) % N] = 1;
-  const bs = Array.from(bankMag, (m, i) => nearLoop[i] ? 0 : m * sgn[i]);
+  // rond een draai: kanteling rustig weg en weer terug (over ruim 1500), zodat je bij het uitrijden niet ineens opzij geduwd wordt
+  const loopDist = new Float32Array(N).fill(999);
+  for (let i = 0; i < N; i++) if (loop[i]) for (let k = -140; k <= 140; k++) { const q = (i + k + N) % N; loopDist[q] = Math.min(loopDist[q], Math.abs(k)); }
+  const bs = Array.from(bankMag, (m, i) => { const t = Math.max(0, Math.min(1, (loopDist[i] - 20) / 120)); return m * sgn[i] * t * t * (3 - 2 * t); });
   for (let pass = 0; pass < 3; pass++) {
     for (let i = 1; i < N * 2; i++) { const a = bs[(i - 1) % N], k = i % N; bs[k] = clamp(bs[k], a - BANK_RATE, a + BANK_RATE); }
     for (let i = N * 2; i > 0; i--) { const a = bs[i % N], k = (i - 1) % N; bs[k] = clamp(bs[k], a - BANK_RATE, a + BANK_RATE); }
