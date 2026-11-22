@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>K.O.T.T. 3D - Test Track</title>
+<title>K.O.T.T. 3D</title>
 <style>
   html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
   canvas { position: fixed; left: 0; top: 0; width: 100vw; height: 100vh; display: block; image-rendering: pixelated; image-rendering: crisp-edges; }
@@ -32,7 +32,7 @@ const STEP = 16;             // afstand tussen twee punten van het lint
 const LAPS = 3, SHIP_R = 22, HOVER = 5, SHIP_SIZE = 1.2;
 const WALL_H = 26, WALL_T = 10, ROAD_T = 16;
 // Versie van de 3D-versie, rechtsonder op het startscherm. Bij elke publicatie op de website eentje ophogen.
-const GAME_VERSION = '3D-20';
+const GAME_VERSION = '3D-21';
 const LOW_H = 1080;           // aantal beeldlijnen (zoals FINE in komeet.html); daarna zonder vervaging vergroot
 const GROUND_Y = -40;        // grond iets onder het laagste stuk weg
 
@@ -1629,7 +1629,7 @@ function onlineKey(code) {
 // ---------------------------------------------------------------- menu's
 // title -> mode -> (cup -> class | track) -> char -> car -> race. Pijlen kiezen, Enter bevestigt, Esc gaat terug.
 const MODES = [['CUP RACE', 'Three races against five rivals, points per race'], ['TIME TRIAL', 'Alone against the clock and your own ghost'],
-  ['FREE RACE', 'Any track, five rivals, items on'], ['TEST TRACK', 'The 3D test track with bridge, bowl and water jump'], ['ONLINE', 'Race friends: make a room or join one with a code']];
+  ['FREE RACE', 'Any track, five rivals, items on'], ['ONLINE', 'Race friends: make a room or join one with a code']];
 function menuKey(code) {
   if (ui.screen === 'online') { if (onlineKey(code)) return; if (code === 'Escape' || code === 'Backspace') { ui.screen = 'car'; } return; }
   const lr = code === 'ArrowRight' || code === 'KeyD' ? 1 : code === 'ArrowLeft' || code === 'KeyA' ? -1 : 0;
@@ -1640,7 +1640,6 @@ function menuKey(code) {
   switch (ui.screen) {
     case 'title': if (ok) ui.screen = 'mode'; break;
     case 'mode':
-      if (code === 'KeyT') { ui.mode = 3; ui.screen = 'char'; break; }
       if (lr) ui.mode = ((ui.mode % 3) + lr + NM) % NM;
       if (ok) ui.screen = ui.mode === 2 || ui.mode === 3 ? 'char' : ui.mode === 1 ? 'cls' : 'cup';
       if (back) ui.screen = 'title';
@@ -1678,13 +1677,13 @@ function menuKey(code) {
         if (ui.mode === 2) { G3.mode = 'online'; ui.screen = 'online'; netConnect(); NET.sel = 0; }
         else if (ui.mode === 0) goRace('tt', 1 + ui.cup * 3 + ui.track);
         else if (ui.mode === 1) startCup();
-        else goRace('free', 0);
+        else goRace('free', 1);
       }
       break;
   }
   // de baan op de achtergrond volgt de keuze (zoals ui.bgWant in komeet.html)
   if (ui.screen !== 'title' && ui.mode !== 2) {
-    const want = ui.mode === 3 && (ui.screen === 'char' || ui.screen === 'car') ? 0 : 1 + ui.cup * 3 + (ui.screen === 'track' || ((ui.screen === 'car' || ui.screen === 'char') && ui.mode === 0) ? ui.track : 0);
+    const want = 1 + ui.cup * 3 + (ui.screen === 'track' || ((ui.screen === 'car' || ui.screen === 'char') && ui.mode === 0) ? ui.track : 0);
     if (want !== ui.bg) { ui.bg = want; loadTrack(ui.bg); }
   }
 }
@@ -3205,7 +3204,7 @@ function drawIntro(u) {
   }
   if (open < 1) return;
   const slide = Math.round(Math.max(0, 1 - (t - 0.2) * 4) * 60 * u);
-  if (!cupRun && G.mode !== 'online' && !tt) { text(T.def && T.def.pts ? CUPS[T.cup].name + ' - FREE RACE' : '3D TEST TRACK', 40 * u - slide, H - bar - 78 * u, 20 * u, '#ffb833', 'left', 800); text(T.name.toUpperCase(), 40 * u - slide, H - bar - 22 * u, 60 * u, '#fff', 'left', 900); return; }
+  if (!cupRun && G.mode !== 'online' && !tt) { text(T.def && T.def.pts ? CUPS[T.cup].name + ' - FREE RACE' : CUPS[T.cup].name + ' - FREE RACE', 40 * u - slide, H - bar - 78 * u, 20 * u, '#ffb833', 'left', 800); text(T.name.toUpperCase(), 40 * u - slide, H - bar - 22 * u, 60 * u, '#fff', 'left', 900); return; }
   text(CUPS[T.cup].name + (tt ? ' - TIME TRIAL' : G.mode === 'online' ? (NET.race && NET.race.omode === 1 ? ' - ONLINE CUP - RACE ' + (NET.race.cupRace + 1) + '/3' : ' - ONLINE ' + CLASSES[ui.cls].name) : ' - RACE ' + (cupRun.race + 1) + '/3'), 40 * u - slide, H - bar - 78 * u, 20 * u, '#ffb833', 'left', 800);
   if (roadWx(T.index)) text(roadWx(T.index).label, W - 40 * u + slide, H - bar - 30 * u, 16 * u, '#9fd8ff', 'right', 800);
   text(T.name.toUpperCase(), 40 * u - slide, H - bar - 22 * u, 60 * u, '#fff', 'left', 900);
@@ -3261,7 +3260,7 @@ function drawHud(u, speed, runT) {
     text(CLASSES[ui.cls].name, rx0 + rw - 14 * u, pad + 53 * u, 15 * u, '#fff', 'right', 700, false);
   } else if (!cupRun) {
     text('free race', rx0 + rw - 14 * u, pad + 27 * u, 15 * u, '#cfd3ff', 'right', 700, false);
-    text(T.def && T.def.pts ? CUPS[T.cup].name : '3D TEST', rx0 + 14 * u, pad + 53 * u, 13 * u, acc, 'left', 700);
+    text(T.def && T.def.pts ? CUPS[T.cup].name : CUPS[T.cup].name, rx0 + 14 * u, pad + 53 * u, 13 * u, acc, 'left', 700);
   } else {
     text('race ' + (cupRun.race + 1) + '/3', rx0 + rw - 14 * u, pad + 27 * u, 15 * u, '#cfd3ff', 'right', 700, false);
     text(CUPS[T.cup].name + ' ' + CLASSES[ui.cls].name, rx0 + 14 * u, pad + 53 * u, 13 * u, acc, 'left', 700);
@@ -3960,7 +3959,7 @@ function buildDistMap() {
 
 // een baan laden: lint, decor en lucht opnieuw opbouwen
 function loadTrack(idx, intro) {
-  idx = (idx + TRACKS.length) % TRACKS.length;
+  idx = 1 + ((idx - 1) % 24 + 24) % 24;   // 0 was de testbaan, die is eruit
   buildTrack(TRACKS[idx], idx);
   let cx = 0, cz = 0, rr = 0;
   for (let i = 0; i < TR.N; i++) { cx += TR.P[i * 3] / TR.N; cz += TR.P[i * 3 + 2] / TR.N; }
