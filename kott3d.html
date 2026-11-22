@@ -32,7 +32,7 @@ const STEP = 16;             // afstand tussen twee punten van het lint
 const LAPS = 3, SHIP_R = 22, HOVER = 5, SHIP_SIZE = 1.2;
 const WALL_H = 26, WALL_T = 10, ROAD_T = 16;
 // Versie van de 3D-versie, rechtsonder op het startscherm. Bij elke publicatie op de website eentje ophogen.
-const GAME_VERSION = '3D-43';
+const GAME_VERSION = '3D-44';
 const LOW_H = 1080;           // aantal beeldlijnen (zoals FINE in komeet.html); daarna zonder vervaging vergroot
 const GROUND_Y = -40;        // grond iets onder het laagste stuk weg
 
@@ -1874,7 +1874,7 @@ function zapTarget(e) {
 function hitEntity(o, by) {
   if (o.finished) return;
   if (o.shieldT > 0) { o.shieldT = 0; if (o === S.player) beep(330, 0.15, 'square', 0.07); return; }
-  o.spinT = 0.9; o.vT *= 0.35; o.vR *= 0.35; o.padT = 0; o.driftT = 0;
+  o.spinT = SPIN_T; o.spinPsi = o.psi; o.vT *= 0.45; o.vR *= 0.35; o.padT = 0; o.driftT = 0;
   if (o === S.player) { showMsg('SPUN OUT!', '#ff8a8a', 1.2); thud(0.4); }
   else if (by === S.player) { showMsg('HIT!', '#ffd24a', 0.8); beep(1200, 0.1, 'square', 0.06); }
 }
@@ -1904,8 +1904,11 @@ function aiWantsItem(e) {
   if (k === 'slick') return e.aiItemT < -6 || S.ents.some(o => o !== e && e.progress - o.progress > 60 && e.progress - o.progress < 600);
   return false;
 }
+const SPIN_T = 0.55;
 function itemControl(e, inp) {
-  if (e.spinT > 0) { e.spinT -= DT; inp.acc = inp.brk = inp.drift = inp.boost = false; inp.steer = 0; e.psi += 9 * DT; }
+  // geraakt: precies een keer rond en weer recht vooruit (in de rijrichting), kort
+  if (e.spinT > 0) { e.spinT = Math.max(0, e.spinT - DT); inp.acc = inp.brk = inp.drift = inp.boost = false; inp.steer = 0;
+    const t = 1 - e.spinT / SPIN_T, ease = t * t * (3 - 2 * t); e.psi = (e.spinPsi || 0) * (1 - ease) + 2 * Math.PI * ease; if (e.spinT === 0) e.psi = 0; }
   if (e.shieldT > 0) e.shieldT -= DT;
   if (e.rollT > 0 && (e.rollT -= DT) <= 0) { e.item = e.pending; e.itemN = e.item === 'triple' ? 3 : 1; e.itemAt = flick; if (e === S.player) beep(1320, 0.12, 'square', 0.06); }
   if (!e.item || S.phase !== 'race' || e.finished || e.spinT > 0) return;
