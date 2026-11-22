@@ -33,7 +33,7 @@ const LAPS = 3, SHIP_R = 22, HOVER = 5, SHIP_SIZE = 1.2;
 const WALL_H = 26, WALL_T = 10, ROAD_T = 16;
 const BERM = 420;   // vlakke berm naast de vangrail (op wegniveau) waar het decor op staat; daarachter de helling
 // Versie van de 3D-versie, rechtsonder op het startscherm. Bij elke publicatie op de website eentje ophogen.
-const GAME_VERSION = '3D-66';
+const GAME_VERSION = '3D-67';
 const LOW_H = 1080;           // aantal beeldlijnen (zoals FINE in komeet.html); daarna zonder vervaging vergroot
 const GROUND_Y = -40;        // grond iets onder het laagste stuk weg
 
@@ -3588,7 +3588,7 @@ const KUI = (() => {
   const SPR_BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5].map(v => (v + 0.5) / 16);
   const ART_OBJ = {};
   const proj3 = p => { const m = LAST_VP; if (!m) return null; const x = m[0] * p[0] + m[4] * p[1] + m[8] * p[2] + m[12], y = m[1] * p[0] + m[5] * p[1] + m[9] * p[2] + m[13], w = m[3] * p[0] + m[7] * p[1] + m[11] * p[2] + m[15]; return w > 1 ? [(x / w * 0.5 + 0.5) * W, (1 - (y / w * 0.5 + 0.5)) * H, w] : null; };
-  for (const k of ['logo', 'trophy', 'e0', 'e1', 'e2', 'e3', 'e4', 'e5', 'e6', 'e7', 'e8', 'e9', 'e10', 'e11', 'trophygold', 'trophysilver', 'trophybronze', 'podium', 'confetti', 'crown']) if (ART.obj[k]) { const im = new Image(); im.onload = () => { ART_OBJ[k] = im; }; im.src = ART.obj[k]; }
+  for (const k of ['logo', 'trophy', 'e0', 'e1', 'e2', 'e3', 'e4', 'e5', 'e6', 'e7', 'e8', 'e9', 'e10', 'e11', 'trophygold', 'trophysilver', 'trophybronze', 'podium', 'confetti', 'crown', ...Array.from({ length: 18 }, (_, i) => ['b' + i + 'x', 'b' + i + 'x2']).flat()]) if (ART.obj[k]) { const im = new Image(); im.onload = () => { ART_OBJ[k] = im; }; im.src = ART.obj[k]; }
   const TRACKS_ALL = TRACKS_OUTER, TRACKS = TRACKS_ALL.slice(1);
   const LOOKS = TRACKS.map(t => ({ names: THEMES[CUPS[t.cup].theme].names }));
   const roadWx = () => null;
@@ -3957,9 +3957,18 @@ function drawCeremony(u) {
   const t = CER.t, ease = x => { x = Math.max(0, Math.min(1, x)); return x * x * (3 - 2 * x); };
   // portretten boven de drie op het podium; de winnaar krijgt de kroon
   CER.top.forEach((e, k) => {
-    if (!e) return; const fr = entFrame(e, {}), p = proj3(add(fr.pos, scale(fr.u, 95))); if (!p) return;
-    const sc = Math.max(0.5, Math.min(2.6, 1500 / p[2])), face = e === S.player ? ui.char : e.rival;
-    drawFace(face, p[0], p[1] + Math.sin(t * 3 + k) * 3 * u, sc);
+    if (!e) return; const fr = entFrame(e, {}), face = e === S.player ? ui.char : e.rival, b1 = ART_OBJ['b' + face + 'x'];
+    let p, sc;
+    if (b1) {   // dier met heel lijf, staand op zijn auto, juichend in twee beeldjes
+      const hop = Math.max(0, Math.sin(t * 7 + k * 2)) * 8, ft = proj3(add(fr.pos, scale(fr.u, 42 + hop))), hd = proj3(add(fr.pos, scale(fr.u, 42 + hop + 120))); if (!ft || !hd) return;
+      const bh = ft[1] - hd[1], bs = bh / b1.height, im = (Math.floor(t * 3.5 + k) % 2 && ART_OBJ['b' + face + 'x2']) || b1;
+      ctx.imageSmoothingEnabled = false; ctx.drawImage(im, Math.round(ft[0] - im.width * bs / 2), Math.round(ft[1] - im.height * bs), Math.round(im.width * bs), Math.round(im.height * bs));
+      sc = 0.5 * bh / (26 * H / 360); p = [hd[0], hd[1] + 12 * sc * H / 360 + bh * 0.06];   // kroon even breed als het hoofd, net op het hoofd
+    } else {
+      p = proj3(add(fr.pos, scale(fr.u, 95))); if (!p) return;
+      sc = Math.max(0.5, Math.min(2.6, 1500 / p[2]));
+      drawFace(face, p[0], p[1] + Math.sin(t * 3 + k) * 3 * u, sc);
+    }
     if (k === 0 && ART_OBJ.crown && t > 7.3) {
       const cr = ART_OBJ.crown, cw = 26 * sc * H / 360, ch = cw * cr.height / cr.width, k2 = ease((t - 7.3) / 1.4);
       const cy = p[1] - 12 * sc * H / 360 - ch - (1 - k2) * 260 * u + Math.sin(t * 2.5) * 2 * u;
