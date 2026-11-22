@@ -33,7 +33,7 @@ const LAPS = 3, SHIP_R = 22, HOVER = 5, SHIP_SIZE = 1.2;
 const WALL_H = 26, WALL_T = 10, ROAD_T = 16;
 const BERM = 420;   // vlakke berm naast de vangrail (op wegniveau) waar het decor op staat; daarachter de helling
 // Versie van de 3D-versie, rechtsonder op het startscherm. Bij elke publicatie op de website eentje ophogen.
-const GAME_VERSION = '3D-74';
+const GAME_VERSION = '3D-75';
 const LOW_H = 1080;           // aantal beeldlijnen (zoals FINE in komeet.html); daarna zonder vervaging vergroot
 const GROUND_Y = -40;        // grond iets onder het laagste stuk weg
 
@@ -454,10 +454,10 @@ DRESS.forEach((d, i) => d.push(...LIFE[i]));
 // indeling van de twaalf nieuwe banen: rijen langs de weg, een herkenningspunt en poorten (alleen plaatjes die er zijn)
 {
   const SETS = [
-    { props: ['seaturtle', 'octopus', 'starfish', 'seahorse', 'puffer', 'treasure', 'moray', 'shells'], marks: ['coralarch', 'sunkenship', 'giantclam', 'seastatue', 'submarine', 'divebell', 'anchor', 'seafan', 'kelptall'], fans: ['mermaid', 'diver'], gate: 'ring', fish: ['fclown', 'ftang', 'fbutter', 'fmanta', 'fjellyp', 'fshark', 'fsword', 'fangler', 'fturtle'] },
-    { props: ['gumdrop', 'macarons', 'gummybear', 'swirlpop', 'cookies', 'marshmallow', 'cakeslice', 'sprinklecone', 'candybush'], marks: ['cakecastle', 'lollitree', 'gingerhouse', 'cupcake', 'donutwheel', 'icecone', 'chocofount', 'canearch', 'gumballtree'], fans: ['gingerman', 'baker'], gate: 'bunting' },
-    { props: ['pumpkin', 'gravecross', 'brewpot', 'crowpost', 'ghostlamp', 'webbush', 'coffin', 'glowshrooms', 'candlestone'], marks: ['hauntedhouse', 'crypt', 'lanternoak', 'scarecrow', 'witchhut', 'greenlamp', 'mosswillow', 'spookwell', 'oldmill'], fans: ['partyghost', 'skelfan', 'vampfan'], gate: 'stone' },
-    { props: ['cogpile', 'valvewheel', 'steamcart', 'gaslamp', 'crankbot', 'gauge', 'toolcrate', 'bigcog', 'steamvent'], marks: ['clocktwr', 'cogtower', 'boiler', 'airship', 'organpipes', 'automaton', 'observatory', 'chimney', 'teslacoil'], fans: ['inventor', 'robofan'], gate: 'crane' }
+    { props: ['anemone', 'swaykelp', 'jellylamp', 'seaturtle', 'octopus', 'starfish', 'seahorse', 'puffer', 'treasure', 'moray', 'shells'], marks: ['coralarch', 'sunkenship', 'giantclam', 'seastatue', 'submarine', 'divebell', 'anchor', 'seafan', 'kelptall'], fans: ['mermaid', 'diver'], gate: 'ring', fish: ['fclown', 'ftang', 'fbutter', 'fmanta', 'fjellyp', 'fshark', 'fsword', 'fangler', 'fturtle'] },
+    { props: ['candymill', 'jellydome', 'chocofall', 'gumdrop', 'macarons', 'gummybear', 'swirlpop', 'cookies', 'marshmallow', 'cakeslice', 'sprinklecone', 'candybush'], marks: ['cakecastle', 'lollitree', 'gingerhouse', 'cupcake', 'donutwheel', 'icecone', 'chocofount', 'canearch', 'gumballtree'], fans: ['gingerman', 'baker'], gate: 'bunting' },
+    { props: ['graveghost', 'ghostlantern', 'battree', 'pumpkin', 'gravecross', 'brewpot', 'crowpost', 'ghostlamp', 'webbush', 'coffin', 'glowshrooms', 'candlestone'], marks: ['hauntedhouse', 'crypt', 'lanternoak', 'scarecrow', 'witchhut', 'greenlamp', 'mosswillow', 'spookwell', 'oldmill'], fans: ['partyghost', 'skelfan', 'vampfan'], gate: 'stone' },
+    { props: ['steampump', 'gearwheel', 'teslaarc', 'cogpile', 'valvewheel', 'steamcart', 'gaslamp', 'crankbot', 'gauge', 'toolcrate', 'bigcog', 'steamvent'], marks: ['clocktwr', 'cogtower', 'boiler', 'airship', 'organpipes', 'automaton', 'observatory', 'chimney', 'teslacoil'], fans: ['inventor', 'robofan'], gate: 'crane' }
   ];
   for (let c = 0; c < 4; c++) for (let t = 0; t < 3; t++) {
     const S2 = SETS[c], p = k => S2.props[(k + t * 3) % S2.props.length], m = k => S2.marks[(k + t * 3) % S2.marks.length], f = k => S2.fans[(k + t) % S2.fans.length];
@@ -1695,7 +1695,7 @@ function startCeremony() {
   const sPod = 520, top = rows.slice(0, 3).map(entOf);
   top.forEach((e, k) => { if (!e) return; Object.assign(e, { s: sPod, progress: sPod, d: CER_STEPS[k][0], z: CER_STEPS[k][1] + 2, psi: Math.PI, vT: 0, vR: 0, vz: 0, air: false, boosting: false, steer: 0, spinT: 0 }); e.in = { steer: 0, acc: false, brk: false, boost: false, drift: false }; });
   S.ents.filter(e => !top.includes(e)).forEach((e, k) => Object.assign(e, { s: sPod - 420, progress: sPod - 420, d: (k - 1) * 120, z: 0, psi: Math.PI, vT: 0, vR: 0, air: false, boosting: false, steer: 0 }));
-  CER = { t: 0, s: sPod, top, rows };
+  CER = { t: 0, s: sPod, top, rows, rest: rows.slice(3).map(entOf) };
   [523, 659, 784, 1047, 784, 1047].forEach((f, i) => setTimeout(() => beep(f, 0.3, 'square', 0.07), 300 + i * 170));
 }
 function startCup() {
@@ -2998,10 +2998,10 @@ const DECOR_BY_CUP = [null,
   [['snowpine', 320, 6], ['icespire', 420, 1], ['igloo', 140, 1], ['snowman', 130, 1], ['penguins', 90, 1], ['yeti', 220, 0.6], ['icerock', 160, 2], ['polarbear', 150, 0.6], ['icelamp', 200, 1], ['sled', 90, 0.6]],
   [['nebulapillar', 460, 1], ['floatrock', 300, 2], ['startree', 380, 3], ['titanhead', 520, 0.4], ['stargate', 460, 0.5], ['orrery', 300, 1], ['moonshard', 260, 2], ['crystaldragon', 420, 0.4], ['guardian', 300, 1]]];
 DECOR_BY_CUP.push(
-  [['kelptall', 420, 4], ['seafan', 300, 3], ['coralarch', 380, 0.8], ['giantclam', 220, 1], ['anchor', 300, 0.8], ['urchins', 70, 2], ['starfish', 90, 2], ['shells', 60, 2], ['jelly', 120, 2]],
-  [['lollitree', 420, 4], ['gumballtree', 380, 2], ['candybush', 120, 3], ['gumdrop', 110, 2], ['swirlpop', 200, 2], ['cupcake', 300, 1], ['icecone', 360, 1], ['marshmallow', 90, 1], ['canearch', 360, 0.5]],
-  [['mosswillow', 420, 4], ['lanternoak', 420, 2], ['deadtree', 300, 3], ['candlestone', 110, 2], ['pumpkin', 80, 2], ['glowshrooms', 90, 2], ['gravecross', 130, 2], ['crypt', 300, 0.6], ['oldmill', 420, 0.5]],
-  [['chimney', 520, 2], ['cogtower', 480, 1], ['bigcog', 200, 3], ['gaslamp', 220, 2], ['cogpile', 120, 2], ['steamvent', 150, 2], ['boiler', 300, 1], ['teslacoil', 420, 1], ['observatory', 380, 0.5]]
+  [['kelptall', 420, 4], ['seafan', 300, 3], ['coralarch', 380, 0.8], ['giantclam', 220, 1], ['anchor', 300, 0.8], ['urchins', 70, 2], ['starfish', 90, 2], ['shells', 60, 2], ['jelly', 120, 2], ['swaykelp', 380, 3], ['anemone', 200, 2], ['jellylamp', 260, 1.5]],
+  [['lollitree', 420, 4], ['gumballtree', 380, 2], ['candybush', 120, 3], ['gumdrop', 110, 2], ['swirlpop', 200, 2], ['cupcake', 300, 1], ['icecone', 360, 1], ['marshmallow', 90, 1], ['canearch', 360, 0.5], ['candymill', 360, 2], ['chocofall', 260, 1.5], ['jellydome', 200, 2]],
+  [['mosswillow', 420, 4], ['lanternoak', 420, 2], ['deadtree', 300, 3], ['candlestone', 110, 2], ['pumpkin', 80, 2], ['glowshrooms', 90, 2], ['gravecross', 130, 2], ['crypt', 300, 0.6], ['oldmill', 420, 0.5], ['ghostlantern', 260, 2], ['graveghost', 160, 2], ['battree', 420, 2]],
+  [['chimney', 520, 2], ['cogtower', 480, 1], ['bigcog', 200, 3], ['gaslamp', 220, 2], ['cogpile', 120, 2], ['steamvent', 150, 2], ['boiler', 300, 1], ['teslacoil', 420, 1], ['observatory', 380, 0.5], ['gearwheel', 460, 1.5], ['steampump', 260, 2], ['teslaarc', 420, 1]]
 );
 for (let c = 0; c < 8; c++) { const XL = [["surfshack","tikitorch","beachball","liferingpost","pelican","kiosk","rowboat","sandpail","lookout"],["toro","redbridge","teahouse","bigpine","gong","foxshrine","sakebarrels","umbrella","basin"],["joust","trebuchet","weaponrack","archtarget","haycart","guardtower","dragonplinth","shieldfence","bannerpole"],["satellite","moonbase","geode","antenna","landedufo","astroflag","crater","laserbeacon","rover"],["sphinx","pyramid","rugstall","skullrock","sandship","cartwheel","urns","palmgateway","bedouin"],["rickshaw","stupa","tigerstat","lampstand","flowercart","marigoldheap","chaistall","peafountain","festdrum"],["skilift","reindeer","snowcannon","frozenship","iceknight","snowfort","iciclet","sledpile","auroralamp"],["phoenix","floatisle","runestone","celestgate","starthrone","timecrystal","cosmicwhale","voidportal","constellation"]][c].map(k => [k, Array.isArray(OBJ_H[k]) ? OBJ_H[k][0] : OBJ_H[k], 0.5]); if (c === 0) continue; DECOR_BY_CUP[c].push(...XL); }
 const DECOR_KINDS = [['palm', 300, 7], ['parasol', 120, 2], ['beachA', 110, 1], ['beachB', 110, 1], ['flags', 190, 1], ['lifeguard', 260, 0.6],
@@ -3676,7 +3676,7 @@ const KUI = (() => {
   const SPR_BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5].map(v => (v + 0.5) / 16);
   const ART_OBJ = {};
   const proj3 = p => { const m = LAST_VP; if (!m) return null; const x = m[0] * p[0] + m[4] * p[1] + m[8] * p[2] + m[12], y = m[1] * p[0] + m[5] * p[1] + m[9] * p[2] + m[13], w = m[3] * p[0] + m[7] * p[1] + m[11] * p[2] + m[15]; return w > 1 ? [(x / w * 0.5 + 0.5) * W, (1 - (y / w * 0.5 + 0.5)) * H, w] : null; };
-  for (const k of ['logo', 'trophy', 'e0', 'e1', 'e2', 'e3', 'e4', 'e5', 'e6', 'e7', 'e8', 'e9', 'e10', 'e11', 'trophygold', 'trophysilver', 'trophybronze', 'podium', 'confetti', 'crown', ...Array.from({ length: 18 }, (_, i) => ['b' + i + 'x', 'b' + i + 'x2']).flat()]) if (ART.obj[k]) { const im = new Image(); im.onload = () => { ART_OBJ[k] = im; }; im.src = ART.obj[k]; }
+  for (const k of ['logo', 'trophy', 'e0', 'e1', 'e2', 'e3', 'e4', 'e5', 'e6', 'e7', 'e8', 'e9', 'e10', 'e11', 'trophygold', 'trophysilver', 'trophybronze', 'podium', 'confetti', 'crown', ...Array.from({ length: 18 }, (_, i) => ['b' + i + 'x', 'b' + i + 'x2', 'b' + i + 's']).flat()]) if (ART.obj[k]) { const im = new Image(); im.onload = () => { ART_OBJ[k] = im; }; im.src = ART.obj[k]; }
   const TRACKS_ALL = TRACKS_OUTER, TRACKS = TRACKS_ALL.slice(1);
   const LOOKS = TRACKS.map(t => ({ names: THEMES[CUPS[t.cup].theme].names }));
   const roadWx = () => null;
@@ -4043,6 +4043,13 @@ function drawTTResult(u) {
 }
 function drawCeremony(u) {
   const t = CER.t, ease = x => { x = Math.max(0, Math.min(1, x)); return x * x * (3 - 2 * x); };
+  // eerst plek 4 tot 6 (staan achter het podium, dus eronder getekend): sip klappend op hun auto achter het podium
+  (CER.rest || []).forEach((e, k) => {
+    if (!e) return; const face = e === S.player ? ui.char : e.rival, im = ART_OBJ['b' + face + 's']; if (!im) return;
+    const fr = entFrame(e, {}), ft = proj3(add(fr.pos, scale(fr.u, 42))), hd = proj3(add(fr.pos, scale(fr.u, 162))); if (!ft || !hd) return;
+    const bs = (ft[1] - hd[1]) / im.height, sway = Math.sin(t * 2 + k) * 1.5 * u;
+    ctx.imageSmoothingEnabled = false; ctx.drawImage(im, Math.round(ft[0] - im.width * bs / 2 + sway), Math.round(ft[1] - im.height * bs), Math.round(im.width * bs), Math.round(im.height * bs));
+  });
   // portretten boven de drie op het podium; de winnaar krijgt de kroon
   CER.top.forEach((e, k) => {
     if (!e) return; const fr = entFrame(e, {}), face = e === S.player ? ui.char : e.rival, b1 = ART_OBJ['b' + face + 'x'];
