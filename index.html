@@ -33,7 +33,7 @@ const LAPS = 3, SHIP_R = 22, HOVER = 5, SHIP_SIZE = 1.2;
 const WALL_H = 26, WALL_T = 10, ROAD_T = 16;
 const BERM = 420;   // vlakke berm naast de vangrail (op wegniveau) waar het decor op staat; daarachter de helling
 // Versie van de 3D-versie, rechtsonder op het startscherm. Bij elke publicatie op de website eentje ophogen.
-const GAME_VERSION = '3D-94';
+const GAME_VERSION = '3D-95';
 const LOW_H = 1080;           // aantal beeldlijnen (zoals FINE in komeet.html); daarna zonder vervaging vergroot
 const GROUND_Y = -40;        // grond iets onder het laagste stuk weg
 
@@ -3045,6 +3045,46 @@ function shipFor(e) {
   return shipCache.get(key);
 }
 
+// ---------------------------------------------------------------- schip voor het keuzescherm
+// het echte 3D-schip met de shader van de race, klein gerenderd in een eigen buffer en daarna grof vergroot: pixelstijl,
+// met een donkere rand eromheen, zodat het past bij de plaatjes van de dieren
+const PREV = { w: 120, h: 90, fb: null, tex: null, rb: null, buf: null, cv: null };
+function shipPreview(car, pal, yaw) {
+  const P = PREV;
+  if (!P.fb) {
+    P.tex = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, P.tex);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, P.w, P.h, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+    P.rb = gl.createRenderbuffer(); gl.bindRenderbuffer(gl.RENDERBUFFER, P.rb); gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH_COMPONENT16, P.w, P.h);
+    P.fb = gl.createFramebuffer(); gl.bindFramebuffer(gl.FRAMEBUFFER, P.fb);
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, P.tex, 0);
+    gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.RENDERBUFFER, P.rb);
+    P.buf = new Uint8Array(P.w * P.h * 4); P.cv = document.createElement('canvas'); P.cv.width = P.w; P.cv.height = P.h;
+  }
+  gl.bindFramebuffer(gl.FRAMEBUFFER, P.fb); gl.viewport(0, 0, P.w, P.h);
+  gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT); gl.enable(gl.DEPTH_TEST);
+  const eye = [0, 46, 92], VP = mul(perspective(0.62, P.w / P.h, 5, 1000), lookAt(eye, [0, 4, 0], [0, 1, 0]).m);
+  const f = [Math.sin(yaw), 0, Math.cos(yaw)], r = [Math.cos(yaw), 0, -Math.sin(yaw)], k = 1;
+  const M = [r[0] * k, r[1] * k, r[2] * k, 0, f[0] * k, f[1] * k, f[2] * k, 0, 0, k, 0, 0, 0, 0, 0, 1];
+  gl.useProgram(PM.p);
+  gl.uniformMatrix4fv(PM.u.uVP, false, VP); gl.uniformMatrix4fv(PM.u.uM, false, M);
+  gl.uniform3fv(PM.u.uCam, eye); gl.uniform3fv(PM.u.uFog, [0, 0, 0]); gl.uniform2f(PM.u.uFogR, 1e5, 2e5);
+  if (PM.u.uNight) gl.uniform3fv(PM.u.uNight, [1, 1, 1]); gl.uniform3f(PM.u.uFlame, 1, 0.6, 0.2);
+  const sm = shipFor({ car, pal });
+  gl.bindVertexArray(sm.vao); gl.drawArrays(gl.TRIANGLES, 0, sm.count); gl.bindVertexArray(null);
+  gl.readPixels(0, 0, P.w, P.h, gl.RGBA, gl.UNSIGNED_BYTE, P.buf);
+  gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+  // omdraaien (WebGL telt van onder), en een donkere rand om het schip
+  const x = P.cv.getContext('2d'), img = x.createImageData(P.w, P.h), d = img.data, b = P.buf, W2 = P.w, H2 = P.h;
+  for (let y = 0; y < H2; y++) d.set(b.subarray((H2 - 1 - y) * W2 * 4, (H2 - y) * W2 * 4), y * W2 * 4);
+  const solid = i => d[i * 4 + 3] > 128;
+  const edge = [];
+  for (let y = 0; y < H2; y++) for (let xx = 0; xx < W2; xx++) { const i = y * W2 + xx; if (solid(i)) { d[i * 4 + 3] = 255; continue; } if ((xx > 0 && solid(i - 1)) || (xx < W2 - 1 && solid(i + 1)) || (y > 0 && solid(i - W2)) || (y < H2 - 1 && solid(i + W2))) edge.push(i); else d[i * 4 + 3] = 0; }
+  for (const i of edge) { d[i * 4] = 18; d[i * 4 + 1] = 12; d[i * 4 + 2] = 30; d[i * 4 + 3] = 255; }
+  x.putImageData(img, 0, 0);
+  return P.cv;
+}
+
 // ---------------------------------------------------------------- decor (plaatjes uit art/sprites.js)
 const texCache = {};
 function cachedTex(src) { return texCache[src] || (texCache[src] = texFrom(src)); }
@@ -4602,7 +4642,9 @@ function drawMenu(u) {
     } else drawFace(ui.char, ax, pcy - 80 * u, 3);
     if (isCar) {
       const c = CARS[ui.car], since = (performance.now() - (ui.carT || 0)) / 1000, pop = since < 0.3 ? 1 - since / 0.3 : 0;
-      drawCar34(pcx + prx * 0.42, pcy - 22 * u - pop * 30 * u, 4.2 * u, Object.assign({}, c, { pal: ap }), ap, G.time * 0.9);
+      let cv = null; try { cv = shipPreview(c, ap, G.time * 0.9); } catch (err) {}
+      if (cv) { const sc = Math.max(2, Math.round(3.2 * u)), w2 = cv.width * sc, h2 = cv.height * sc; ctx.imageSmoothingEnabled = false; ctx.drawImage(cv, Math.round(pcx + prx * 0.42 - w2 / 2), Math.round(pcy - 10 * u - h2 * 0.62 - pop * 30 * u), w2, h2); }
+      else drawCar34(pcx + prx * 0.42, pcy - 22 * u - pop * 30 * u, 4.2 * u, Object.assign({}, c, { pal: ap }), ap, G.time * 0.9);
     }
     // links: wie (en welk schip); rechts: eigenschappen
     const lx = pcx - prx - 30 * u, rx = pcx + prx + 30 * u, ty = H * 0.42;
