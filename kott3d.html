@@ -33,7 +33,7 @@ const LAPS = 3, SHIP_R = 22, HOVER = 5, SHIP_SIZE = 1.2;
 const WALL_H = 26, WALL_T = 10, ROAD_T = 16;
 const BERM = 420;   // vlakke berm naast de vangrail (op wegniveau) waar het decor op staat; daarachter de helling
 // Versie van de 3D-versie, rechtsonder op het startscherm. Bij elke publicatie op de website eentje ophogen.
-const GAME_VERSION = '3D-80';
+const GAME_VERSION = '3D-81';
 const LOW_H = 1080;           // aantal beeldlijnen (zoals FINE in komeet.html); daarna zonder vervaging vergroot
 const GROUND_Y = -40;        // grond iets onder het laagste stuk weg
 
@@ -2380,7 +2380,7 @@ function engineSync(speed, throttle, boosting, active) {
   osc1.frequency.setTargetAtTime(f, t, 0.04);
   osc2.frequency.setTargetAtTime(f * 0.5 + 1.5, t, 0.04);
   filt.frequency.setTargetAtTime(350 + speed * 1.6 + (boosting ? 900 : 0), t, 0.05);
-  engGain.gain.setTargetAtTime(active ? 0.02 + 0.023 * throttle + (boosting ? 0.017 : 0) : 0, t, 0.08);   // motor een derde zachter
+  engGain.gain.setTargetAtTime(active ? 0.02 + 0.023 * throttle + (boosting ? 0.017 : 0) : 0, t, active ? 0.08 : 0.35);   // motor een derde zachter
   musicGain.gain.setTargetAtTime(musicOn && !fileMusic && !muted ? 0.5 * vol.music / 0.8 : 0, t, 0.2);
   MUSIC.theme = (TR.def.cup || 0) % 4; MUSIC.intensity = active ? 1 : 0;
   musicFilt.frequency.setTargetAtTime(MUSIC.intensity > 0 ? 900 + speed * 2.6 : 1500, t, 0.1);
@@ -4661,12 +4661,80 @@ function drawItemSlot(u) {
     });
     if (G.finishT > 1.2) text(G.mode === 'online' ? 'Enter: back to the room' : 'Enter: race again      Esc: menu', W / 2, py + ph - 20 * u, 16 * u, '#fff', 'center', 700, false);
   }
+  // ---- weer: deeltjes over het beeld (regen, sneeuw, zand, as, confetti, ...), bewegen mee met de camera
+  // soort: [kleuren, aantal, grootte, valsnelheid x, y (per seconde, in schermhoogtes), slingeren, streep (regen), gloed/knipper]
+  const WX_KIND = {
+    rain:   [['#b8d4ff', '#9cbcf2', '#d6e6ff'], 230, 1.2, -0.08, 2.2, 0, 1, 0],
+    storm:  [['#b8d4ff', '#9cbcf2', '#e2ecff'], 420, 1.3, -0.35, 2.8, 0, 1, 0],
+    snow:   [['#ffffff', '#e8f2ff', '#cfe2ff'], 150, 2.2, 0.03, 0.16, 0.06, 0, 0],
+    sand:   [['#e8c890', '#d6aa6a', '#f2dcae'], 160, 1.4, 0.9, 0.05, 0.03, 0, 0],
+    ash:    [['#5a5458', '#7a7276', '#3e3a3e'], 120, 1.8, 0.04, 0.09, 0.05, 0, 0],
+    embers: [['#ff9a2a', '#ffcc40', '#ff5a1a'], 80, 1.6, 0.03, -0.12, 0.06, 0, 1],
+    petals: [['#ffc0d8', '#ff9ec4', '#fff0f6'], 70, 2.2, 0.12, 0.12, 0.1, 0, 0],
+    marigold: [['#ffa21a', '#ffc640', '#ff7a10'], 70, 2.2, 0.1, 0.12, 0.1, 0, 0],
+    confetti: [['#ff4a6a', '#ffd23a', '#4ad6ff', '#7aff6a', '#c47aff'], 110, 1.8, 0.02, 0.18, 0.12, 0, 0],
+    sprinkles: [['#ff6fae', '#ffe14a', '#6fe3ff', '#9cff7a', '#ffffff', '#b98aff'], 110, 1.6, 0.02, 0.16, 0.06, 0, 0],
+    stars:  [['#ffffff', '#cfe0ff', '#ffe9b0'], 90, 1.2, -0.02, 0.02, 0, 0, 1],
+    sparkle: [['#ffffff', '#c8f0ff', '#e6faff'], 80, 1.3, 0.01, 0.04, 0.03, 0, 1],
+    bubbles: [['#bff2ff', '#8fe0ff', '#e6fbff'], 90, 2.2, 0, -0.16, 0.05, 0, 0],
+    spores: [['#9cff8a', '#d8ff9a', '#6ad8a0'], 60, 1.4, 0.02, -0.02, 0.08, 0, 1],
+    soot:   [['#3a3436', '#56504c', '#2a2628'], 120, 1.6, 0.12, 0.05, 0.04, 0, 0],
+    fireflies: [['#ffe680', '#fff4b0', '#ffd24a'], 50, 1.6, 0, -0.01, 0.1, 0, 1]
+  };
+  const WX_TRACK = { k1: [], k2: ['rain'], k3: ['confetti'], p1: ['petals'], p2: ['rain'], p3: ['rain'], v1: ['embers', 'ash'], v2: ['ash'], v3: ['embers', 'ash'],
+    s1: ['stars'], s2: ['stars'], s3: ['embers', 'stars'], d1: ['sand'], d2: ['sand'], d3: ['sand', 'sand'], l1: ['marigold'], l2: ['storm'], l3: ['fireflies', 'confetti'],
+    f1: ['snow'], f2: ['sparkle'], f3: ['snow', 'snow'], g1: ['snow', 'sparkle'], g2: ['stars'], g3: ['embers', 'stars'],
+    o1: ['bubbles'], o2: ['bubbles', 'spores'], o3: ['bubbles'], c1: ['sprinkles'], c2: ['sprinkles'], c3: ['sprinkles'],
+    h1: ['spores', 'ash'], h2: ['fireflies', 'rain'], h3: ['spores', 'ash'], m1: ['soot'], m2: ['soot', 'ash'], m3: ['soot'] };
+  const WX = { id: null, parts: [], last: 0, look: null };
+  function drawWeather(u) {
+    const kinds = (WX_TRACK[TR.def.id] || []).map(k => WX_KIND[k]).filter(Boolean);
+    if (WX.id !== TR.def.id) {   // nieuwe baan: deeltjes verspreid over het beeld
+      WX.id = TR.def.id; WX.parts = [];
+      kinds.forEach((K, ki) => { for (let i = 0; i < K[1]; i++) WX.parts.push({ k: ki, x: Math.random(), y: Math.random(), z: 0.35 + Math.random() * 0.65, c: K[0][i % K[0].length], ph: Math.random() * 6.28 }); });
+    }
+    if (!WX.parts.length) return;
+    const now = performance.now(), dt = Math.min(0.05, (now - (WX.last || now)) / 1000); WX.last = now;
+    // camera: vooruit (deeltjes waaieren uit vanaf het midden) en draaien (deeltjes schuiven opzij)
+    const look = cam.look ? norm(sub(cam.look, cam.pos)) : null; let yaw = 0, fwd = 0;
+    if (look && WX.look) { yaw = (look[0] * WX.look[2] - look[2] * WX.look[0]); if (WX.pos) fwd = dot(sub(cam.pos, WX.pos), look); }
+    WX.look = look; WX.pos = cam.pos ? cam.pos.slice() : null;
+    const zoom = Math.max(0, Math.min(3, fwd / Math.max(dt, 1e-3) / 2000)) * dt, asp = W / H, t = now / 1000;
+    const prevHM = HUD_MUL; HUD_MUL = 1;   // weer niet mee laten vervagen met de HUD
+    if ((WX_TRACK[TR.def.id] || []).includes('storm')) {   // storm: donkerder, en af en toe een bliksemflits
+      const fl = (t % 9) < 0.12 || ((t % 9) > 0.25 && (t % 9) < 0.32);
+      ctx.fillStyle = fl ? 'rgba(235,240,255,0.45)' : 'rgba(20,28,48,0.22)'; ctx.fillRect(0, 0, W, H);
+      if (fl && !WX.boom) { WX.boom = 1; setTimeout(() => { try { thud(0.6); } catch (e) {} }, 500); } else if ((t % 9) > 1) WX.boom = 0;
+    }
+    for (const p of WX.parts) {
+      const K = kinds[p.k]; if (!K) continue;
+      p.x += (K[3] * p.z + Math.sin(t * 1.3 + p.ph) * K[5] * p.z) * dt / asp - yaw * 1.6 * p.z;
+      p.y += K[4] * p.z * dt;
+      p.x += (p.x - 0.5) * zoom * p.z * 1.5; p.y += (p.y - 0.45) * zoom * p.z * 1.5;
+      if (p.x < -0.05) p.x += 1.1; if (p.x > 1.05) p.x -= 1.1;
+      if (p.y > 1.05) { p.y -= 1.1; p.x = Math.random(); } if (p.y < -0.05) { p.y += 1.1; p.x = Math.random(); }
+      const px = Math.round(p.x * W), py = Math.round(p.y * H), sz = Math.max(1, Math.round(K[2] * p.z * 2 * u));
+      ctx.fillStyle = p.c;
+      if (K[6]) {   // regen: schuine streep van pixelblokjes
+        const len = Math.round((14 + 30 * p.z) * u), stp = Math.max(2, sz * 2), sl = K[3] / K[4];
+        ctx.globalAlpha = 0.45 + 0.45 * p.z;
+        for (let q = 0; q < len; q += stp) ctx.fillRect(px + Math.round(sl * q), py - q, sz, stp);
+      } else {
+        ctx.globalAlpha = K[7] ? 0.4 + 0.6 * Math.max(0, Math.sin(t * 3 + p.ph * 3)) : 0.55 + 0.45 * p.z;
+        if (K[0].length > 4) { const w = Math.sin(t * 6 + p.ph) > 0 ? sz * 2 : sz; ctx.fillRect(px, py, w, sz * 2 + sz - w); }   // confetti: draait
+        else ctx.fillRect(px, py, sz, sz);
+      }
+    }
+    ctx.globalAlpha = 1; HUD_MUL = prevHM;
+  }
+
   // per beeld: de toestand van het 3D-spel omzetten naar wat de komeet-code verwacht, en tekenen
   function frame() {
     W = hud.width; H = hud.height;
     const u = H / 720, P = S.player;   // zoals render() in komeet.html
     ctx.imageSmoothingEnabled = false;
     ctx.clearRect(0, 0, W, H);
+    try { drawWeather(u); } catch (err) {}
     for (const e of S.ents) { e.name = nameOf(e); e.finishTime = e.finishT; if (e.isPlayer) e.face = ui.char; }
     const phase = S.phase;
     T = { name: TR.def.name, cup: TR.def.cup, index: Math.max(0, TR.idx - 1), id: TR.def.id, haz: TR.haz || [], pads: TR.pads || [], grav: 1, def: TR.def };
@@ -4868,7 +4936,7 @@ function frame(now) {
   titleTick(dt);
   render(dt);
   musicSync(dt);
-  engineSync(S.player.speed, S.player.in.acc ? 1 : 0, S.player.boosting, S.phase !== 'done' && G3.state !== 'menu');
+  engineSync(S.player.speed, S.player.in.acc ? 1 : 0, S.player.boosting, S.phase !== 'done' && G3.state !== 'menu' && !S.player.finished && !CER);   // na je eigen finish vaagt de motor weg
   requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);
