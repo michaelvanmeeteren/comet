@@ -33,7 +33,7 @@ const LAPS = 3, SHIP_R = 22, HOVER = 5, SHIP_SIZE = 1.2;
 const WALL_H = 26, WALL_T = 10, ROAD_T = 16;
 const BERM = 420;   // vlakke berm naast de vangrail (op wegniveau) waar het decor op staat; daarachter de helling
 // Versie van de 3D-versie, rechtsonder op het startscherm. Bij elke publicatie op de website eentje ophogen.
-const GAME_VERSION = '3D-97';
+const GAME_VERSION = '3D-98';
 const LOW_H = 1080;           // aantal beeldlijnen (zoals FINE in komeet.html); daarna zonder vervaging vergroot
 const GROUND_Y = -40;        // grond iets onder het laagste stuk weg
 
@@ -4706,11 +4706,11 @@ function drawMenu(u) {
       const c = CARS[ui.car], since = (performance.now() - (ui.carT || 0)) / 1000, pop = since < 0.3 ? 1 - since / 0.3 : 0;
       let cv = null, flip = false;
       if (SHIP_SHEET[c.id]) { const a = ((G.time * 0.9) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2), th = a > Math.PI ? a - Math.PI * 2 : a; const t = shipCanvas(c.id, ap, Math.min(8, Math.round(Math.abs(th) / (Math.PI / 8)))); if (t) { cv = t.cv; flip = th > 0; } }
-      if (cv && flip) { const sc = Math.max(2, Math.round(2.6 * u)), w2 = cv.width * sc, h2 = cv.height * sc; ctx.save(); ctx.imageSmoothingEnabled = false; ctx.translate(Math.round(pcx + prx * 0.42 + w2 / 2), 0); ctx.scale(-1, 1); ctx.drawImage(cv, 0, Math.round(pcy - 10 * u - h2 * 0.62 - pop * 30 * u), w2, h2); ctx.restore(); cv = null; }
-      else if (cv) { const sc = Math.max(2, Math.round(2.6 * u)), w2 = cv.width * sc, h2 = cv.height * sc; ctx.imageSmoothingEnabled = false; ctx.drawImage(cv, Math.round(pcx + prx * 0.42 - w2 / 2), Math.round(pcy - 10 * u - h2 * 0.62 - pop * 30 * u), w2, h2); cv = null; }
+      if (cv && flip) { const sc = Math.max(1, Math.round(1.9 * u)), w2 = cv.width * sc, h2 = cv.height * sc; ctx.save(); ctx.imageSmoothingEnabled = false; ctx.translate(Math.round(pcx + prx * 0.52 + w2 / 2), 0); ctx.scale(-1, 1); ctx.drawImage(cv, 0, Math.round(pcy - 10 * u - h2 * 0.62 - pop * 30 * u), w2, h2); ctx.restore(); cv = null; }
+      else if (cv) { const sc = Math.max(1, Math.round(1.9 * u)), w2 = cv.width * sc, h2 = cv.height * sc; ctx.imageSmoothingEnabled = false; ctx.drawImage(cv, Math.round(pcx + prx * 0.52 - w2 / 2), Math.round(pcy - 10 * u - h2 * 0.62 - pop * 30 * u), w2, h2); cv = null; }
       else if (!SHIP_SHEET[c.id]) try { cv = shipPreview(c, ap, G.time * 0.9); } catch (err) {}
       if (cv) { const sc = Math.max(2, Math.round(3.2 * u)), w2 = cv.width * sc, h2 = cv.height * sc; ctx.imageSmoothingEnabled = false; ctx.drawImage(cv, Math.round(pcx + prx * 0.42 - w2 / 2), Math.round(pcy - 10 * u - h2 * 0.62 - pop * 30 * u), w2, h2); }
-      else drawCar34(pcx + prx * 0.42, pcy - 22 * u - pop * 30 * u, 4.2 * u, Object.assign({}, c, { pal: ap }), ap, G.time * 0.9);
+      else if (!SHIP_SHEET[c.id]) drawCar34(pcx + prx * 0.42, pcy - 22 * u - pop * 30 * u, 4.2 * u, Object.assign({}, c, { pal: ap }), ap, G.time * 0.9);
     }
     // links: wie (en welk schip); rechts: eigenschappen
     const lx = pcx - prx - 30 * u, rx = pcx + prx + 30 * u, ty = H * 0.42;
