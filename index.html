@@ -33,7 +33,7 @@ const LAPS = 3, SHIP_R = 22, HOVER = 5, SHIP_SIZE = 1.2;
 const WALL_H = 26, WALL_T = 10, ROAD_T = 16;
 const BERM = 420;   // vlakke berm naast de vangrail (op wegniveau) waar het decor op staat; daarachter de helling
 // Versie van de 3D-versie, rechtsonder op het startscherm. Bij elke publicatie op de website eentje ophogen.
-const GAME_VERSION = '3D-88';
+const GAME_VERSION = '3D-89';
 const LOW_H = 1080;           // aantal beeldlijnen (zoals FINE in komeet.html); daarna zonder vervaging vergroot
 const GROUND_Y = -40;        // grond iets onder het laagste stuk weg
 
@@ -2256,7 +2256,7 @@ function itemsTick() {
 let AC = null, osc1, osc2, filt, engGain, masterGain, sfxGain, voiceGain, musicGain, musicFilt, delayNode, noiseBuf;
 // Volume per kanaal (0 tot 1), wordt bewaard tussen sessies.
 const VOL_KEY = 'comet.volume.v1';
-const vol = { sfx: 0.8, music: 0.8, voice: 0.8 };
+const vol = { sfx: 0.8, music: 0.8, voice: 1 };   // stemmetjes standaard op vol
 try {
   const v = JSON.parse(localStorage.getItem(VOL_KEY));
   for (const k in vol) if (v && typeof v[k] === 'number') vol[k] = Math.max(0, Math.min(1, v[k]));
@@ -2269,7 +2269,7 @@ function initAudio() {
     AC = new (window.AudioContext || window.webkitAudioContext)();
     masterGain = AC.createGain(); masterGain.gain.value = 0.6; masterGain.connect(AC.destination);
     sfxGain = AC.createGain(); sfxGain.gain.value = vol.sfx / 0.8; sfxGain.connect(masterGain);
-    voiceGain = AC.createGain(); voiceGain.gain.value = vol.voice / 0.8; voiceGain.connect(masterGain);
+    voiceGain = AC.createGain(); voiceGain.gain.value = vol.voice / 0.8 * 1.6; voiceGain.connect(masterGain);
     filt = AC.createBiquadFilter(); filt.type = 'lowpass'; filt.frequency.value = 400; filt.Q.value = 4;
     engGain = AC.createGain(); engGain.gain.value = 0;
     osc1 = AC.createOscillator(); osc1.type = 'sawtooth';
@@ -2430,12 +2430,12 @@ function engineSync(speed, throttle, boosting, active) {
   const t = AC.currentTime;
   masterGain.gain.setTargetAtTime(muted ? 0 : 0.6, t, 0.03);
   sfxGain.gain.setTargetAtTime(vol.sfx / 0.8, t, 0.03);
-  voiceGain.gain.setTargetAtTime(vol.voice / 0.8, t, 0.03);
+  voiceGain.gain.setTargetAtTime(vol.voice / 0.8 * 1.6, t, 0.03);   // stemmetjes harder dan de rest
   const f = 52 + speed * 0.13;
   osc1.frequency.setTargetAtTime(f, t, 0.04);
   osc2.frequency.setTargetAtTime(f * 0.5 + 1.5, t, 0.04);
   filt.frequency.setTargetAtTime(350 + speed * 1.6 + (boosting ? 900 : 0), t, 0.05);
-  engGain.gain.setTargetAtTime(active ? 0.02 + 0.023 * throttle + (boosting ? 0.017 : 0) : 0, t, active ? 0.08 : 0.35);   // motor een derde zachter
+  engGain.gain.setTargetAtTime(active ? 0.02 + 0.023 * throttle + (boosting ? 0.008 : 0) : 0, t, active ? 0.08 : 0.35);   // motor een derde zachter
   musicGain.gain.setTargetAtTime(musicOn && !fileMusic && !muted ? 0.5 * vol.music / 0.8 : 0, t, 0.2);
   MUSIC.theme = (TR.def.cup || 0) % 4; MUSIC.intensity = active ? 1 : 0;
   musicFilt.frequency.setTargetAtTime(MUSIC.intensity > 0 ? 900 + speed * 2.6 : 1500, t, 0.1);
@@ -2456,9 +2456,9 @@ function soundEvents() {
   if (ev.wall) thud(0.35);
   if (ev.jump) whoosh();
   if (ev.land) thud(0.25);
-  if (ev.pad) { beep(660, 0.12, 'sawtooth', 0.05); beep(990, 0.18, 'sawtooth', 0.04); whoosh(0.2); }
+  if (ev.pad) { beep(660, 0.12, 'sawtooth', 0.03); beep(990, 0.18, 'sawtooth', 0.025); whoosh(0.12); }
   // eigen boost: een whoosh bij het begin
-  const mb = S.player.in.boost && S.player.energy > 0.01; if (mb && !S.player.wasBoost) { whoosh(0.16); beep(330, 0.2, 'sawtooth', 0.035); } S.player.wasBoost = mb;
+  const mb = S.player.in.boost && S.player.energy > 0.01; if (mb && !S.player.wasBoost) { whoosh(0.08); beep(330, 0.2, 'sawtooth', 0.018); }   // boost: zachter S.player.wasBoost = mb;
   if (ev.drift) beep([0, 700, 900, 1200][ev.drift], 0.15, 'square', 0.06);
   if (ev.splash || ev.fall) splash();
   { const p = S.player, sa = ((p.s % TR.len) + TR.len) % TR.len;
