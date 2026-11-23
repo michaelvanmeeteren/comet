@@ -33,7 +33,7 @@ const LAPS = 3, SHIP_R = 22, HOVER = 5, SHIP_SIZE = 1.2;
 const WALL_H = 26, WALL_T = 10, ROAD_T = 16;
 const BERM = 420;   // vlakke berm naast de vangrail (op wegniveau) waar het decor op staat; daarachter de helling
 // Versie van de 3D-versie, rechtsonder op het startscherm. Bij elke publicatie op de website eentje ophogen.
-const GAME_VERSION = '3D-86';
+const GAME_VERSION = '3D-88';
 const LOW_H = 1080;           // aantal beeldlijnen (zoals FINE in komeet.html); daarna zonder vervaging vergroot
 const GROUND_Y = -40;        // grond iets onder het laagste stuk weg
 
@@ -3354,15 +3354,18 @@ function updateCamera(dt) {
     // in de menu's een doorlopende vlucht over de baan die gekozen is (zonder wissels), op het titelscherm shots
     const inMenu = ui.screen !== 'title', shot = inMenu ? 'm' : ui.reelN || 0, low = inMenu ? false : shot % 2 === 0;
     const sv = inMenu ? (ui.menuT || 0) * 900 : (shot * 0.37 % 1) * TR.len + (ui.reelT % REEL_SHOT) * (low ? 1100 : 800);
-    const q = at(sv, {}), qa = at(sv + (low ? 420 : 650), {}), side = low || inMenu ? 0 : (shot % 4 === 1 ? 1 : -1) * (HW + 260);
-    const up = [q.ux, q.uy, q.uz], h = inMenu ? 150 : low ? 55 : 240;
-    const want = add(add([q.px, q.py, q.pz], scale([q.rx, q.ry, q.rz], side)), scale(up, h));
-    const look = add([qa.px, qa.py, qa.pz], scale([qa.ux, qa.uy, qa.uz], low ? 30 : 0));
+    // altijd boven de weg (niet ernaast: daar staat decor in beeld), hoogte recht omhoog gemeten en de camera bijna rechtop,
+    // zodat hij in schuine bochten niet opzij zwaait of meekantelt
+    const q = at(sv, {}), qa = at(sv + (low ? 420 : 650), {}), sideK = low || inMenu ? 0 : (shot % 4 === 1 ? 0.35 : -0.35) * HW;
+    const up = [0, 1, 0], h = inMenu ? 150 : low ? 60 : 220;
+    const flatR = norm([q.rx, 0, q.rz]);
+    const want = add(add([q.px, q.py, q.pz], scale(flatR, sideK)), scale(up, h));
+    const look = add([qa.px, qa.py, qa.pz], [0, low ? 30 : 10, 0]);
     // zacht volgen binnen een shot, meteen op zijn plek bij een nieuw shot
-    if (cam.menuShot !== shot + ':' + TR.idx) { cam.menuShot = shot + ':' + TR.idx; cam.pos = want; cam.look = look; cam.u = norm(add([0, 1, 0], up)); }
+    if (cam.menuShot !== shot + ':' + TR.idx) { cam.menuShot = shot + ':' + TR.idx; cam.pos = want; cam.look = look; cam.u = [0, 1, 0]; }
     const kf = 1 - Math.exp(-dt * 6);
     cam.pos = add(cam.pos, scale(sub(want, cam.pos), kf)); cam.look = add(cam.look, scale(sub(look, cam.look), kf));
-    cam.u = norm(add(cam.u, scale(sub(norm(add(scale([0, 1, 0], 0.5), scale(up, 0.5))), cam.u), kf)));
+    cam.u = norm(add(cam.u, scale(sub(norm(add(scale([0, 1, 0], 0.9), scale([q.ux, q.uy, q.uz], 0.1))), cam.u), kf)));
     return;
   }
   if (S.phase === 'intro' && G3.state !== 'menu') {
@@ -4395,15 +4398,40 @@ function drawLogo(u) {
     ctx.fillStyle = i % 3 === 0 ? 'rgba(255,79,138,0.85)' : 'rgba(207,211,255,0.6)';
     ctx.fillRect(sx, Math.round(H * 0.45 - (110 - i * 13) * u), len, Math.max(2, Math.round(5 * u)));
   }
-  const t = titleT(), big = Math.min(300 * u, H * 0.42), small = 150 * u;
+  const t = titleT(), big = Math.min(320 * u, H * 0.44), small = Math.min(225 * u, H * 0.3);   // ook bovenin flink groot
   // binnenkomen: van boven met een kleine stuiter, en een flits bij het landen
   const a = clamp01(t / 0.8), drop = a < 1 ? (1 - easeOut(a)) * -(H * 0.7) + Math.sin(a * Math.PI) * 30 * u : 0;
   const m = easeOut(clamp01((t - 2.0) / 0.9));   // 0 = groot in het midden, 1 = klein bovenin
   const b = logoBox, hh = Math.round(big + (small - big) * m), ww = Math.round(b.w * hh / b.h);
   const cy = H * 0.45 + (64 * u + hh / 2 - H * 0.45) * m + drop;
-  const bob = Math.round(Math.sin(G.time * 2) * 2 * u);
+  // rust-animatie als het logo staat: zachtjes zweven en ademen, om de paar seconden een glans erover en fonkelingen bij de kroon
+  const idle = clamp01((t - 2.9) / 0.6), bob = Math.round(Math.sin(G.time * 1.6) * (2 + 4 * idle) * u);
+  const br = 1 + idle * 0.025 * Math.sin(G.time * 3.2), w2 = Math.round(ww * br), h2 = Math.round(hh * br);
+  const lx = Math.round(W / 2 - w2 / 2), ly = Math.round(cy - h2 / 2) + bob;
   ctx.imageSmoothingEnabled = false;
-  ctx.drawImage(im, b.x, b.y, b.w, b.h, Math.round(W / 2 - ww / 2), Math.round(cy - hh / 2) + bob, ww, hh);
+  ctx.drawImage(im, b.x, b.y, b.w, b.h, lx, ly, w2, h2);
+  if (idle > 0) {
+    const cyc = (G.time % 4.5) / 0.9;   // glans: elke 4,5 seconde een schuine witte baan van links naar rechts, alleen op het logo
+    if (cyc < 1) {
+      const c2 = drawLogo.cv || (drawLogo.cv = document.createElement('canvas')), g2 = c2.getContext('2d');
+      if (c2.width !== w2 || c2.height !== h2) { c2.width = w2; c2.height = h2; }
+      g2.clearRect(0, 0, w2, h2); g2.imageSmoothingEnabled = false; g2.globalCompositeOperation = 'source-over';
+      g2.drawImage(im, b.x, b.y, b.w, b.h, 0, 0, w2, h2);
+      g2.globalCompositeOperation = 'source-atop'; g2.fillStyle = 'rgba(255,255,255,0.55)';
+      const bx2 = -h2 + cyc * (w2 + 2 * h2), bw2 = Math.max(6, Math.round(w2 * 0.06)), step = Math.max(2, Math.round(3 * u));
+      for (let y = 0; y < h2; y += step) g2.fillRect(Math.round(bx2 + (h2 - y) * 0.5), y, bw2, step);   // schuin, in pixeltrapjes
+      g2.globalCompositeOperation = 'source-over';
+      ctx.globalAlpha = idle; ctx.drawImage(c2, lx, ly); ctx.globalAlpha = 1;
+    }
+    for (let k = 0; k < 4; k++) {   // fonkelingen rond de kroon (bovenin het midden)
+      const ph = (G.time * 0.8 + k * 0.27) % 1, sx = lx + w2 * (0.42 + 0.16 * ((k * 0.37) % 1)), sy = ly + h2 * (0.06 + 0.1 * ((k * 0.61) % 1)), r = Math.round(Math.sin(ph * Math.PI) * 5 * u);
+      if (r < 1) continue;
+      ctx.globalAlpha = idle * Math.sin(ph * Math.PI); ctx.fillStyle = '#fff';
+      const p = Math.max(1, Math.round(1.5 * u));
+      ctx.fillRect(Math.round(sx - r), Math.round(sy - p / 2), r * 2, p); ctx.fillRect(Math.round(sx - p / 2), Math.round(sy - r), p, r * 2);
+    }
+    ctx.globalAlpha = 1;
+  }
   if (t > 0.8 && t < 1.1) { ctx.globalAlpha = 1 - (t - 0.8) / 0.3; ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, W, H); ctx.globalAlpha = 1; }
 }
 function drawMenu(u) {
