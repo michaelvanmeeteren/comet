@@ -33,7 +33,7 @@ const LAPS = 3, SHIP_R = 22, HOVER = 5, SHIP_SIZE = 1.2;
 const WALL_H = 26, WALL_T = 10, ROAD_T = 16;
 const BERM = 420;   // vlakke berm naast de vangrail (op wegniveau) waar het decor op staat; daarachter de helling
 // Versie van de 3D-versie, rechtsonder op het startscherm. Bij elke publicatie op de website eentje ophogen.
-const GAME_VERSION = '3D-89';
+const GAME_VERSION = '3D-90';
 const LOW_H = 1080;           // aantal beeldlijnen (zoals FINE in komeet.html); daarna zonder vervaging vergroot
 const GROUND_Y = -40;        // grond iets onder het laagste stuk weg
 
@@ -2060,15 +2060,15 @@ function menuKey(code) {
       break;
     case 'char': {
       const n = RIVALS.length, was = ui.char;
-      if (lr) ui.char = (ui.char + lr + n) % n;
-      if (ud) ui.char = (ui.char + ud * 6 + n) % n;
+      if (lr) { ui.char = (ui.char + lr + n) % n; ui.cheerT = performance.now(); }
+      if (ud) { ui.char = (ui.char + ud * 9 + n) % n; ui.cheerT = performance.now(); }   // twee rijen van negen
       if (ui.char !== was) { if (ud) beep(520, 0.06, 'square', 0.04); babble(ui.char, RIVALS[ui.char].name); }
       if (ok) { save.char = ui.char; store(); ui.rivals = pickRivals(ui.char); ui.screen = 'car'; }
       if (back) ui.screen = ui.mode === 2 || ui.mode === 3 ? 'mode' : ui.mode === 0 ? 'track' : 'cup';
       break;
     }
     case 'car':
-      if (lr) ui.car = (ui.car + lr + 4) % 4;
+      if (lr) { ui.car = (ui.car + lr + 4) % 4; ui.carT = performance.now(); }
       if (back) ui.screen = 'char';
       if (ok) {
         playerCar = ui.car; save.car = ui.car; save.cls = ui.cls; store();
@@ -3530,7 +3530,7 @@ function drawHazSprites() {
     const F = cachedTex(ART.obj['finflag' + 'abcd'[Math.floor(flick * 7) % 4]]); if (F.ready) for (const sd of [-1, 1]) hazQuad(F, 1.3, sd * (HW + 22), 1, 175);
     const wave = cnt ? (S.t < 2 ? 'rqa' : 'rqb') : S.raceTime < 3 ? (Math.floor(flick * 6) & 1 ? 'rqc' : 'rqd') : 'rq' + 'efgh'[Math.floor(flick * 2.5) % 4];   // race queen: vlag omhoog bij het aftellen, zwaaien bij de start
     at(sg + 250, HQ); const M = cachedTex(ART.obj[wave]); const off = cnt ? 0 : S.phase === 'race' ? Math.min(1, S.raceTime / 0.8) : 1;   // na de start stapt ze opzij, naast het publiek
-    if (M.ready) hazQuad(M, 1.75, HW - 50 + off * (WALL_T + 130), 1, 0);   // op de rand van de weg, binnen de palen: vanaf de start goed te zien
+    if (M.ready && G3.state !== 'menu') hazQuad(M, 1.75, HW - 50 + off * (WALL_T + 130), 1, 0);   // op de rand van de weg, binnen de palen: vanaf de start goed te zien
   }
 }
 // een staand plaatje op de weg (positie in HQ), onderkant op hoogte up
@@ -4339,6 +4339,30 @@ function drawCarTop(cx, cy, scale, car, pal) {
     fillPoly(p);
   }
 }
+// rond podium in pixels: een donkere zijkant en een lichte bovenkant met een rand
+function drawPedestal(cx, cy, rx, ry, th, u) {
+  const ell = (y0, col, rxx, ryy) => { ctx.fillStyle = col; const st = Math.max(1, Math.round(2 * u)); for (let y = -ryy; y < ryy; y += st) { const w = Math.round(rxx * Math.sqrt(Math.max(0, 1 - ((y + st / 2) / ryy) ** 2))); ctx.fillRect(Math.round(cx - w), Math.round(y0 + y), w * 2, st); } };
+  ell(cy + th, '#141020', rx, ry);
+  ctx.fillStyle = '#2a2438'; ctx.fillRect(Math.round(cx - rx), Math.round(cy), Math.round(rx * 2), Math.round(th));
+  ctx.fillStyle = '#3a3350'; ctx.fillRect(Math.round(cx - rx), Math.round(cy + th * 0.15), Math.round(rx * 2), Math.max(1, Math.round(3 * u)));
+  ell(cy, '#8a84a0', rx, ry); ell(cy, '#5e5874', rx - 6 * u, ry - 2.5 * u); ell(cy, '#4c4762', rx * 0.72, ry * 0.72);
+}
+// schip schuin van voren gezien, draaiend: zelfde model als in de race, eenvoudig belicht, vlakken van achter naar voor
+function drawCar34(cx, cy, scale, car, pal, yaw) {
+  const M = MODELS[car.id], pt = 0.55, cy0 = Math.cos(yaw), sy0 = Math.sin(yaw), cp = Math.cos(pt), sp = Math.sin(pt);
+  const V = M.v.map(([x, y, z]) => { const xr = x * cy0 - y * sy0, yr = x * sy0 + y * cy0; return [xr, yr, z, yr * cp - z * sp]; });
+  const faces = M.f.map(f => { let d = 0; for (const k of f[0]) d += V[k][3]; return [f, d / f[0].length]; }).sort((a, b) => b[1] - a[1]);
+  const p = [];
+  for (const [f] of faces) {
+    const [a, b, c] = f[0].slice(0, 3).map(k => M.v[k]);
+    const n = norm(cross(sub(b, a), sub(c, a))), nr = [n[0] * cy0 - n[1] * sy0, n[0] * sy0 + n[1] * cy0, n[2]];   // normaal meedraaien: het licht staat vast
+    const k = 0.5 + 0.75 * Math.abs(nr[0] * -0.45 + nr[1] * -0.35 + nr[2] * 0.82);
+    p.length = 0; for (const q of f[0]) p.push(cx + V[q][0] * scale, cy - (V[q][1] * sp + V[q][2] * cp) * scale);
+    const base = pal[f[1] === 7 ? 6 : f[1]] || '#d8f2ff', rgb = hex(base);
+    ctx.fillStyle = 'rgb(' + rgb.map(v => Math.round(Math.min(1, v * k) * 255)).join(',') + ')';
+    fillPoly(p);
+  }
+}
 let cupScroll = 0;
 function drawCupGrid(u, sel, mode) {
   const cols = 4, gap = 18 * u, cw = Math.min(250 * u, (W - 80 * u - gap * (cols - 1)) / cols), ch = 300 * u;
@@ -4556,56 +4580,68 @@ function drawMenu(u) {
     }
     return;
   }
-  if (ui.screen === 'char') {
-    header(u, 'CHOOSE YOUR RACER', hint);
-    const cols = CHAR_COLS, cw = Math.min(128 * u, (W - 40 * u) / cols), chh = 134 * u, x0 = W / 2 - cw * cols / 2, y0 = H * 0.165;
+  if (ui.screen === 'char' || ui.screen === 'car') {
+    // keuze: portretten in twee rijen (boven en onder), in het midden een podium met je dier; bij het schip komt dat ernaast
+    const isCar = ui.screen === 'car', me = RIVALS[ui.char], ap = me.pal;
+    header(u, isCar ? 'CHOOSE YOUR CRAFT' : 'CHOOSE YOUR RACER', isCar ? 'arrows: select      Enter: start      Esc: back' : hint);
+    const per = 9, cw = Math.min(92 * u, (W - 60 * u) / per), x0 = W / 2 - cw * per / 2;
+    const rowY = [H * 0.135, H - 40 * u - cw * 1.05 - 26 * u];
     RIVALS.forEach((r, i) => {
-      const x = x0 + (i % cols) * cw, y = y0 + Math.floor(i / cols) * chh, sel = ui.char === i;
-      card(x + 4 * u, y + 4 * u, cw - 8 * u, chh - 8 * u, sel, r.pal[2]);
-      drawFace(i, x + cw / 2, y + 58 * u + (sel ? Math.round(Math.sin(G.time * 5) * 2 * u) : 0), 2);
-      text(r.name, x + cw / 2, y + chh - 8 * u, 13 * u, sel ? r.pal[2] : '#fff', 'center', 800);
+      const x = x0 + (i % per) * cw, y = rowY[Math.floor(i / per)], sel = ui.char === i;
+      ctx.globalAlpha = isCar && !sel ? 0.45 : 1;
+      card(x + 3 * u, y, cw - 6 * u, cw, sel, r.pal[2]);
+      drawFace(i, x + cw / 2, y + cw / 2 + (sel ? Math.round(Math.sin(G.time * 5) * 2 * u) : 0), (cw - 16 * u) / (24 * H / 360));
+      ctx.globalAlpha = 1;
     });
-    const me = RIVALS[ui.char], py = y0 + chh * Math.ceil(RIVALS.length / cols) + 8 * u, pw = Math.min(700 * u, W - 40 * u);
-    panel(W / 2 - pw / 2, py, pw, 96 * u, 0.8);
-    text(me.name, W / 2, py + 34 * u, 26 * u, me.pal[2], 'center', 900);
-    text(me.kind + ' - ' + me.title, W / 2, py + 58 * u, 14 * u, '#fff', 'center', 700, false);
-    text('"' + me.lines.start[0] + '"', W / 2, py + 82 * u, 13 * u, '#cfd3ff', 'center', 500, false);
-    return;
-  }
-  if (ui.screen === 'car') {
-    header(u, 'CHOOSE YOUR CRAFT', 'arrows: select      Enter: start      Esc: back');
-    const cw = Math.min(250 * u, (W - 100 * u) / 4 - 16 * u), ch = 400 * u, gap = 16 * u;
-    const x0 = W / 2 - (cw * 4 + gap * 3) / 2, y0 = H * 0.2;
-    CARS.forEach((c, i) => {
-      const x = x0 + i * (cw + gap), sel = ui.car === i, ap = RIVALS[ui.char].pal;   // in de kleur van je dier
-      card(x, y0, cw, ch, sel, ap[2]);
-      text(c.name, x + cw / 2, y0 + 44 * u, 26 * u, sel ? ap[2] : '#fff', 'center', 900);
-      drawCarTop(x + cw / 2, y0 + 130 * u + (sel ? Math.sin(G.time * 4) * 3 * u : 0), 2.3 * u, Object.assign({}, c, { pal: ap }), ap);
-      // balken uit de echte waarden van het voertuig (zelfde schaal voor alle vier)
-      const stats = [
-        ['Top speed', (c.top - 1000) / 250], ['Acceleration', (c.acc - 520) / 460], ['Steering', (c.turn - 1.3) / 0.8],
-        ['Grip', (c.grip - 4.2) / 4.4], ['Boost', (0.36 - c.drain) / 0.17], ['Weight', (c.mass - 0.7) / 1.3]
-      ];
-      stats.forEach((s, k) => {
-        const yy = y0 + (222 + 22 * k) * u, bw = cw - 150 * u;
-        text(s[0], x + 20 * u, yy, 13 * u, '#cfd3ff', 'left', 600, false);
-        ctx.fillStyle = 'rgba(255,255,255,0.14)'; ctx.fillRect(x + 122 * u, yy - 10 * u, bw, 9 * u);
-        ctx.fillStyle = RIVALS[ui.char].pal[2]; ctx.fillRect(x + 122 * u, yy - 10 * u, bw * Math.max(0.08, Math.min(1, s[1])), 9 * u);
+    // podium en het dier (en bij het schip ook het schip)
+    const pcx = W / 2, pcy = H * 0.64, prx = Math.min(250 * u, W * 0.2), pry = 44 * u;
+    drawPedestal(pcx, pcy, prx, pry, 26 * u, u);
+    const body = ART_OBJ['b' + ui.char + 'x'], cheerOn = performance.now() - (ui.cheerT || 0) < 700, b2 = ART_OBJ['b' + ui.char + 'x2'];
+    const im = cheerOn && b2 && Math.floor(G.time * 6) % 2 ? b2 : body;
+    const ax = isCar ? pcx - prx * 0.45 : pcx;
+    if (im && body) {
+      const bh = Math.min(250 * u, H * 0.34), k = bh / body.height, breath = cheerOn ? 0 : Math.sin(G.time * 2.2) * 2 * u;
+      ctx.imageSmoothingEnabled = false;
+      ctx.drawImage(im, Math.round(ax - im.width * k / 2), Math.round(pcy + 6 * u - im.height * k - breath), Math.round(im.width * k), Math.round(im.height * k));
+    } else drawFace(ui.char, ax, pcy - 80 * u, 3);
+    if (isCar) {
+      const c = CARS[ui.car], since = (performance.now() - (ui.carT || 0)) / 1000, pop = since < 0.3 ? 1 - since / 0.3 : 0;
+      drawCar34(pcx + prx * 0.42, pcy - 22 * u - pop * 30 * u, 4.2 * u, Object.assign({}, c, { pal: ap }), ap, G.time * 0.9);
+    }
+    // links: wie (en welk schip); rechts: eigenschappen
+    const lx = pcx - prx - 30 * u, rx = pcx + prx + 30 * u, ty = H * 0.42;
+    text(me.name, lx, ty, 30 * u, ap[2], 'right', 900);
+    text(me.kind + ' - ' + me.title.toUpperCase(), lx, ty + 26 * u, 13 * u, '#fff', 'right', 700, false);
+    if (isCar) { text(CARS[ui.car].name, lx, ty + 62 * u, 24 * u, '#fff', 'right', 900); text('left / right: other craft', lx, ty + 84 * u, 12 * u, '#cfd3ff', 'right', 600, false); }
+    else text('"' + me.lines.start[0] + '"', pcx, pcy + 64 * u, 13 * u, '#cfd3ff', 'center', 500, false);   // citaat onder het podium
+    if (isCar) {
+      const c = CARS[ui.car];
+      const stats = [['TOP SPEED', (c.top - 1000) / 250], ['ACCELERATION', (c.acc - 520) / 460], ['STEERING', (c.turn - 1.3) / 0.8], ['GRIP', (c.grip - 4.2) / 4.4], ['BOOST', (0.36 - c.drain) / 0.17], ['WEIGHT', (c.mass - 0.7) / 1.3]];
+      const bw = Math.min(200 * u, W - rx - 30 * u);
+      stats.forEach((st, k2) => {
+        const yy = ty - 30 * u + k2 * 26 * u;
+        text(st[0], rx, yy, 12 * u, '#cfd3ff', 'left', 700, false);
+        const segs = 10, sw = bw / segs, fill = Math.round(Math.max(0.08, Math.min(1, st[1])) * segs);
+        for (let q = 0; q < segs; q++) { ctx.fillStyle = q < fill ? ap[2] : 'rgba(255,255,255,0.14)'; ctx.fillRect(Math.round(rx + q * sw), Math.round(yy + 4 * u), Math.max(2, Math.round(sw - 2 * u)), Math.round(7 * u)); }
       });
       const words = c.desc.split(' '), half = Math.ceil(words.length / 2);
-      text(words.slice(0, half).join(' '), x + cw / 2, y0 + 366 * u, 13 * u, '#fff', 'center', 500, false);
-      text(words.slice(half).join(' '), x + cw / 2, y0 + 384 * u, 13 * u, '#fff', 'center', 500, false);
-    });
-    text('Drive: arrows or WASD     Boost: space     Drift: shift     ' + (ui.mode === 2 ? 'Item: E     ' : '') + 'Pause: Esc', W / 2, y0 + ch + 30 * u, 15 * u, '#ffb833', 'center', 700, false);
-    if (ui.mode === 1) {
-      const sp = Math.min(190 * u, (W - 60 * u) / 5), rx0 = W / 2 - sp * 2.5, ry = y0 + ch + 74 * u;
-      ui.rivals.forEach((ci, i) => {
-        const r = RIVALS[ci], x = rx0 + sp * i + 26 * u;
-        drawFace(ci, x - 4 * u, ry);
-        text(r.name, x + 30 * u, ry + 5 * u, 14 * u, r.pal[2], 'left', 800);
-
-      });
+      text(words.slice(0, half).join(' '), rx, ty + 136 * u, 12 * u, '#fff', 'left', 500, false);
+      text(words.slice(half).join(' '), rx, ty + 152 * u, 12 * u, '#fff', 'left', 500, false);
+      // de vier schepen als knopjes onder het podium
+      const kw = 110 * u, ky = pcy + 52 * u;
+      CARS.forEach((cc, i) => { const kx = W / 2 - kw * 2 + i * kw; card(kx + 4 * u, ky, kw - 8 * u, 36 * u, ui.car === i, ap[2]); text(cc.name, kx + kw / 2, ky + 24 * u, 14 * u, ui.car === i ? ap[2] : '#fff', 'center', 800); });
+    } else {
+      text('PICK YOUR RACER', rx, ty, 14 * u, '#ffb833', 'left', 800);
+      text('arrows: choose', rx, ty + 24 * u, 12 * u, '#cfd3ff', 'left', 600, false);
+      text('Enter: confirm', rx, ty + 42 * u, 12 * u, '#cfd3ff', 'left', 600, false);
     }
+    if (isCar && ui.mode === 1) {   // de rivalen van deze cup
+      const sp = Math.min(150 * u, (W - 60 * u) / 5), rx0 = W / 2 - sp * 2.5, ry = rowY[1] + cw * 0.5;
+      ctx.fillStyle = 'rgba(8,5,22,0.85)'; ctx.fillRect(Math.round(x0), Math.round(rowY[1] - 4 * u), Math.round(cw * per), Math.round(cw + 8 * u));
+      text('YOUR RIVALS', W / 2, rowY[1] + 14 * u, 12 * u, '#ffb833', 'center', 800);
+      ui.rivals.forEach((ci, i) => { const r = RIVALS[ci], x = rx0 + sp * i + 20 * u; drawFace(ci, x, ry + 8 * u, 0.8); text(r.name, x + 22 * u, ry + 13 * u, 12 * u, r.pal[2], 'left', 800); });
+    }
+    return;
   }
 }
 function drawOptions(u) {
