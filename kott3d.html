@@ -1784,7 +1784,7 @@ function radioTick() {
 const NET_VERSION = 103;   // VERSION_3D in server/server.js
 const NET = {
   ws: null, id: null, status: 'off', err: '', room: null, pending: null, code: '', sel: 0, typing: false, offset: 0, race: null,
-  addr: (() => { if (location.protocol.startsWith('http')) return location.host; try { return localStorage.getItem('comet.server') || 'localhost:8080'; } catch (e) { return 'localhost:8080'; } })(),
+  addr: (() => { if (location.protocol.startsWith('http')) return location.host; try { return localStorage.getItem('comet.server') || 'https://king-of-the-track.onrender.com'; } catch (e) { return 'https://king-of-the-track.onrender.com'; } })(),
   send(m) { if (this.ws && this.ws.readyState === 1) this.ws.send(JSON.stringify(m)); }
 };
 const NET_SITE = location.protocol === 'https:' || location.hostname.endsWith('github.io');
