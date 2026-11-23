@@ -33,7 +33,7 @@ const LAPS = 3, SHIP_R = 22, HOVER = 5, SHIP_SIZE = 1.2;
 const WALL_H = 26, WALL_T = 10, ROAD_T = 16;
 const BERM = 420;   // vlakke berm naast de vangrail (op wegniveau) waar het decor op staat; daarachter de helling
 // Versie van de 3D-versie, rechtsonder op het startscherm. Bij elke publicatie op de website eentje ophogen.
-const GAME_VERSION = '3D-90';
+const GAME_VERSION = '3D-91';
 const LOW_H = 1080;           // aantal beeldlijnen (zoals FINE in komeet.html); daarna zonder vervaging vergroot
 const GROUND_Y = -40;        // grond iets onder het laagste stuk weg
 
@@ -4734,8 +4734,9 @@ function drawItemSlot(u) {
     const pw = Math.min(760 * u, W - 40 * u), px = W / 2 - pw / 2, y0 = H * 0.2;
     if (NET.status !== 'on') {
       card(px, y0, pw, 150 * u, false);
-      text(NET.status === 'connecting' ? 'CONNECTING...' : 'NOT CONNECTED', W / 2, y0 + 64 * u, 34 * u, '#fff', 'center', 900);
-      if (NET.err) text(NET.err, W / 2, y0 + 100 * u, 16 * u, '#ff8a8a', 'center', 700);
+      const dots = ['.  ', '.. ', '...'][Math.floor(G.time * 2.5) % 3];   // lopende puntjes: je ziet dat er iets gebeurt
+      text(NET.status === 'connecting' ? 'CONNECTING' + dots : 'NOT CONNECTED', W / 2, y0 + 64 * u, 34 * u, '#fff', 'center', 900);
+      if (NET.err) text(NET.waking ? NET.err.replace('...', dots) : NET.err, W / 2, y0 + 100 * u, 16 * u, NET.waking ? '#ffb833' : '#ff8a8a', 'center', 700);
       if (NET.status === 'off') text('Enter: try again', W / 2, y0 + 130 * u, 15 * u, '#cfd3ff', 'center', 600, false);
       return;
     }
