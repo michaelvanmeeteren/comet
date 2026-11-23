@@ -33,7 +33,7 @@ const LAPS = 3, SHIP_R = 22, HOVER = 5, SHIP_SIZE = 1.2;
 const WALL_H = 26, WALL_T = 10, ROAD_T = 16;
 const BERM = 420;   // vlakke berm naast de vangrail (op wegniveau) waar het decor op staat; daarachter de helling
 // Versie van de 3D-versie, rechtsonder op het startscherm. Bij elke publicatie op de website eentje ophogen.
-const GAME_VERSION = '3D-78';
+const GAME_VERSION = '3D-79';
 const LOW_H = 1080;           // aantal beeldlijnen (zoals FINE in komeet.html); daarna zonder vervaging vergroot
 const GROUND_Y = -40;        // grond iets onder het laagste stuk weg
 
@@ -1803,7 +1803,8 @@ function netUrl() {
   return a.replace(/\/+$/, '').replace(/\/ws$/, '') + '/ws';
 }
 const netName = () => save.netName || RIVALS[ui.char].name;
-function netConnect() {
+function netConnect(retry) {
+  if (!retry) NET.wakeT0 = performance.now();
   if (NET.ws && NET.ws.readyState === 1 && NET.id != null) { NET.send({ t: 'pick', char: ui.char, car: ui.car, name: netName() }); return; }
   NET.status = 'connecting'; NET.err = '';
   netRefreshAddr().then(() => {
@@ -1811,12 +1812,18 @@ function netConnect() {
     let ws;
     try { ws = new WebSocket(netUrl()); } catch (e) { NET.status = 'off'; NET.err = 'BAD SERVER ADDRESS'; return; }
     NET.ws = ws; NET.id = null;
-    ws.onopen = () => NET.send({ t: 'hello', v: NET_VERSION, name: netName(), char: ui.char, car: ui.car });
+    if (!retry && /^wss:/.test(netUrl())) fetch(netUrl().replace(/^wss:/, 'https:').replace(/\/ws$/, '/'), { mode: 'no-cors', cache: 'no-store' }).catch(() => {});   // maakt een slapende cloudserver wakker
+    ws.onopen = () => { NET.waking = false; NET.send({ t: 'hello', v: NET_VERSION, name: netName(), char: ui.char, car: ui.car }); };
     ws.onmessage = ev => { let m; try { m = JSON.parse(ev.data); } catch (e) { return; } netOnMessage(m); };
     ws.onclose = () => {
       if (NET.ws !== ws) return;
       const wasRoom = NET.room;
       NET.ws = null; NET.id = null; NET.room = null; NET.status = 'off';
+      // nooit verbonden geweest: de server start misschien nog op; tot 100 seconden blijven proberen
+      if (!wasRoom && (!NET.err || NET.waking) && G3.mode === 'online' && G3.state === 'menu' && performance.now() - (NET.wakeT0 || 0) < 100000) {
+        NET.status = 'connecting'; NET.waking = true; NET.err = 'SERVER STARTING... (UP TO A MINUTE)'; setTimeout(() => { if (NET.status === 'connecting' && NET.waking) { NET.err = ''; netConnect(true); NET.err = 'SERVER STARTING... (UP TO A MINUTE)'; } }, 3000); return;
+      }
+      NET.waking = false;
       if (!NET.err) NET.err = wasRoom ? 'CONNECTION LOST' : 'SERVER IS OFFLINE OR UNREACHABLE';
       if (G3.mode === 'online' && G3.state !== 'menu') { G3.state = 'menu'; ui.screen = 'online'; loadTrack(ui.bg); }
     };
