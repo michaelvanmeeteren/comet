@@ -33,7 +33,7 @@ const LAPS = 3, SHIP_R = 22, HOVER = 5, SHIP_SIZE = 1.2;
 const WALL_H = 26, WALL_T = 10, ROAD_T = 16;
 const BERM = 420;   // vlakke berm naast de vangrail (op wegniveau) waar het decor op staat; daarachter de helling
 // Versie van de 3D-versie, rechtsonder op het startscherm. Bij elke publicatie op de website eentje ophogen.
-const GAME_VERSION = '3D-95';
+const GAME_VERSION = '3D-97';
 const LOW_H = 1080;           // aantal beeldlijnen (zoals FINE in komeet.html); daarna zonder vervaging vergroot
 const GROUND_Y = -40;        // grond iets onder het laagste stuk weg
 
@@ -3045,6 +3045,67 @@ function shipFor(e) {
   return shipCache.get(key);
 }
 
+// ---------------------------------------------------------------- schepen als plaatjes (SpriteCook, grijs; meegekleurd)
+// art/obj/shipsheet<id>: 3x3 vakjes, het schip van achteren (vak 0) tot van voren (vak 8) in stappen van 22,5 graden;
+// de andere kant is gespiegeld. Grijs wordt een kleurverloop uit het palet: donker -> schaduw, midden -> hoofdkleur, licht -> lichtste.
+// art/obj/shipsheetb<id>: hellend en met boost. Vak 0: van achteren hellend (naar links), 1 en 2: schuin achter hellend
+// (links, rechts), 3 en 4: verder opzij hellend, 5: van achteren met boost, 6: schuin achter met boost (7 en 8 niet gebruikt)
+const SHIP_SHEET = {}, SHIP_SHEETB = {}, SHIP_TINT = {};
+for (const c of CARS) for (const [n, tgt] of [['shipsheet' + c.id, SHIP_SHEET], ['shipsheetb' + c.id, SHIP_SHEETB]]) if (ART.obj[n]) { const im = new Image(); im.onload = () => { tgt[c.id] = im; }; im.src = ART.obj[n]; }
+const SHIP_CELL_U = 59;   // een vakje (128 px) is 59 eenheden breed in de wereld (zo werd het voorbeeld gerenderd)
+function shipRamp(pal) {
+  const st = [[0.0, '#0a0610'], [0.12, pal[4]], [0.32, pal[3]], [0.52, pal[2]], [0.74, pal[1]], [0.9, pal[0]], [1.0, '#ffffff']].map(([t, c]) => [t, hex(c)]);
+  const lut = new Uint8Array(256 * 3);
+  for (let i = 0; i < 256; i++) {
+    const t = i / 255; let k = 0; while (k < st.length - 2 && t > st[k + 1][0]) k++;
+    const a = st[k], b = st[k + 1], f = Math.max(0, Math.min(1, (t - a[0]) / (b[0] - a[0])));
+    for (let j = 0; j < 3; j++) lut[i * 3 + j] = Math.round((a[1][j] + (b[1][j] - a[1][j]) * f) * 255);
+  }
+  return lut;
+}
+// meegekleurd vakje k (0..8) als canvas, en als textuur voor de race
+function shipCanvas(carId, pal, k, b) {
+  const sh = (b ? SHIP_SHEETB : SHIP_SHEET)[carId]; if (!sh) return null;
+  const key = carId + pal.join() + k + (b ? 'b' : '');
+  if (SHIP_TINT[key]) return SHIP_TINT[key];
+  const cw = Math.floor(sh.width / 3), ch = Math.floor(sh.height / 3), cv = document.createElement('canvas'); cv.width = cw; cv.height = ch;
+  const x = cv.getContext('2d'); x.drawImage(sh, (k % 3) * cw, Math.floor(k / 3) * ch, cw, ch, 0, 0, cw, ch);
+  const img = x.getImageData(0, 0, cw, ch), d = img.data, lut = shipRamp(pal);
+  for (let i = 0; i < d.length; i += 4) { if (d[i + 3] < 8) continue; const L = Math.round(0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2]); d[i] = lut[L * 3]; d[i + 1] = lut[L * 3 + 1]; d[i + 2] = lut[L * 3 + 2]; }
+  x.putImageData(img, 0, 0);
+  const t = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, t);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, cv); gl.generateMipmap(gl.TEXTURE_2D);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+  return (SHIP_TINT[key] = { cv, tex: t, w: cw, h: ch });
+}
+// welk vakje en gespiegeld of niet: hoek tussen de neus van het schip en de kijkrichting van de camera
+function shipView(fr, eye) {
+  const v = norm(sub(fr.pos, eye)), vf = dot(v, fr.f), vs = dot(v, fr.r), th = Math.atan2(vs, vf);
+  return { k: Math.min(8, Math.round(Math.abs(th) / (Math.PI / 8))), flip: th > 0 };
+}
+const shipSpriteOn = e => !!SHIP_SHEET[e.car.id];
+function drawShipSprites() {
+  for (const e of (S.ghost && S.phase !== 'count' ? S.ents.concat([S.ghost.ent]) : S.ents)) {
+    if (!shipSpriteOn(e)) continue;
+    const fr = entFrame(e, {}), vw = shipView(fr, cam.pos);
+    let t = null;
+    if (SHIP_SHEETB[e.car.id] && vw.k <= 1 && !e.air) {
+      if (e.boosting) t = shipCanvas(e.car.id, e.pal, vw.k === 0 ? 5 : 6, true);   // boost: felle motoren
+      else if (Math.abs(e.steer) > 0.45) {   // hellen in de bocht
+        const left = e.steer < 0;
+        if (vw.k === 0) { t = shipCanvas(e.car.id, e.pal, 0, true); vw.flip = !left; }
+        else t = shipCanvas(e.car.id, e.pal, (left !== vw.flip) ? 1 : 2, true);
+      }
+    }
+    if (!t) t = shipCanvas(e.car.id, e.pal, vw.k); if (!t) continue;
+    const sz = SHIP_CELL_U * SHIP_SIZE * (CER && e.cer ? 2 : 1), h = sz * t.h / t.w, c = [fr.pos[0], fr.pos[1] + 3 * SHIP_SIZE - h / 2, fr.pos[2]], data = [];
+    for (const [cx, cy] of [[-0.5, 0], [0.5, 0], [0.5, 1], [-0.5, 0], [0.5, 1], [-0.5, 1]]) data.push(c[0], c[1], c[2], cx, cy, vw.flip ? -sz : sz, h);
+    gl.bindBuffer(gl.ARRAY_BUFFER, hazBB.buf); gl.bufferSubData(gl.ARRAY_BUFFER, 0, new Float32Array(data));
+    gl.bindTexture(gl.TEXTURE_2D, t.tex); gl.bindVertexArray(hazBB.vao); gl.drawArrays(gl.TRIANGLES, 0, 6);
+  }
+}
+
 // ---------------------------------------------------------------- schip voor het keuzescherm
 // het echte 3D-schip met de shader van de race, klein gerenderd in een eigen buffer en daarna grof vergroot: pixelstijl,
 // met een donkere rand eromheen, zodat het past bij de plaatjes van de dieren
@@ -3480,7 +3541,7 @@ function render(dt) {
     gl.uniform3fv(PM.u.uFlame, fl);
     gl.uniformMatrix4fv(PM.u.uM, false, M);
     const sm = shipCache.get(e.car.id + e.pal.join());
-    gl.bindVertexArray(sm.vao); gl.drawArrays(gl.TRIANGLES, 0, sm.count);
+    if (!shipSpriteOn(e)) { gl.bindVertexArray(sm.vao); gl.drawArrays(gl.TRIANGLES, 0, sm.count); }   // anders als plaatje (drawShipSprites)
     if (S.ghost && e === S.ghost.ent) continue;
     // schaduw plat op het wegdek (niet boven het gat)
     const gpos = gapPos(e.s);
@@ -3509,6 +3570,7 @@ function render(dt) {
     gl.bindVertexArray(g.vao); gl.drawArrays(gl.TRIANGLES, 0, g.count);
   }
   drawHazSprites();
+  drawShipSprites();
   gl.bindVertexArray(null);
   KUI.frame();
 }
@@ -4642,7 +4704,11 @@ function drawMenu(u) {
     } else drawFace(ui.char, ax, pcy - 80 * u, 3);
     if (isCar) {
       const c = CARS[ui.car], since = (performance.now() - (ui.carT || 0)) / 1000, pop = since < 0.3 ? 1 - since / 0.3 : 0;
-      let cv = null; try { cv = shipPreview(c, ap, G.time * 0.9); } catch (err) {}
+      let cv = null, flip = false;
+      if (SHIP_SHEET[c.id]) { const a = ((G.time * 0.9) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2), th = a > Math.PI ? a - Math.PI * 2 : a; const t = shipCanvas(c.id, ap, Math.min(8, Math.round(Math.abs(th) / (Math.PI / 8)))); if (t) { cv = t.cv; flip = th > 0; } }
+      if (cv && flip) { const sc = Math.max(2, Math.round(2.6 * u)), w2 = cv.width * sc, h2 = cv.height * sc; ctx.save(); ctx.imageSmoothingEnabled = false; ctx.translate(Math.round(pcx + prx * 0.42 + w2 / 2), 0); ctx.scale(-1, 1); ctx.drawImage(cv, 0, Math.round(pcy - 10 * u - h2 * 0.62 - pop * 30 * u), w2, h2); ctx.restore(); cv = null; }
+      else if (cv) { const sc = Math.max(2, Math.round(2.6 * u)), w2 = cv.width * sc, h2 = cv.height * sc; ctx.imageSmoothingEnabled = false; ctx.drawImage(cv, Math.round(pcx + prx * 0.42 - w2 / 2), Math.round(pcy - 10 * u - h2 * 0.62 - pop * 30 * u), w2, h2); cv = null; }
+      else if (!SHIP_SHEET[c.id]) try { cv = shipPreview(c, ap, G.time * 0.9); } catch (err) {}
       if (cv) { const sc = Math.max(2, Math.round(3.2 * u)), w2 = cv.width * sc, h2 = cv.height * sc; ctx.imageSmoothingEnabled = false; ctx.drawImage(cv, Math.round(pcx + prx * 0.42 - w2 / 2), Math.round(pcy - 10 * u - h2 * 0.62 - pop * 30 * u), w2, h2); }
       else drawCar34(pcx + prx * 0.42, pcy - 22 * u - pop * 30 * u, 4.2 * u, Object.assign({}, c, { pal: ap }), ap, G.time * 0.9);
     }
