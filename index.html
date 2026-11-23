@@ -33,7 +33,7 @@ const LAPS = 3, SHIP_R = 22, HOVER = 5, SHIP_SIZE = 1.2;
 const WALL_H = 26, WALL_T = 10, ROAD_T = 16;
 const BERM = 420;   // vlakke berm naast de vangrail (op wegniveau) waar het decor op staat; daarachter de helling
 // Versie van de 3D-versie, rechtsonder op het startscherm. Bij elke publicatie op de website eentje ophogen.
-const GAME_VERSION = '3D-84';
+const GAME_VERSION = '3D-85';
 const LOW_H = 1080;           // aantal beeldlijnen (zoals FINE in komeet.html); daarna zonder vervaging vergroot
 const GROUND_Y = -40;        // grond iets onder het laagste stuk weg
 
@@ -1050,7 +1050,8 @@ function stepEnt(e) {
     e.driftT = 0;
   } else e.driftT = 0;
   if (e.padT > 0) e.padT -= DT;
-  const manual = inp.boost && e.energy > 0.01 && !air;
+  if (!inp.boost) e.boostLock = false; else if (e.energy <= 0.01) e.boostLock = true;   // meter leeg: eerst loslaten, anders boost je met kleine stootjes door
+  const manual = inp.boost && !e.boostLock && e.energy > 0.01 && !air;
   if (manual) { e.energy = Math.max(0, e.energy - c.drain * DT); e.restT = 0; }
   else { e.restT = (e.restT || 0) + DT; e.energy = Math.min(1, e.energy + (0.03 + 0.07 * Math.min(1, e.restT / 4)) * DT); }
   e.boosting = manual || e.padT > 0;
