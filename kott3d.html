@@ -33,7 +33,7 @@ const LAPS = 3, SHIP_R = 22, HOVER = 5, SHIP_SIZE = 1.2;
 const WALL_H = 26, WALL_T = 10, ROAD_T = 16;
 const BERM = 420;   // vlakke berm naast de vangrail (op wegniveau) waar het decor op staat; daarachter de helling
 // Versie van de 3D-versie, rechtsonder op het startscherm. Bij elke publicatie op de website eentje ophogen.
-const GAME_VERSION = '3D-99';
+const GAME_VERSION = '3D-100';
 const LOW_H = 1080;           // aantal beeldlijnen (zoals FINE in komeet.html); daarna zonder vervaging vergroot
 const GROUND_Y = -40;        // grond iets onder het laagste stuk weg
 
@@ -1134,7 +1134,7 @@ function stepEnt(e) {
       e.progress -= g1 + 900; e.s -= g1 + 900;
       e.z = 0; e.vz = 0; e.air = false; e.gapFly = false; e.vT = 250; e.vR = 0; e.psi = 0; e.d *= 0.5; e.splashT = 1.6; e.ev.splash = 1;
     } else if (e.z <= 0) {
-      e.z = 0; e.vz = 0; e.air = false; e.gapFly = false; e.ev.land = 1;
+      e.z = 0; e.vz = 0; e.air = false; e.gapFly = false; e.ev.land = 1; fxEvent('dust', e.s, e.d, 0);
       if (e.airT > 0.6) { e.padT = Math.max(e.padT, 0.5); e.vT += 120; }
     }
   }
@@ -1204,7 +1204,7 @@ function stepEnt(e) {
     const vn = e.vR * sd;
     if (vn > 0) {
       // klap tegen de rail: snelheid kwijt alleen bij het raken zelf (of een harde klap), niet bij elke stap erlangs
-      if (vn > 120) e.ev.wall = 1;
+      if (vn > 120) { e.ev.wall = 1; fxEvent('hits', e.s, rc + sd * (maxD + SHIP_R * 0.6), e.z + 10); }
       if (!e.onWall) { e.vT *= 1 - Math.min(0.45, vn / 1400) / e.car.tough; e.driftT = 0; }
       e.vR = -e.vR * 0.3;
     }
@@ -1478,6 +1478,7 @@ const CUPS = [
   { name: 'GEAR CUP', theme: 7, sub: 'Cogs, steam and a clocktower' }
 ];
 const POINTS = [10, 7, 5, 3, 2, 1];
+const TRO_NAMES = ['tcoast', 'tsakura', 'tcastle', 'tstar', 'tdune', 'tlotus', 'tfrost', 'tlegend', 'tabyss', 'tsugar', 'tphantom', 'tgear'];   // beker per cup (art/obj)
 const MEDAL_COL = ['#4a4860', '#c8793a', '#cfd6e0', '#ffd24a'], MEDAL_NAME = ['', 'BRONZE', 'SILVER', 'GOLD'];
 const PAL_GHOST = ['#9ff', '#7de', '#5cd', '#4bc', '#268', '#aff', '#dff'];
 // opslag: keuzes, records met ghost per baan en voertuig, beste cupresultaat per cup en klasse
@@ -2632,11 +2633,13 @@ void main(){
   vW = w; vUV = vec2(aCorner.x + 0.5, 1.0 - aCorner.y); gl_Position = uVP * vec4(w, 1.0);
 }`;
 const FS_BB = `#version 300 es
-precision highp float; in vec3 vW; in vec2 vUV; uniform sampler2D uTex; out vec4 o;
+precision highp float; in vec3 vW; in vec2 vUV; uniform sampler2D uTex; uniform vec4 uTint; uniform float uGlow; out vec4 o;
 ${GLSL_COMMON}
 void main(){ vec4 c = texture(uTex, vUV); if (c.a < 0.5) discard;
+  if (uTint.a < 0.999 && fract(sin(dot(floor(gl_FragCoord.xy), vec2(12.9898, 78.233))) * 43758.5453) > uTint.a) discard;   // half doorzichtig: pixels weglaten
   float f = clamp((distance(vW, uCam) - uFogR.x) / (uFogR.y - uFogR.x), 0.0, 1.0);   // zachte mist: geen korrel op verre plaatjes
-  o = vec4(mix(c.rgb * uNight, uFog, f * f * (3.0 - 2.0 * f)), 1.0); }`;
+  vec3 b = c.rgb * uTint.rgb;
+  o = vec4(mix(mix(b * uNight, b, uGlow), uFog, f * f * (3.0 - 2.0 * f)), 1.0); }`;
 
 function compile(type, src) {
   const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s);
@@ -3575,7 +3578,7 @@ function render(dt) {
   gl.useProgram(PB.p);
   gl.uniformMatrix4fv(PB.u.uVP, false, VP);
   gl.uniform3fv(PB.u.uCam, cam.pos); gl.uniform3fv(PB.u.uFog, FOG); gl.uniform2f(PB.u.uFogR, ...fogRange()); if (PB.u.uNight) gl.uniform3fv(PB.u.uNight, NIGHT);
-  gl.uniform3fv(PB.u.uRight, norm([view.x[0], 0, view.x[2]]));
+  gl.uniform3fv(PB.u.uRight, norm([view.x[0], 0, view.x[2]])); gl.uniform4f(PB.u.uTint, 1, 1, 1, 1); gl.uniform1f(PB.u.uGlow, 0);
   gl.activeTexture(gl.TEXTURE0); gl.uniform1i(PB.u.uTex, 0);
   for (const g of decor) {
     if (!g.vao) continue;
@@ -3587,6 +3590,7 @@ function render(dt) {
   }
   drawHazSprites();
   drawShipSprites();
+  drawFxSprites();
   gl.bindVertexArray(null);
   KUI.frame();
 }
@@ -3677,9 +3681,26 @@ const IT_COLS = { hue: ['#ff4f8a', '#ffb833', '#7dffb0', '#4fc3ff', '#c070ff'].m
   shield: hex('#7dffb0'), shieldHi: hex('#e8fff2'), star: hex('#ffd24a') };
 // golfkleuren: diep, midden, licht, glans, schuim (twee tinten), spat, natte weg
 const WAVE_COLS = ['#1a6fa8', '#2286c4', '#2f9fd8', '#4cbde8', '#8adcf4', '#e4f8ff', '#ffffff', '#2c3a4e'].map(hex);
-const FX = {};
+// effecten (SpriteCook, art/obj/fx*: boostvlam, rook, vonken, klap, stof, sterretjes, vuurwerk, confetti, wind; drie beeldjes)
+const FX = { spr: [] };
+function fxEvent(k, s, d, h) { const L = FX[k] || (FX[k] = []); if (L.length < 30) L.push({ s, d, h, t: S.raceTime }); }
+const fxName = (base, i) => base + ['', '2', '3'][Math.max(0, Math.min(2, i | 0))];
+function drawFxSprites() {
+  for (const q of FX.spr) {
+    const src = ART.obj[q.name]; if (!src) continue;
+    const tx = cachedTex(src); if (!tx.ready) continue;
+    gl.uniform4f(PB.u.uTint, q.tint[0], q.tint[1], q.tint[2], q.a); gl.uniform1f(PB.u.uGlow, q.glow);
+    const w = q.sz, h = q.sz * tx.h / tx.w, data = [];
+    for (const [cx, cy] of [[-0.5, 0], [0.5, 0], [0.5, 1], [-0.5, 0], [0.5, 1], [-0.5, 1]]) data.push(q.p[0], q.p[1] - h / 2, q.p[2], cx, cy, q.flip ? -w : w, h);
+    gl.bindBuffer(gl.ARRAY_BUFFER, hazBB.buf); gl.bufferSubData(gl.ARRAY_BUFFER, 0, new Float32Array(data));
+    gl.bindTexture(gl.TEXTURE_2D, tx.tex); gl.bindVertexArray(hazBB.vao); gl.drawArrays(gl.TRIANGLES, 0, 6);
+  }
+  gl.uniform4f(PB.u.uTint, 1, 1, 1, 1); gl.uniform1f(PB.u.uGlow, 0);
+}
 function drawDynamic() {
   const out = [], t = S.raceTime;
+  FX.spr = [];
+  const spr = (p, name, sz, tint, a, glow, flip) => { if (a == null || a > 0.02) FX.spr.push({ p, name, sz, tint: tint || [1, 1, 1], a: a == null ? 1 : a, glow: glow || 0, flip }); };
   const wp = (sv, d, up) => { at(sv, DQ); return [DQ.px + DQ.rx * d + DQ.ux * up, DQ.py + DQ.ry * d + DQ.uy * up, DQ.pz + DQ.rz * d + DQ.uz * up]; };
   const up = sv => { at(sv, DQ); return [DQ.ux, DQ.uy, DQ.uz]; };
   // golven: een schuimende band die dwars over de weg spoelt
@@ -3837,32 +3858,41 @@ function drawDynamic() {
     CER_STEPS.forEach(([d, h], k) => box(sp - 55, sp + 55, d - 72, d + 72, h, COLS[k][0], COLS[k][1]));
     for (let q = 0; q < 11; q++) pushQuad(out, pw(sp + 60 + q * 50, -70, 1.6), pw(sp + 100 + q * 50, -70, 1.6), pw(sp + 100 + q * 50, 70, 1.6), pw(sp + 60 + q * 50, 70, 1.6), q & 1 ? [0.75, 0.08, 0.12] : [0.85, 0.12, 0.16]);   // rode loper
     const ct = CER.t;
-    if (ct > 2.5) for (let i = 0; i < 90; i++) {   // confetti
-      const p = (ct * 0.3 + i * 0.137) % 1, col = [[1, 0.3, 0.4], [1, 0.85, 0.2], [0.3, 0.8, 1], [0.5, 1, 0.5], [0.9, 0.5, 1]][i % 5];
-      cube(sp - 220 + (i * 53) % 440 + Math.sin(ct * 2 + i) * 15, -300 + (i * 97) % 600, 40 + 560 * (1 - p), 4, ct * 4 + i, [col]);
+    if (ct > 2.5) for (let i = 0; i < 40; i++) {   // confetti: wolkjes snippers die dwarrelend vallen
+      const p = (ct * 0.3 + i * 0.137) % 1;
+      spr(wp(sp - 220 + (i * 53) % 440 + Math.sin(ct * 2 + i) * 15, -300 + (i * 97) % 600, 40 + 560 * (1 - p)), fxName('fxconf', Math.floor(ct * 8 + i) % 3), 34, null, 1, 0.6, i & 1);
     }
-    [5, 6.1, 7.3, 8.5, 9.6].forEach((tb, b) => {   // vuurwerk
+    [5, 6.1, 7.3, 8.5, 9.6, 10.4, 11.2].forEach((tb, b) => {   // vuurwerk: een witte knal in een eigen kleur, die uitzet, zakt en uitdooft
       const a = ct - tb; if (a < 0 || a > 1.3) return;
-      const col = [[1, 0.4, 0.3], [0.4, 0.9, 1], [1, 0.9, 0.3], [0.7, 0.5, 1], [0.5, 1, 0.6]][b];
-      for (let i = 0; i < 26; i++) { const ang = i / 26 * 6.283, r = a * 200; cube(sp - 650, [-320, 260, -60, 380, 80][b] + Math.cos(ang) * r, 560 + b * 30 + Math.sin(ang) * r - a * a * 90, 7 * (1 - a / 1.3) + 1, i, [col]); }
+      const col = [[1, 0.45, 0.35], [0.45, 0.9, 1], [1, 0.9, 0.35], [0.75, 0.55, 1], [0.55, 1, 0.6], [1, 0.6, 0.9], [1, 1, 1]][b];
+      spr(wp(sp - 650, [-320, 260, -60, 380, 80, -200, 200][b], 560 + b * 30 - a * a * 90), fxName('fxfire', a < 0.25 ? 0 : 1), 120 + a * 420, col, Math.min(1, 1.6 - a * 1.2), 1);
     });
   }
   // rookwolkjes van het driften: oud spul weg, de rest groeit en stijgt
   FX.smoke = (FX.smoke || []).filter(p => t - p.t < 0.7 && t >= p.t);
-  for (const p of FX.smoke) { const a = (t - p.t) / 0.7; cube(p.s, p.d, p.h + a * 18, 3 + a * 7, p.r, [[0.85 - a * 0.25, 0.86 - a * 0.25, 0.9 - a * 0.25]]); }
+  for (const p of FX.smoke) { const a = (t - p.t) / 0.7; spr(wp(p.s, p.d, p.h + a * 18), fxName('fxsmoke', a * 3), 12 + a * 26, [0.95, 0.95, 1], 1 - a * 0.85, 0, p.r > 1.5); }
+  FX.hits = (FX.hits || []).filter(p => t - p.t < 0.36 && t >= p.t);
+  for (const p of FX.hits) { const a = (t - p.t) / 0.36; spr(wp(p.s, p.d, p.h), fxName('fxhit', a * 3), 34 + a * 10, null, 1, 1); spr(wp(p.s, p.d, p.h + 6), fxName('fxspark', a * 3), 30 + a * 30, [1, 0.9, 0.5], 1 - a * 0.6, 1); }
+  FX.dust = (FX.dust || []).filter(p => t - p.t < 0.7 && t >= p.t);
+  for (const p of FX.dust) { const a = (t - p.t) / 0.7; for (const sd of [-18, 18]) spr(wp(p.s - 10, p.d + sd * (1 + a), 4 + a * 6), fxName('fxdust', a * 3), 26 + a * 26, null, 1 - a * 0.7, 0, sd > 0); }
   for (const e of S.ents) {
     const cs = Math.cos(e.psi), sn = Math.sin(e.psi), behind = (L, side) => [e.s - cs * L - sn * side, e.d - sn * L + cs * side];
     // boost: een vlammenstaart achter het schip (wit-blauw), flakkerend
-    if (e.boosting && !e.finished) for (let q = 0; q < 6; q++) {
-      const fl = Math.sin(flick * 40 + q * 1.7) * 3, [bs, bd] = behind(30 + q * 11 + fl, 0);
-      cube(bs, bd, e.z + 9 - q * 0.6, Math.max(1.2, 6.5 - q * 0.95), flick * 9 + q, [q < 2 ? [0.95, 1, 1] : q < 4 ? [0.45, 0.88, 1] : [0.25, 0.55, 1]]);
+    if (e.boosting && !e.finished) {   // fel blauw-witte straal, twee vlammen achter elkaar die om beurten flakkeren
+      const fi = Math.floor(flick * 15 + e.s * 0.01), [b1s, b1d] = behind(26, 0), [b2s, b2d] = behind(44, 0);
+      spr(wp(b1s, b1d, e.z + 9), fxName('fxboost', fi % 3), 24 + Math.sin(flick * 50) * 2, null, 1, 1);
+      spr(wp(b2s, b2d, e.z + 8), fxName('fxboost', (fi + 1) % 3), 15, null, 0.7, 1);
+    }
+    if (e === S.player && (e.draft || 0) > 0.4 && !e.finished) for (const side of [-1, 1]) {   // slipstream: windlijnen langs het schip
+      const [ws, wd] = behind(-10 + ((flick * 300) % 60), side * 34);
+      spr(wp(ws, wd, e.z + 14), fxName('fxwind', Math.floor(flick * 12) % 3), 40, null, (e.draft - 0.4) * 1.6, 1, side > 0);
     }
     // driften: vonken onder de achterkant, van kleur per niveau (wit, blauw, oranje, roze), en rookwolkjes
     if (e.in.drift && e.driftT > 0.15 && !e.air && e.speed > 380) {
       const lv = driftLevel(e.driftT), col = [[1, 1, 1], [0.35, 0.75, 1], [1, 0.62, 0.15], [1, 0.35, 0.85]][lv];
-      for (const side of [-13, 13]) for (let q = 0; q < 3; q++) {
-        const j = Math.sin(flick * 60 + q * 2.1 + side) * 6, [bs, bd] = behind(20 + q * 7 + j, side + j * 0.5);
-        cube(bs, bd, e.z + 2 + Math.abs(j) * 0.4, lv ? 2.4 : 1.6, flick * 12 + q, [col]);
+      for (const side of [-13, 13]) {   // vonken in de kleur van het niveau
+        const j = Math.sin(flick * 60 + side) * 4, [bs, bd] = behind(22 + j, side);
+        spr(wp(bs, bd, e.z + 5), fxName('fxspark', Math.floor(flick * 20 + side) % 3), lv ? 20 : 13, col, 1, 1, side > 0);
       }
       if (FX.smoke.length < 90 && (FX.n = (FX.n || 0) + 1) % 2 === 0) for (const side of [-13, 13]) { const [bs, bd] = behind(24, side); FX.smoke.push({ s: bs, d: bd, h: e.z + 3, t, r: Math.random() * 3 }); }
     }
@@ -3878,10 +3908,7 @@ function drawDynamic() {
       for (let q = 0; q < 3; q++) { const a = -flick * 3 + q * 2.094; cube(e.s + Math.cos(a) * 40, e.d + Math.sin(a) * 40, e.z + 16 + Math.sin(flick * 5 + q) * 4, 2.5, flick * 4, [IC.shieldHi]); }
     }
     // getold: sterretjes die rond het schip draaien
-    if (e.spinT > 0) for (let q = 0; q < 3; q++) {
-      const a = flick * 8 + q * 2.094;
-      cube(e.s + Math.cos(a) * 18, e.d + Math.sin(a) * 18, e.z + 34, 2.2, flick * 6, [IC.star]);
-    }
+    if (e.spinT > 0) spr(wp(e.s, e.d, e.z + 36), fxName('fxdizzy', Math.floor(flick * 10) % 3), 34, null, 1, 1);
   }
   if (!out.length) return;
   gl.uniformMatrix4fv(PM.u.uM, false, I4);
@@ -3903,7 +3930,7 @@ const KUI = (() => {
   const SPR_BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5].map(v => (v + 0.5) / 16);
   const ART_OBJ = {};
   const proj3 = p => { const m = LAST_VP; if (!m) return null; const x = m[0] * p[0] + m[4] * p[1] + m[8] * p[2] + m[12], y = m[1] * p[0] + m[5] * p[1] + m[9] * p[2] + m[13], w = m[3] * p[0] + m[7] * p[1] + m[11] * p[2] + m[15]; return w > 1 ? [(x / w * 0.5 + 0.5) * W, (1 - (y / w * 0.5 + 0.5)) * H, w] : null; };
-  for (const k of ['logo', 'trophy', 'e0', 'e1', 'e2', 'e3', 'e4', 'e5', 'e6', 'e7', 'e8', 'e9', 'e10', 'e11', 'trophygold', 'trophysilver', 'trophybronze', 'podium', 'confetti', 'crown', 'selhi', 'sello', ...Array.from({ length: 18 }, (_, i) => ['b' + i + 'x', 'b' + i + 'x2', 'b' + i + 's']).flat()]) if (ART.obj[k]) { const im = new Image(); im.onload = () => { ART_OBJ[k] = im; }; im.src = ART.obj[k]; }
+  for (const k of ['mtime', 'mcup', 'monline', 'cls50', 'cls100', 'cls150', 'icolock', 'icostar', 'icogear', 'icoghost', 'icowatch', 'icocrown', 'icoflag', 'icoglobe', 'icomedals', ...TRO_NAMES, 'logo', 'trophy', 'e0', 'e1', 'e2', 'e3', 'e4', 'e5', 'e6', 'e7', 'e8', 'e9', 'e10', 'e11', 'trophygold', 'trophysilver', 'trophybronze', 'podium', 'confetti', 'crown', 'selhi', 'sello', ...Array.from({ length: 18 }, (_, i) => ['b' + i + 'x', 'b' + i + 'x2', 'b' + i + 's']).flat()]) if (ART.obj[k]) { const im = new Image(); im.onload = () => { ART_OBJ[k] = im; }; im.src = ART.obj[k]; }
   const TRACKS_ALL = TRACKS_OUTER, TRACKS = TRACKS_ALL.slice(1);
   const LOOKS = TRACKS.map(t => ({ names: THEMES[CUPS[t.cup].theme].names }));
   const roadWx = () => null;
@@ -4334,7 +4361,7 @@ function drawCupResult(u) {
     const tc = G.cupPos <= 3 ? MEDAL_COL[4 - G.cupPos] : '#cfd3ff';
     text(CUPS[ui.cup].name + ' - FINAL STANDINGS', W / 2, py + 44 * u, 26 * u, '#ffb833', 'center', 900);
     text(G.cupPos === 1 ? 'CHAMPION!' : ord(G.cupPos).toUpperCase() + ' PLACE', W / 2, py + 92 * u, 44 * u, tc, 'center', 900);
-    const tro = G.cupPos <= 3 ? ART_OBJ[['trophygold', 'trophysilver', 'trophybronze'][G.cupPos - 1]] : null;
+    const tro = G.cupPos <= 3 ? (trophyCanvas(ui.cup, 4 - G.cupPos) || ART_OBJ[['trophygold', 'trophysilver', 'trophybronze'][G.cupPos - 1]]) : null;
     if (tro) { const th = Math.round(64 * u), tw = Math.round(tro.width * th / tro.height); ctx.drawImage(tro, Math.round(px + 26 * u), Math.round(py + 20 * u), tw, th); ctx.drawImage(tro, Math.round(px + pw - 26 * u - tw), Math.round(py + 20 * u), tw, th); }
     // podium naast het paneel, met de drie besten erop
     const pod = ART_OBJ.podium, side = W - (px + pw);
@@ -4478,6 +4505,25 @@ function drawCar34(cx, cy, scale, car, pal, yaw) {
   for (const [f] of faces) { ctx.fillStyle = pal[f[1] === 7 ? 5 : f[1]] || '#d8f2ff'; fillPoly(P2(f).flat()); }
 }
 let cupScroll = 0;
+const TRO_PAL = { 3: ['#fff6c0', '#ffd84a', '#e8a820', '#a86a10', '#5a3008'], 2: ['#ffffff', '#e4e8f0', '#b4bccc', '#7a8296', '#3a3e50'],
+  1: ['#ffe0c0', '#e8a060', '#b86a30', '#7a4018', '#3a1a08'], 0: ['#5a5874', '#46445e', '#34324a', '#262438', '#18162a'] };
+const TRO_CV = {};
+// beker van cup c in medaille m (3 goud, 2 zilver, 1 brons, 0 nog niet gewonnen) als canvas
+function trophyCanvas(c, m) {
+  const key = c + '-' + m, im = ART_OBJ[TRO_NAMES[c]]; if (TRO_CV[key]) return TRO_CV[key]; if (!im) return null;
+  const cv = document.createElement('canvas'); cv.width = im.width; cv.height = im.height;
+  const x = cv.getContext('2d'); x.drawImage(im, 0, 0);
+  const img = x.getImageData(0, 0, cv.width, cv.height), d = img.data, lut = shipRamp(TRO_PAL[m]);
+  for (let i = 0; i < d.length; i += 4) { if (d[i + 3] < 8) continue; const L = Math.round(0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2]); d[i] = lut[L * 3]; d[i + 1] = lut[L * 3 + 1]; d[i + 2] = lut[L * 3 + 2]; }
+  x.putImageData(img, 0, 0);
+  return (TRO_CV[key] = cv);
+}
+// plaatje gecentreerd op (cx, cy) met hoogte h, scherp vergroot
+function drawArt(im, cx, cy, h) {
+  if (!im) return false;
+  const w = im.width * h / im.height; ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(im, Math.round(cx - w / 2), Math.round(cy - h / 2), Math.round(w), Math.round(h)); return true;
+}
 function drawCupGrid(u, sel, mode) {
   const cols = 4, gap = 18 * u, cw = Math.min(250 * u, (W - 80 * u - gap * (cols - 1)) / cols), ch = 300 * u;
   const x0 = W / 2 - (cw * cols + gap * (cols - 1)) / 2, y0 = 150 * u, areaH = Math.min(H - y0 - 70 * u, ch * 1.5 + gap);
@@ -4506,6 +4552,10 @@ function drawCupGrid(u, sel, mode) {
     }
     const em = ART_OBJ['e' + i];
     if (em) { const es = Math.round(56 * u); ctx.drawImage(em, Math.round(x + cw / 2 - es / 2), Math.round(y + ch - es - 8 * u + (isSel ? Math.sin(G.time * 4) * 2 * u : 0)), es, es); }
+    if (mode === 1) {   // de beker van deze cup: in de kleur van je beste plek, of donker als je hem nog niet hebt
+      const best = OUT.save.cups[i + '-' + ui.cls], tc = trophyCanvas(i, best && best <= 3 ? 4 - best : 0);
+      if (tc) drawArt(tc, x + cw - 44 * u, y + ch - 44 * u + (isSel && best <= 3 ? Math.sin(G.time * 3) * 2 * u : 0), 62 * u);
+    }
   });
   ctx.restore();
   if (sc < maxS - 1) text('- MORE CUPS BELOW -', W / 2, y0 + areaH + 30 * u, 13 * u, '#cfd3ff', 'center', 700);
@@ -4617,7 +4667,16 @@ function drawMenu(u) {
       text(it[0], cx, y + 70 * u, 40 * u, sel ? col : '#fff', 'center', 900);
       // plaatje: een lichtcirkel erachter
       ctx.fillStyle = sel ? 'rgba(255,255,255,0.07)' : 'rgba(255,255,255,0.03)'; fillDisc(cx, iy, 62 * u);
-      if (i === 0) {
+      const MART = ART_OBJ[['mtime', 'mcup', 'monline'][i]];
+      if (MART) {   // plaatje van de modus, zachtjes deinend (de cup met vallende confetti)
+        if (i === 1) for (let k = 0; k < 14; k++) {
+          const fx = ((k * 53) % 100) / 100, sp = 0.35 + (k % 5) * 0.08, fy = ((G.time * sp + k * 0.137) % 1);
+          ctx.fillStyle = ['#ff4f8a', '#ffd24a', '#7de8ff', '#7dffb0'][k % 4];
+          ctx.fillRect(Math.round(cx - 60 * u + fx * 120 * u + Math.sin(G.time * 3 + k) * 4 * u), Math.round(iy - 70 * u + fy * 140 * u), Math.max(2, Math.round(3 * u)), Math.max(2, Math.round(5 * u)));
+        }
+        drawArt(MART, cx, iy - 4 * u + Math.sin(G.time * 2.2 + i) * 4 * u, (sel ? 128 : 116) * u);
+        text(i === 0 ? fmt(G.time % 60).slice(0, -1) : i === 1 ? '10 PT' : 'ROOM ' + [0, 1, 2, 3].map(k => 'ABCDEFGHJKLMNPQRSTUVWXYZ'[Math.floor(G.time * 2 + k * 7) % 24]).join(''), cx, iy + 78 * u, 15 * u, col, 'center', 800);
+      } else if (i === 0) {
         // je schip met zijn ghost erachter, en een lopende stopwatch
         const sway = Math.sin(G.time * 1.6) * 10 * u;
         drawCarTop(cx - 36 * u + sway * 0.5, iy + 30 * u, 1.5 * u, CARS[ui.car], PAL_GHOST);
@@ -4660,7 +4719,8 @@ function drawMenu(u) {
       card(x, y0, cw, ch, sel, cols[i]);
       text(cl.name, x + cw / 2, y0 + 76 * u, 46 * u, sel ? cols[i] : '#fff', 'center', 900);
       text(cl.sub, x + cw / 2, y0 + 114 * u, 15 * u, '#fff', 'center', 700, false);
-      for (let k = 0; k <= i; k++) { ctx.fillStyle = cols[i]; ctx.fillRect(Math.round(x + cw / 2 + (k - i / 2) * 22 * u - 7 * u), Math.round(y0 + 262 * u), Math.round(14 * u), Math.round(14 * u)); }
+      if (!drawArt(ART_OBJ[['cls50', 'cls100', 'cls150'][i]], x + cw / 2, y0 + 205 * u + (sel ? Math.sin(G.time * 3) * 3 * u : 0), (sel ? 124 : 112) * u))
+        for (let k = 0; k <= i; k++) { ctx.fillStyle = cols[i]; ctx.fillRect(Math.round(x + cw / 2 + (k - i / 2) * 22 * u - 7 * u), Math.round(y0 + 262 * u), Math.round(14 * u), Math.round(14 * u)); }
     });
     return;
   }
