@@ -33,7 +33,7 @@ const LAPS = 3, SHIP_R = 22, HOVER = 5, SHIP_SIZE = 1.2;
 const WALL_H = 26, WALL_T = 10, ROAD_T = 16;
 const BERM = 420;   // vlakke berm naast de vangrail (op wegniveau) waar het decor op staat; daarachter de helling
 // Versie van de 3D-versie, rechtsonder op het startscherm. Bij elke publicatie op de website eentje ophogen.
-const GAME_VERSION = '3D-100';
+const GAME_VERSION = '3D-101';
 const LOW_H = 1080;           // aantal beeldlijnen (zoals FINE in komeet.html); daarna zonder vervaging vergroot
 const GROUND_Y = -40;        // grond iets onder het laagste stuk weg
 
@@ -439,11 +439,13 @@ const flyRow = (k, a, b) => ['row', a, b, k, 520, 'both', 140];
 ].forEach(e => LIFE[e[0]].push(...e.slice(1)));
 LIFE.forEach(l => l.push(['row', 0.005, 0.012, 'marshal', 300, 'R', 18]));
 // het publiek van de tweede vier cups krijgt eigen figuren
-[[[12, 13, 14], { fanA: 'merchant', fanB: 'robed', fanC: 'flagboy', beachB: 'merchant' }],
- [[15, 16, 17], { fanA: 'dancer', fanB: 'drummer', fanC: 'powder', kimono: 'dancer', juggler: 'powder', raver: 'drummer' }],
+[[[12, 13, 14], { fanA: 'merchant', fanB: 'robed', fanC: 'flagboy', beachB: 'merchant', juggler: 'nomad', worker: 'fezman', kimono: 'tambgirl' }],
+ [[15, 16, 17], { fanA: 'dancer', fanB: 'dholman', fanC: 'powder', kimono: 'sari', juggler: 'powderkid', raver: 'drummer' }],
+ [[3, 4, 5], { fanA: 'lantguy', fanB: 'taikoman', fanC: 'fangirl' }],
  [[18, 20], { knight: 'parka', skeleton: 'skier' }],
  [[21, 23], { astro: 'wizard' }]
 ].forEach(([tracks, map]) => tracks.forEach(i => LIFE[i].forEach(op => { if (op[0] === 'crowd') op[3] = op[3].map(k => map[k] || k); })));
+Object.assign(OBJ_H, { nomad: 76, fezman: 76, tambgirl: 74, sari: 74, dholman: 76, powderkid: 64, lantguy: 78, taikoman: 76, fangirl: 72 });   // publiek uit fans5
 DRESS.forEach((d, i) => d.push(...LIFE[i]));
 // extra herkenningspunten en een rij op de bestaande banen (nieuwe plaatjes per cup)
 {
@@ -1777,6 +1779,7 @@ const COMMENTS = {
   tail: ['I am right behind you!', 'Feel that breath on your neck?', 'Getting closer...', 'Mirror check. Yep, still me.'],
   air: ['Big air! Did you pack a parachute?', 'Wheee! Nice jump!', 'Look at that hang time!', 'You can fly now?']
 };
+const SAY_MOOD = { pass: 'h', win: 'h', fall: 'h', oops: 'h', tail: 'h', passed: 'a', bump: 'a', lead: 'a', perfect: 'o', drift: 'o', air: 'o', lose: 's' };
 function say(rival, key, force) {
   if (rival == null || !RIVALS[rival] || G3.mode === 'tt' || G3.mode === 'online' || (S.radioCool > 0 && !force)) return;
   const arr = RIVALS[rival].lines[key] || COMMENTS[key]; if (!arr) return;
@@ -1784,7 +1787,7 @@ function say(rival, key, force) {
   if (txt === S.lastLine) txt = arr[Math.floor(Math.random() * arr.length)];
   S.lastLine = txt;
   const dur = txt.length * VOICES[rival].step + 2.2;
-  S.radio = { rival, text: txt, t: dur, age: 0 }; S.radioCool = dur + 2.5;
+  S.radio = { rival, text: txt, t: dur, age: 0, mood: SAY_MOOD[key] }; S.radioCool = dur + 2.5;
   babble(rival, txt);
 }
 function radioTick() {
@@ -3930,7 +3933,7 @@ const KUI = (() => {
   const SPR_BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5].map(v => (v + 0.5) / 16);
   const ART_OBJ = {};
   const proj3 = p => { const m = LAST_VP; if (!m) return null; const x = m[0] * p[0] + m[4] * p[1] + m[8] * p[2] + m[12], y = m[1] * p[0] + m[5] * p[1] + m[9] * p[2] + m[13], w = m[3] * p[0] + m[7] * p[1] + m[11] * p[2] + m[15]; return w > 1 ? [(x / w * 0.5 + 0.5) * W, (1 - (y / w * 0.5 + 0.5)) * H, w] : null; };
-  for (const k of ['mtime', 'mcup', 'monline', 'cls50', 'cls100', 'cls150', 'icolock', 'icostar', 'icogear', 'icoghost', 'icowatch', 'icocrown', 'icoflag', 'icoglobe', 'icomedals', ...TRO_NAMES, 'logo', 'trophy', 'e0', 'e1', 'e2', 'e3', 'e4', 'e5', 'e6', 'e7', 'e8', 'e9', 'e10', 'e11', 'trophygold', 'trophysilver', 'trophybronze', 'podium', 'confetti', 'crown', 'selhi', 'sello', ...Array.from({ length: 18 }, (_, i) => ['b' + i + 'x', 'b' + i + 'x2', 'b' + i + 's']).flat()]) if (ART.obj[k]) { const im = new Image(); im.onload = () => { ART_OBJ[k] = im; }; im.src = ART.obj[k]; }
+  for (const k of ['mtime', 'mcup', 'monline', 'cls50', 'cls100', 'cls150', 'icolock', 'icostar', 'icogear', 'icoghost', 'icowatch', 'icocrown', 'icoflag', 'icoglobe', 'icomedals', ...TRO_NAMES, 'logo', 'trophy', 'e0', 'e1', 'e2', 'e3', 'e4', 'e5', 'e6', 'e7', 'e8', 'e9', 'e10', 'e11', 'trophygold', 'trophysilver', 'trophybronze', 'podium', 'confetti', 'crown', 'selhi', 'sello', ...Array.from({ length: 18 }, (_, i) => ['b' + i + 'x', 'b' + i + 'x2', 'b' + i + 's', 'b' + i + 'w', 'b' + i + 'v', 'b' + i + 'd', 'b' + i + 'q', 'f' + i + 'h', 'f' + i + 'a', 'f' + i + 'o', 'f' + i + 's']).flat()]) if (ART.obj[k]) { const im = new Image(); im.onload = () => { ART_OBJ[k] = im; }; im.src = ART.obj[k]; }
   const TRACKS_ALL = TRACKS_OUTER, TRACKS = TRACKS_ALL.slice(1);
   const LOOKS = TRACKS.map(t => ({ names: THEMES[CUPS[t.cup].theme].names }));
   const roadWx = () => null;
@@ -4022,10 +4025,11 @@ const KUI = (() => {
 }
   // portretten zoals drawFace in komeet.html: teamkleur met raster, het geschilderde portret, een rand
   let faceCache = {};
-  function buildFace(i, ss, talk) {
+  function buildFace(i, ss, talk, mood) {
     // portretten verschillen in maat en in hoe groot het dier erin staat: schaal op het dier zelf (de niet-doorzichtige
     // pixels), zodat ze allemaal even groot in hun vak staan; dicht bij 1x precies 1x (pixel voor pixel), veel groter zonder vervaging
-    const pic = talk && FACE_TALK[i] && FACE_TALK[i].naturalWidth ? FACE_TALK[i] : FACE_IMG[i], ready = pic && pic.complete && pic.naturalWidth, want = 24 * ss;
+    const mp = mood && ART_OBJ['f' + i + mood];   // emotie: blij, boos, geschrokken of verdrietig
+    const pic = mp || (talk && FACE_TALK[i] && FACE_TALK[i].naturalWidth ? FACE_TALK[i] : FACE_IMG[i]), ready = pic && pic.complete && pic.naturalWidth, want = 24 * ss;
     const W2 = Math.round(want), b = Math.max(1, Math.round(ss * 0.75)), size = W2 + 2 * b, pal = RIVALS[i].pal;
     const c = document.createElement('canvas'); c.width = c.height = size;
     const k = c.getContext('2d');
@@ -4051,11 +4055,13 @@ const KUI = (() => {
     k.fillRect(0, 0, size, b); k.fillRect(0, size - b, size, b); k.fillRect(0, 0, b, size); k.fillRect(size - b, 0, b, size);
     return c;
   }
-  function drawFace(i, cx, cy, sc, talk) {
+  function drawFace(i, cx, cy, sc, talk, mood) {
     if (i == null || !RIVALS[i]) return;
-    const ss = Math.round((sc || 1) * H / 360 * 4) / 4, key = ss + ':' + i + (talk ? 't' : '');
+    if (mood && !ART_OBJ['f' + i + mood]) mood = null;
+    if (mood) { if (talk) cy -= Math.max(1, Math.round(H / 360)); talk = false; }   // met emotie: praten = even op en neer
+    const ss = Math.round((sc || 1) * H / 360 * 4) / 4, key = ss + ':' + i + (talk ? 't' : '') + (mood || '');
     let c = faceCache[key];
-    if (!c || c.unready) c = faceCache[key] = buildFace(i, ss, talk);
+    if (!c || c.unready) c = faceCache[key] = buildFace(i, ss, talk, mood);
     ctx.drawImage(c, Math.round(cx - c.width / 2), Math.round(cy - c.height / 2));
   }
   // kaartje van een baan uit de controlepunten (zelfde wereldmaat als in komeet.html)
@@ -4258,7 +4264,7 @@ function drawHud(u, speed, runT) {
     ctx.globalAlpha = Math.max(0, Math.min(1, G.radio.t * 4, G.radio.age * 8));
     const talking = G.radio.age < G.radio.text.length * VOICES[G.radio.rival].step;
     panel(rx, ry, rwd, rh, 0.8);
-    drawFace(G.radio.rival, rx + 40 * u, ry + rh / 2, 1, talking && Math.sin(G.time * 22) > 0);   // mond open en dicht terwijl hij praat
+    drawFace(G.radio.rival, rx + 40 * u, ry + rh / 2, 1, talking && Math.sin(G.time * 22) > 0, G.radio.mood);   // mond open en dicht terwijl hij praat
     text(rv.name, rx + 82 * u, ry + 32 * u, 14 * u, rv.pal[2], 'left', 800);
     text(G.radio.text.slice(0, Math.ceil(G.radio.age / VOICES[G.radio.rival].step)), rx + 82 * u, ry + 58 * u, 13 * u, '#fff', 'left', 600, false);
     ctx.globalAlpha = 1;
@@ -4297,6 +4303,24 @@ function drawTTResult(u) {
   if (!G.newRecord && rec) text('Record ' + fmt(rec.total) + '  (+' + (tot - rec.total).toFixed(3) + ')', W / 2, py + 330 * u, 15 * u, '#cfd3ff', 'center', 600, false);
   text('Enter: retry      N: next track      Esc: track select', W / 2, py + 360 * u, 16 * u, '#fff', 'center', 700, false);
 }
+// heel lijf van dier i met een animatie: 'idle' (staan), 'wave' (zwaaien), 'dance' (dansen: wijzen, juichen, gespiegeld wijzen, door de knieen)
+// cx = midden, fy = onderkant (voeten), bh = hoogte van het gewone staande plaatje; alle beeldjes in dezelfde pixelmaat
+function bodyAnim(i, anim, t) {
+  if (anim === 'wave') return [Math.floor(t * 5) % 2 ? 'v' : 'w', false];
+  if (anim === 'dance') return [['d', 'x2', 'd', 'q'][Math.floor(t * 4) % 4], Math.floor(t * 4) % 4 === 2];
+  if (anim === 'cheer') return [Math.floor(t * 3.5) % 2 ? 'x2' : 'x', false];
+  return ['x', false];
+}
+function drawBody(i, cx, fy, bh, anim, t) {
+  const b1 = ART_OBJ['b' + i + 'x']; if (!b1) return false;
+  const [fr, flip] = bodyAnim(i, anim, t), im = ART_OBJ['b' + i + fr] || b1;
+  const k = bh / b1.height * (fr === 'q' && i < 9 ? 256 / 334 : 1);   // het vel met de diepe knieen (dieren 0-8) kwam groter terug
+  const w = Math.round(im.width * k), h = Math.round(im.height * k);
+  ctx.imageSmoothingEnabled = false;
+  if (flip) { ctx.save(); ctx.translate(Math.round(cx), 0); ctx.scale(-1, 1); ctx.drawImage(im, -Math.round(w / 2), Math.round(fy - h), w, h); ctx.restore(); }
+  else ctx.drawImage(im, Math.round(cx - w / 2), Math.round(fy - h), w, h);
+  return true;
+}
 function drawCeremony(u) {
   const t = CER.t, ease = x => { x = Math.max(0, Math.min(1, x)); return x * x * (3 - 2 * x); };
   // plek 4 tot 6: sip klappend naast het podium (hun auto staat vooraan in de rij)
@@ -4313,8 +4337,8 @@ function drawCeremony(u) {
     let p, sc;
     if (b1) {   // dier met heel lijf, staand op zijn auto, juichend in twee beeldjes
       const hop = Math.max(0, Math.sin(t * 7 + k * 2)) * 8, ft = proj3(add(fr.pos, scale(fr.u, hop))), hd = proj3(add(fr.pos, scale(fr.u, hop + 120))); if (!ft || !hd) return;
-      const bh = ft[1] - hd[1], bs = bh / b1.height, im = (Math.floor(t * 3.5 + k) % 2 && ART_OBJ['b' + face + 'x2']) || b1;
-      ctx.imageSmoothingEnabled = false; ctx.drawImage(im, Math.round(ft[0] - im.width * bs / 2), Math.round(ft[1] - im.height * bs), Math.round(im.width * bs), Math.round(im.height * bs));
+      const bh = ft[1] - hd[1];
+      drawBody(face, ft[0], ft[1], bh, k === 0 ? 'dance' : 'wave', t + k * 0.37);   // de winnaar danst, de andere twee zwaaien
       sc = 0.5 * bh / (26 * H / 360); p = [hd[0], hd[1] + 12 * sc * H / 360 + bh * 0.06];   // kroon even breed als het hoofd, net op het hoofd
     } else {
       p = proj3(add(fr.pos, scale(fr.u, 95))); if (!p) return;
@@ -4374,7 +4398,7 @@ function drawCupResult(u) {
       if (conf && G.cupPos <= 3) { const cw2 = Math.round(pw2 * 0.9), ch2 = Math.round(conf.height * cw2 / conf.width); ctx.globalAlpha = 0.85 + 0.15 * Math.sin(G.time * 5); ctx.drawImage(conf, Math.round(x0 + (pw2 - cw2) / 2), Math.round(y0 - ch2 - 30 * u + Math.sin(G.time * 2) * 6 * u), cw2, ch2); ctx.globalAlpha = 1; }
     }
     const top = rows[0].player ? rows[1] : rows[0];
-    quote = { rival: top.rival, text: lineFor(top.rival, rows[0].player ? 'lose' : 'win', G.quoteSeed + 1) };
+    quote = { rival: top.rival, text: lineFor(top.rival, rows[0].player ? 'lose' : 'win', G.quoteSeed + 1), mood: rows[0].player ? 's' : 'h' };
   } else {
     const order = liveOrder();
     rows = order.map((e, i) => ({ e, name: e.name, pal: e.pal, player: !!e.isPlayer, rival: e.rival, pts: POINTS[i],
@@ -4384,8 +4408,8 @@ function drawCupResult(u) {
     text(ord(pos).toUpperCase() + ' PLACE', W / 2, py + 92 * u, 44 * u, pos === 1 ? '#ffd24a' : '#fff', 'center', 900);
     const first = order[0];
     if (first.finished) {
-      if (first.isPlayer) { if (order[1].finished) quote = { rival: order[1].rival, text: lineFor(order[1].rival, 'lose', G.quoteSeed) }; }
-      else quote = { rival: first.rival, text: lineFor(first.rival, 'win', G.quoteSeed) };
+      if (first.isPlayer) { if (order[1].finished) quote = { rival: order[1].rival, text: lineFor(order[1].rival, 'lose', G.quoteSeed), mood: 's' }; }
+      else quote = { rival: first.rival, text: lineFor(first.rival, 'win', G.quoteSeed), mood: 'h' };
     }
   }
   const winT = !fin && rows[0].e.finished ? rows[0].e.finishTime : null;
@@ -4416,7 +4440,7 @@ function drawCupResult(u) {
     if (G.quoteKey !== qkey) { G.quoteKey = qkey; G.quoteAt = G.time; babble(quote.rival, quote.text); }
     const qn = Math.ceil((G.time - G.quoteAt) / VOICES[quote.rival].step), qTalk = qn < quote.text.length;
     quote.text = quote.text.slice(0, qn);
-    drawFace(quote.rival, px + 70 * u, qy + 10 * u + (qTalk && Math.sin(G.time * 28) > 0 ? 1 : 0));
+    drawFace(quote.rival, px + 70 * u, qy + 10 * u + (qTalk && Math.sin(G.time * 28) > 0 ? 1 : 0), 1, false, quote.mood);
     text(RIVALS[quote.rival].name + ' THE ' + RIVALS[quote.rival].kind + '  -  ' + RIVALS[quote.rival].title, px + 112 * u, qy, 13 * u, RIVALS[quote.rival].pal[2], 'left', 800);
     text('"' + quote.text + (qTalk ? '' : '"'), px + 112 * u, qy + 24 * u, 13 * u, '#fff', 'left', 600);
   }
@@ -4771,12 +4795,10 @@ function drawMenu(u) {
     const pcx = W / 2, pcy = H * 0.64, prx = Math.min(250 * u, W * 0.2), pry = 44 * u;
     drawPedestal(pcx, pcy, prx, pry, 26 * u, u);
     const body = ART_OBJ['b' + ui.char + 'x'], cheerOn = performance.now() - (ui.cheerT || 0) < 700, b2 = ART_OBJ['b' + ui.char + 'x2'];
-    const im = cheerOn && b2 && Math.floor(G.time * 6) % 2 ? b2 : body;
     const ax = isCar ? pcx - prx * 0.45 : pcx;
-    if (im && body) {
-      const bh = Math.min(250 * u, H * 0.34), k = bh / body.height, breath = cheerOn ? 0 : Math.sin(G.time * 2.2) * 2 * u;
-      ctx.imageSmoothingEnabled = false;
-      ctx.drawImage(im, Math.round(ax - im.width * k / 2), Math.round(pcy + 6 * u - im.height * k - breath), Math.round(im.width * k), Math.round(im.height * k));
+    if (body) {   // staan en ademen, om de paar seconden even zwaaien; net gekozen: dansen
+      const bh = Math.min(250 * u, H * 0.34), wv = (G.time % 5) > 3.6, breath = cheerOn || wv ? 0 : Math.sin(G.time * 2.2) * 2 * u;
+      drawBody(ui.char, ax, pcy + 6 * u - breath, bh, cheerOn ? 'dance' : wv ? 'wave' : 'idle', G.time);
     } else drawFace(ui.char, ax, pcy - 80 * u, 3);
     if (isCar) {
       const c = CARS[ui.car], since = (performance.now() - (ui.carT || 0)) / 1000, pop = since < 0.3 ? 1 - since / 0.3 : 0;
