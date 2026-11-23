@@ -33,7 +33,7 @@ const LAPS = 3, SHIP_R = 22, HOVER = 5, SHIP_SIZE = 1.2;
 const WALL_H = 26, WALL_T = 10, ROAD_T = 16;
 const BERM = 420;   // vlakke berm naast de vangrail (op wegniveau) waar het decor op staat; daarachter de helling
 // Versie van de 3D-versie, rechtsonder op het startscherm. Bij elke publicatie op de website eentje ophogen.
-const GAME_VERSION = '3D-91';
+const GAME_VERSION = '3D-92';
 const LOW_H = 1080;           // aantal beeldlijnen (zoals FINE in komeet.html); daarna zonder vervaging vergroot
 const GROUND_Y = -40;        // grond iets onder het laagste stuk weg
 
@@ -1552,9 +1552,10 @@ addEventListener('keydown', e => {
   const silent = !AC || AC.state !== 'running';
   initAudio();
   if (silent && G3.state === 'menu' && ui.screen === 'title' && !OPT.open) return;
-  if (e.code === 'KeyM') musicOn = !musicOn;
+  const typing = G3.state === 'menu' && (NET.naming || NET.typing);   // naam of kamercode typen: letters zijn dan letters, geen sneltoetsen
+  if (e.code === 'KeyM' && !typing) musicOn = !musicOn;
   if (OPT.open) { if (first) optKey(e.code); }
-  else if (G3.state === 'menu') { if (first) { if (e.code === 'KeyO') optOpen(); else menuKey(e.code); } }
+  else if (G3.state === 'menu') { if (first) { if (e.code === 'KeyO' && !typing) optOpen(); else menuKey(e.code); } }
   else if (first) raceKey(e.code);
   if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space'].includes(e.code)) e.preventDefault();
 });
