@@ -33,7 +33,7 @@ const LAPS = 3, SHIP_R = 22, HOVER = 5, SHIP_SIZE = 1.2;
 const WALL_H = 26, WALL_T = 10, ROAD_T = 16;
 const BERM = 420;   // vlakke berm naast de vangrail (op wegniveau) waar het decor op staat; daarachter de helling
 // Versie van de 3D-versie, rechtsonder op het startscherm. Bij elke publicatie op de website eentje ophogen.
-const GAME_VERSION = '3D-81';
+const GAME_VERSION = '3D-84';
 const LOW_H = 1080;           // aantal beeldlijnen (zoals FINE in komeet.html); daarna zonder vervaging vergroot
 const GROUND_Y = -40;        // grond iets onder het laagste stuk weg
 
@@ -1054,11 +1054,12 @@ function stepEnt(e) {
   if (manual) { e.energy = Math.max(0, e.energy - c.drain * DT); e.restT = 0; }
   else { e.restT = (e.restT || 0) + DT; e.energy = Math.min(1, e.energy + (0.03 + 0.07 * Math.min(1, e.restT / 4)) * DT); }
   e.boosting = manual || e.padT > 0;
-  const gas = inp.acc || manual;
-  const top = (e.boosting ? c.boostTop : c.top) * k;
-  if (gas) vf += (e.boosting ? c.boostAcc : c.acc) * (1 - vf / top) * (air ? 0.3 : 1) * DT;
+  if (e.stallT > 0) e.stallT -= DT;
+  const gas = (inp.acc || manual) && !(e.stallT > 0);   // te vroeg gas gegeven: even sputteren
+  const dr = e.draft || 0, top = (e.boosting ? c.boostTop : c.top) * k * (1 + 0.075 * dr);   // slipstream: achter iemand iets harder
+  if (gas) vf += (e.boosting ? c.boostAcc : c.acc) * (1 + 0.6 * dr) * (1 - vf / top) * (air ? 0.3 : 1) * DT;
   else vf -= vf * 0.4 * DT;
-  if (!e.boosting && vf > c.top * k) vf -= (vf - c.top * k) * 1.2 * DT;
+  if (!e.boosting && vf > c.top * k * (1 + 0.075 * dr)) vf -= (vf - c.top * k * (1 + 0.075 * dr)) * 1.2 * DT;
   if (inp.brk && !air) vf = Math.max(-160, vf - 950 * DT);
   if (inp.drift && !air) vf -= vf * 0.12 * DT;
 
@@ -1532,9 +1533,9 @@ function startRace(intro) {
     if (g) S.ghost = { frames: g, ent: newEnt(CARS[playerCar], PAL_GHOST, false, pg[0], pg[1], 1) };
     const km = S.mul; S.mul = 1; S.medals = medalsAny(TR.idx, playerCar).map(t => t / km);   // dezelfde tijden als op het scherm (medalsAny) S.mul = km;   // medailletijden bij 100cc, omgerekend
   }
-  S.phase = mode === 'demo' ? 'race' : intro ? 'intro' : 'count'; S.t = 0; S.raceTime = 0; S.finishOrder = [];
+  S.phase = mode === 'demo' ? 'race' : intro ? 'intro' : 'count'; S.t = 0; S.startPress = null; S.raceTime = 0; S.finishOrder = [];
   S.radio = null; S.radioCool = 3; S.result = null;
-  msg = null; S.saidStart = S.saidFinal = false; S.final = false; S.userPause = false; S.quoteSeed = Math.floor(Math.random() * 1000);
+  msg = null; S.saidStart = S.saidFinal = false; S.wasLead = undefined; S.wasSpin = false; S.airLong = 0; S.final = false; S.userPause = false; S.quoteSeed = Math.floor(Math.random() * 1000);
   itemsReset();
   camInit = false;
 }
@@ -1563,7 +1564,8 @@ function tick() {
   if (S.phase === 'count' && G3.mode === 'online' && S.goAt) S.t = Math.max(0, 3 - (S.goAt - Date.now()) / 1000);
   if (S.phase === 'count') {
     { const sec = Math.floor(S.t); if (sec !== (S.beepSec ?? 0)) { S.beepSec = sec; if (sec >= 1) beep(sec >= 3 ? 880 : 440, sec >= 3 ? 0.4 : 0.15, 'square', 0.08); } }   // één piepje per nieuwe seconde (online wordt S.t tijdens het wachten steeds teruggezet)
-    if (S.t >= 3) { S.phase = 'race'; S.t = 0; } else return;
+    if (S.startPress == null && S.player && (keys.ArrowUp || keys.KeyW)) S.startPress = S.t;   // wanneer gaf de speler voor het eerst gas?
+    if (S.t >= 3) { S.phase = 'race'; S.t = 0; startBoosts(); } else return;
   }
   S.raceTime += DT;
   if (CER) { CER.t += DT; return; }
@@ -1584,6 +1586,9 @@ function tick() {
     }
     if (e.remote != null || e.botRemote != null) { netFollow(e); continue; }
     itemControl(e, e.in);
+    // slipstream: kort achter een ander (40 tot 420 vooruit, bijna dezelfde lijn) bouwt op, weg ervan zakt hij snel weg
+    { let behind = false; if (!e.air && e.speed > 500) for (const o of S.ents) { if (o === e) continue; let ds = o.s - e.s; ds -= Math.round(ds / TR.len) * TR.len; if (ds > 40 && ds < 420 && Math.abs(o.d - e.d) < 55) { behind = true; break; } }
+      e.draft = behind ? Math.min(1, (e.draft || 0) + DT / 0.8) : Math.max(0, (e.draft || 0) - DT * 2.5); }
     stepEnt(e);
     if (e.splashT > 0) e.splashT -= DT;
     e.lapT += DT;
@@ -1738,6 +1743,9 @@ function raceKey(code) {
   if (S.phase === 'done' && S.t > 1 && G3.mode === 'tt' && code === 'KeyN') {
     const nx = TR.idx % (TRACKS.length - 1) + 1; ui.cup = Math.floor((nx - 1) / 3); ui.track = (nx - 1) % 3; ui.bg = nx; goRace('tt', nx); return;
   }
+  // online, iedereen binnen: de host start meteen de volgende baan (N) of een herkansing (R), zonder terug naar de kamer
+  if (S.phase === 'done' && S.t > 1 && G3.mode === 'online' && (code === 'KeyN' || code === 'KeyR') && netCanNext()) { netNext(code === 'KeyN'); return; }
+  if (G3.mode === 'online' && S.player && S.player.finished && (code === 'ArrowLeft' || code === 'ArrowRight')) { S.specI = (S.specI || 0) + (code === 'ArrowRight' ? 1 : -1); return; }   // meekijken: wissel van rijder
   if (S.phase === 'done' && S.t > 1 && (code === 'Enter' || code === 'Space')) {
     if (G3.mode === 'cup') {
       if (!cupRun.done) { cupRun.race++; loadTrack(cupTrack(cupRun.cup, cupRun.race), true); }
@@ -1754,9 +1762,19 @@ function raceKey(code) {
   if (G3.mode === 'free' && code === 'KeyB') loadTrack(TR.idx - 1);
 }
 // boordradio: rivalen zeggen iets bij de start, inhalen, botsen, de laatste ronde en de finish
+// algemene zinnetjes voor momenten waar een rivaal geen eigen zin voor heeft (iedereen kan ze roepen)
+const COMMENTS = {
+  perfect: ['Whoa, what a launch!', 'Nice start. Show-off.', 'Did you leave before the lights?', 'Okay, that start was clean.'],
+  oops: ['Ouch! That had to hurt.', 'Watch the road, rookie!', 'Spin cycle, huh?', 'Ha! Keep it on the track!', 'That looked expensive.'],
+  fall: ['Down you go!', 'Hope you can swim!', 'Gravity wins again.', 'That is one way to take a shortcut. Not.'],
+  drift: ['Now THAT is a drift!', 'Smooth slide. Respect.', 'Sparks everywhere! Nice!', 'Who taught you to drift like that?'],
+  lead: ['Look who is in front. Enjoy it while it lasts.', 'In the lead? Not for long.', 'Fine, you lead. For now.', 'Front of the pack. Big deal.'],
+  tail: ['I am right behind you!', 'Feel that breath on your neck?', 'Getting closer...', 'Mirror check. Yep, still me.'],
+  air: ['Big air! Did you pack a parachute?', 'Wheee! Nice jump!', 'Look at that hang time!', 'You can fly now?']
+};
 function say(rival, key, force) {
   if (rival == null || !RIVALS[rival] || G3.mode === 'tt' || G3.mode === 'online' || (S.radioCool > 0 && !force)) return;
-  const arr = RIVALS[rival].lines[key]; if (!arr) return;
+  const arr = RIVALS[rival].lines[key] || COMMENTS[key]; if (!arr) return;
   let txt = arr[Math.floor(Math.random() * arr.length)];
   if (txt === S.lastLine) txt = arr[Math.floor(Math.random() * arr.length)];
   S.lastLine = txt;
@@ -1768,7 +1786,17 @@ function radioTick() {
   if (S.phase !== 'race') return;
   const p = S.player, riv = S.ents.filter(e => e.rival != null);
   if (!riv.length) return;
-  if (!S.saidStart && S.t > 0.6) { S.saidStart = true; const r = riv[Math.floor(Math.random() * riv.length)]; say(r.rival, 'start', true); }
+  const pick = () => riv[Math.floor(Math.random() * riv.length)];
+  if (!S.saidStart && S.t > 0.6) { S.saidStart = true; say(pick().rival, S.perfectStart ? 'perfect' : 'start', true); S.perfectStart = false; }
+  // meer commentaar: botsen of wegdraaien, in een gat vallen, een grote drift, een lange sprong, de leiding nemen, iemand vlak achter je
+  if (!p.finished) {
+    if (p.ev.fall) say(pick().rival, 'fall');
+    if (p.spinT > 0 && !S.wasSpin && Math.random() < 0.7) say(pick().rival, 'oops'); S.wasSpin = p.spinT > 0;
+    if (p.ev.drift === 3 && Math.random() < 0.6) say(pick().rival, 'drift');
+    if (p.air) S.airLong = (S.airLong || 0) + DT; else { if ((S.airLong || 0) > 1.1 && Math.random() < 0.7) say(pick().rival, 'air'); S.airLong = 0; }
+    const lead = riv.every(r => r.progress < p.progress); if (lead && S.wasLead === false && S.raceTime > 8) say(pick().rival, 'lead'); S.wasLead = lead;
+    for (const r of riv) { const gap = p.progress - r.progress; r.tailT = gap > 40 && gap < 220 ? (r.tailT || 0) + DT : 0; if (r.tailT > 4) { r.tailT = -20; say(r.rival, 'tail'); } }
+  }
   for (const r of riv) {
     const ahead = r.progress > p.progress;
     if (r.wasAhead != null && ahead !== r.wasAhead && Math.abs(r.progress - p.progress) < 300 && !p.finished && !r.finished) say(r.rival, ahead ? 'pass' : 'passed');
@@ -1828,6 +1856,17 @@ function netConnect(retry) {
       if (G3.mode === 'online' && G3.state !== 'menu') { G3.state = 'menu'; ui.screen = 'online'; loadTrack(ui.bg); }
     };
   });
+}
+function netCanNext() { const r = NET.room; return !!(r && r.host === NET.id && r.state === 'lobby'); }
+function netNext(next) {
+  const room = NET.room, cupMode = room.omode === 1;
+  let tr;
+  if (cupMode) {
+    if (NET.cup && NET.cup.done) { const c = next ? ((room.cup || 0) + 1) % CUPS.length : room.cup || 0; NET.cup = null; netSet({ cup: c, cupRace: 0 }); tr = cupTrack(c, 0); }   // cup klaar: volgende cup of dezelfde opnieuw
+    else if (next) tr = cupTrack(room.cup || 0, room.cupRace || 0);   // volgende race van de cup
+    else return;   // midden in een cup geen herkansing (de punten lopen door)
+  } else { tr = room.track || 1; if (next) { tr = 1 + (tr % (TRACKS.length - 1)); netSet({ track: tr }); } }
+  setTimeout(() => NET.send({ t: 'start', track: tr }), 120);
 }
 function netSet(o) { if (!NET.room) return; Object.assign(NET.room, o); NET.seq = (NET.seq || 0) + 1; NET.send({ t: 'set', seq: NET.seq, step: 'lobby', ...o }); }
 const netEnt = id => S.ents.find(e => e.remote === id);
@@ -1900,7 +1939,7 @@ function netBuildRace(grid) {
     S.ents.push(e);
   }
   S.ghost = null; S.rec = []; S.medals = null;
-  S.phase = 'count'; S.t = 0; S.raceTime = 0; S.finishOrder = [];
+  S.phase = 'count'; S.t = 0; S.startPress = null; S.raceTime = 0; S.finishOrder = [];
   S.radio = null; S.radioCool = 3; S.result = null; msg = null; S.final = false;
   itemsReset(); camInit = false;
 }
@@ -2085,6 +2124,18 @@ const ITEMS = {
 };
 const IT = { boxes: [], slicks: [], zaps: [] };
 let msg = null;
+// startboost: gas in de laatste halve seconde voor GO geeft een boost; al voor de "2" gas geven laat je even sputteren
+function startBoosts() {
+  const sp = S.startPress; S.startPress = null;
+  for (const e of S.ents) {
+    if (e.remote != null || e.botRemote != null) continue;
+    let good = false, early = false;
+    if (e === S.player) { good = sp != null && sp >= 2.5; early = sp != null && sp < 1.4; }
+    else { const r = (e.seedR = ((e.seedR || (e.slot + 1) * 9301 + 49297) * 233280 + 7) % 1e6) / 1e6; good = r < 0.35; early = r > 0.93; }
+    if (good) { e.padT = Math.max(e.padT || 0, 0.9); e.vT += 240; if (e === S.player) { S.perfectStart = true; showMsg('PERFECT START!', '#7dffb0', 1.4); beep(1320, 0.18, 'square', 0.07); } }
+    else if (early) { e.stallT = 0.7; if (e === S.player) { showMsg('TOO EARLY!', '#ff6a5a', 1.2); beep(180, 0.3, 'sawtooth', 0.06); } }
+  }
+}
 function showMsg(t, col, dur) { msg = { t, col, until: S.raceTime + dur }; }
 function liveOrder() { return S.ents.slice().sort((a, b) => (a.dnf ? 1 : 0) - (b.dnf ? 1 : 0) || (a.finished && b.finished ? a.finishT - b.finishT : a.finished ? -1 : b.finished ? 1 : b.progress - a.progress)); }
 const wrapDs = v => v - Math.round(v / TR.len) * TR.len;
@@ -2517,9 +2568,10 @@ float bayer(vec2 p){
   return (m[i.x + i.y*4] + 0.5) / 16.0;
 }
 float hash(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
-uniform vec3 uCam, uFog; uniform vec2 uFogR;
+uniform vec3 uCam, uFog, uNight; uniform vec2 uFogR;   // uNight: kleur van het licht (wit overdag, donkerblauw bij een nachtlucht)
 // mist in harde, gerasterde stappen: vlakke kleuren blijven vlak
 vec3 fog(vec3 c, vec3 w){
+  c *= uNight;
   float f = clamp((distance(w, uCam) - uFogR.x) / (uFogR.y - uFogR.x), 0.0, 1.0);
   f = floor(f * 5.0 + bayer(gl_FragCoord.xy)) / 5.0;
   return mix(c, uFog, f);
@@ -2530,7 +2582,7 @@ void main(){ vec4 w = uM * vec4(aPos, 1.0); vW = w.xyz; vC = aCol; gl_Position =
 const FS_MESH = `#version 300 es
 precision highp float; in vec3 vW; flat in vec3 vC; uniform vec3 uFlame; out vec4 o;
 ${GLSL_COMMON}
-void main(){ vec3 c = vC.r < 0.0 ? uFlame : vC; o = vec4(fog(c, vW), 1.0); }`;
+void main(){ vec3 c = vC.r < 0.0 ? uFlame / max(uNight, vec3(0.05)) : vC; o = vec4(fog(c, vW), 1.0); }`;   // vlammen blijven fel, ook 's nachts
 const FS_GROUND = `#version 300 es
 precision highp float; in vec3 vW; flat in vec3 vC; uniform vec3 uG[6]; uniform vec3 uCenter; uniform sampler2D uDist; uniform vec3 uDistBox; out vec4 o;
 ${GLSL_COMMON}
@@ -2580,7 +2632,7 @@ precision highp float; in vec3 vW; in vec2 vUV; uniform sampler2D uTex; out vec4
 ${GLSL_COMMON}
 void main(){ vec4 c = texture(uTex, vUV); if (c.a < 0.5) discard;
   float f = clamp((distance(vW, uCam) - uFogR.x) / (uFogR.y - uFogR.x), 0.0, 1.0);   // zachte mist: geen korrel op verre plaatjes
-  o = vec4(mix(c.rgb, uFog, f * f * (3.0 - 2.0 * f)), 1.0); }`;
+  o = vec4(mix(c.rgb * uNight, uFog, f * f * (3.0 - 2.0 * f)), 1.0); }`;
 
 function compile(type, src) {
   const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s);
@@ -3202,7 +3254,7 @@ function buildDecor() {
 }
 
 // ---------------------------------------------------------------- lucht
-let skyTex = null, FOG = [0.62, 0.86, 0.95];
+let skyTex = null, FOG = [0.62, 0.86, 0.95], NIGHT = [1, 1, 1];
 const fogRange = () => TR.def && TR.def.cup === 8 ? [1300, 7000] : TR.def && TR.def.cup === 10 ? [1500, 8000] : [2600, 11000];
 function buildSky() {
   const src = ART.sky[TR.def.id] || ART.sky[TR.def.id[0] + '2'] || ART.sky[TR.def.id[0] + '1'] || ART.sky[{ o: 's1', c: 'p1', h: 'v2', m: 'd3' }[TR.def.id[0]]] || ART.sky.k1;
@@ -3216,6 +3268,12 @@ function buildSky() {
     let r = 0, g = 0, b = 0, n = 0;
     for (let i = 0; i < d.length; i += 4) { r += d[i]; g += d[i + 1]; b += d[i + 2]; n++; }
     FOG = [r / n / 255, g / n / 255, b / n / 255];
+    // donkere lucht (nacht, ruimte, onderwater-diepte): de wereld ook donkerder en blauwer
+    const all = x.getImageData(0, 0, skyTex.w, Math.floor(skyTex.h * 0.6)).data; let L = 0;
+    for (let i = 0; i < all.length; i += 16) L += (all[i] + all[i + 1] + all[i + 2]) / 765;
+    L /= all.length / 16;
+    const nf = Math.max(0, Math.min(1, (0.36 - L) / 0.16));
+    NIGHT = [1 - 0.45 * nf, 1 - 0.4 * nf, 1 - 0.18 * nf];
   };
 }
 const skyVAO = (() => {
@@ -3271,9 +3329,18 @@ function ceremonyCam(dt) {
   const kf = t < 0.05 ? 1 : 1 - Math.exp(-dt * 5);
   cam.pos = cam.pos ? add(cam.pos, scale(sub(pos, cam.pos), kf)) : pos; cam.look = cam.look ? add(cam.look, scale(sub(look, cam.look), kf)) : look; cam.u = U;
 }
+// meekijken: online, als je zelf binnen bent, volgt de camera iemand die nog rijdt (pijltjes links en rechts wisselen)
+function camTarget() {
+  if (G3.mode !== 'online' || !S.player || !S.player.finished) return S.player;
+  const live = S.ents.filter(e => e !== S.player && !e.finished && !e.dnf);
+  if (!live.length) return S.player;
+  S.specI = (((S.specI || 0) % live.length) + live.length) % live.length;
+  return live[S.specI];
+}
 function updateCamera(dt) {
+  const CP = camTarget();
   if (CER && G3.state !== 'menu') { ceremonyCam(dt); return; }
-  const fr = entFrame(S.player, {});
+  const fr = entFrame(CP, {});
   const kf = 1 - Math.exp(-dt * 5), ku = 1 - Math.exp(-dt * 2.2);
   // kijk vooral langs de baan, een beetje mee met de neus van het schip
   const want = norm(add(scale(fr.f, 0.55), scale(fr.T, 0.45)));
@@ -3305,13 +3372,13 @@ function updateCamera(dt) {
   cam.f = norm(add(cam.f, scale(sub(want, cam.f), kf)));
   // de camera kantelt voor tweederde mee met de weg (anders slaat het beeld om bij steile wissels)
   // in een wandrit draait hij minder mee (een derde), zodat het beeld bij in- en uitdraaien rustig blijft
-  const li = Math.floor((((S.player.s % TR.len) + TR.len) % TR.len) / TR.step) % TR.N, inTw = TR.loop && TR.loop[li] ? 1 : 0;
+  const li = Math.floor((((CP.s % TR.len) + TR.len) % TR.len) / TR.step) % TR.N, inTw = TR.loop && TR.loop[li] ? 1 : 0;
   cam.tw = (cam.tw || 0) + (inTw - (cam.tw || 0)) * (1 - Math.exp(-dt * 3));
   const fol = 0.65 - 0.32 * cam.tw, upWant = norm(add(scale([0, 1, 0], 1 - fol), scale(fr.u, fol)));
   cam.u = norm(add(cam.u, scale(sub(upWant, cam.u), ku)));
-  const bz = S.player.boosting ? 1 : 0; cam.bk = (cam.bk || 0) + (bz - (cam.bk || 0)) * (1 - Math.exp(-dt * (bz ? 6 : 2.5)));
+  const bz = CP.boosting ? 1 : 0; cam.bk = (cam.bk || 0) + (bz - (cam.bk || 0)) * (1 - Math.exp(-dt * (bz ? 6 : 2.5)));
   if (bz && !cam.wasB) cam.shake = 0.22; cam.wasB = bz; cam.shake = Math.max(0, (cam.shake || 0) - dt);
-  const back = 175 + Math.min(60, S.player.speed * 0.03) + 28 * cam.bk;
+  const back = 175 + Math.min(60, CP.speed * 0.03) + 28 * cam.bk;
   cam.pos = add(add(fr.pos, scale(cam.f, -back)), scale(cam.u, 62));
   cam.look = add(add(fr.pos, scale(cam.f, 140)), scale(cam.u, 18));
   if (cam.shake > 0) { const a = cam.shake / 0.22 * 3.5; cam.pos = add(cam.pos, [Math.sin(S.raceTime * 90) * a, Math.cos(S.raceTime * 77) * a, 0]); }
@@ -3346,6 +3413,7 @@ function render(dt) {
     gl.uniformMatrix4fv(pr.u.uVP, false, VP);
     if (pr.u.uM) gl.uniformMatrix4fv(pr.u.uM, false, I4);
     gl.uniform3fv(pr.u.uCam, cam.pos); gl.uniform3fv(pr.u.uFog, FOG); gl.uniform2f(pr.u.uFogR, ...fogRange());
+    if (pr.u.uNight) gl.uniform3fv(pr.u.uNight, NIGHT);
   };
   common(PG); gl.uniform3fv(PG.u['uG[0]'], GROUND[TR.def.cup].flat()); gl.uniform3fv(PG.u.uCenter, TR.center);
   if (distMap) { gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, distMap.tex); gl.uniform1i(PG.u.uDist, 1); gl.uniform3fv(PG.u.uDistBox, distMap.box); gl.activeTexture(gl.TEXTURE0); }
@@ -3382,7 +3450,7 @@ function render(dt) {
   // decor
   gl.useProgram(PB.p);
   gl.uniformMatrix4fv(PB.u.uVP, false, VP);
-  gl.uniform3fv(PB.u.uCam, cam.pos); gl.uniform3fv(PB.u.uFog, FOG); gl.uniform2f(PB.u.uFogR, ...fogRange());
+  gl.uniform3fv(PB.u.uCam, cam.pos); gl.uniform3fv(PB.u.uFog, FOG); gl.uniform2f(PB.u.uFogR, ...fogRange()); if (PB.u.uNight) gl.uniform3fv(PB.u.uNight, NIGHT);
   gl.uniform3fv(PB.u.uRight, norm([view.x[0], 0, view.x[2]]));
   gl.activeTexture(gl.TEXTURE0); gl.uniform1i(PB.u.uTex, 0);
   for (const g of decor) {
@@ -4620,17 +4688,26 @@ function drawItemSlot(u) {
     const sx = px + pw * 0.6, sw = pw * 0.4;
     card(sx, y0, sw, 330 * u, false);
     const rowsS = [['MODE', cupMode ? 'CUP' : 'RACE'], cupMode ? ['CUP', CUPS[room.cup || 0].name] : ['TRACK', TRACKS_ALL[room.track || 1].name], ['BOTS', String(room.bots || 0)], ['CLASS', CLASSES[room.cls == null ? 1 : room.cls].name], ['ITEMS', room.items === 1 ? 'ON' : 'OFF']];
+    // instellingen als losse vakjes met pijltjes: de host ziet meteen dat hij kan kiezen
+    text(isHost ? 'RACE SETTINGS' : 'RACE SETTINGS (HOST)', sx + sw / 2, y0 + 26 * u, 14 * u, '#ffb833', 'center', 800);
     rowsS.forEach(([k, v], i) => {
-      const y = y0 + (40 + 34 * i) * u, on = isHost && NET.sel === i;
-      if (on) { ctx.fillStyle = 'rgba(255,255,255,0.1)'; ctx.fillRect(Math.round(sx + 8 * u), Math.round(y - 22 * u), Math.round(sw - 16 * u), Math.round(30 * u)); }
-      text(k, sx + 18 * u, y, 13 * u, on ? '#ffb833' : '#cfd3ff', 'left', 700);
-      text(v, sx + sw - 18 * u, y, 15 * u, '#fff', 'right', 800, false);
+      const bx = sx + 12 * u, bw = sw - 24 * u, by = y0 + (40 + 32 * i) * u, bh = 26 * u, on = isHost && NET.sel === i, ty = by + bh / 2 + 6 * u;
+      const locked = cupMode && room.cupRace > 0 && i < 2;   // midden in een cup liggen modus en cup vast
+      if (on) card(bx, by, bw, bh, true); else { ctx.fillStyle = 'rgba(255,255,255,0.05)'; ctx.fillRect(Math.round(bx), Math.round(by), Math.round(bw), Math.round(bh)); }
+      text(k, bx + 10 * u, ty, 12 * u, on ? '#ffb833' : '#cfd3ff', 'left', 700);
+      text(v, bx + bw - (isHost ? 34 : 10) * u, ty, 14 * u, locked ? '#8a8fb0' : '#fff', 'right', 800, false);
+      if (isHost && !locked) {   // pijltjes; bij het gekozen vakje knipperen ze
+        const blink = on && Math.floor(G.time * 2.5) % 2 === 0, col = on ? (blink ? '#ffffff' : '#ffb833') : 'rgba(255,255,255,0.35)';
+        const tri = (x, dir) => { const p = Math.max(1, Math.round(2 * u)), cy = Math.round(by + bh / 2); ctx.fillStyle = col; for (let q = 0; q < 4; q++) ctx.fillRect(Math.round(x + dir * q * p), cy - (3 - q) * p, p, (7 - 2 * q) * p); };   // pixeldriehoekje
+        tri(bx + bw * 0.4, -1); tri(bx + bw - 16 * u, 1);
+      }
     });
-    if (cupMode) text('race ' + ((room.cupRace || 0) + 1) + '/3', sx + sw / 2, y0 + 210 * u, 15 * u, '#7dffb0', 'center', 700, false);
+    if (isHost) text('up / down: pick    left / right: change', sx + sw / 2, y0 + 212 * u, 11 * u, '#cfd3ff', 'center', 600, false);
+    if (cupMode) text('race ' + ((room.cupRace || 0) + 1) + '/3', sx + sw / 2, y0 + 226 * u, 13 * u, '#7dffb0', 'center', 700, false);
     if (NET.cup && Object.keys(NET.cup.pts).length) {
       const rowsP = Object.entries(NET.cup.pts).sort((a, b) => b[1] - a[1]);
-      text(NET.cup.done ? 'FINAL STANDINGS' : 'STANDINGS', sx + sw / 2, y0 + 236 * u, 14 * u, '#ffb833', 'center', 800);
-      rowsP.slice(0, 6).forEach(([k, v], i) => { text((NET.cup.names[k] || '?'), sx + 18 * u, y0 + (258 + 16 * i) * u, 12 * u, k == NET.id ? '#ffb833' : '#fff', 'left', 600, false); text(v + ' pt', sx + sw - 18 * u, y0 + (258 + 16 * i) * u, 12 * u, '#fff', 'right', 600, false); });
+      text(NET.cup.done ? 'FINAL STANDINGS' : 'STANDINGS', sx + sw / 2, y0 + 246 * u, 14 * u, '#ffb833', 'center', 800);
+      rowsP.slice(0, 6).forEach(([k, v], i) => { text((NET.cup.names[k] || '?'), sx + 18 * u, y0 + (264 + 11 * i) * u, 11 * u, k == NET.id ? '#ffb833' : '#fff', 'left', 600, false); text(v + ' pt', sx + sw - 18 * u, y0 + (264 + 11 * i) * u, 12 * u, '#fff', 'right', 600, false); });
     }
     text(room.state === 'race' ? 'race in progress...' : isHost ? (cupMode && NET.cup && NET.cup.done ? 'Enter: new cup' : 'Enter: start the race') : 'waiting for the host...', W / 2, y0 + 360 * u, 18 * u, '#ffb833', 'center', 800, false);
   }
@@ -4641,6 +4718,7 @@ function drawItemSlot(u) {
   }
   // uitslag van een vrije of online race: plaats, portret, naam en tijd (in de stijl van drawCupResult)
   function drawOnlineResult(u) {
+    { const tg = camTarget(); if (tg && tg !== S.player) text('WATCHING ' + nameOf(tg) + '      left / right: switch', W / 2, 34 * u, 16 * u, '#7dffb0', 'center', 800); }
     const pw = 560 * u, px = (W - pw) / 2, py = H * 0.08, order = liveOrder(), ph = (190 + 54 * order.length) * u;
     panel(px, py, pw, ph, 0.88);
     const pos = order.indexOf(G.player) + 1;
@@ -4659,7 +4737,18 @@ function drawItemSlot(u) {
       else text('lap ' + Math.min(LAPS, Math.max(1, e.lap - 1)) + '/' + LAPS + ' ' + '.'.repeat(1 + Math.floor(G.time * 2.5) % 3), px + pw - 40 * u, y, 14 * u, '#cfd3ff', 'right', 600);
       ctx.globalAlpha = 1;
     });
-    if (G.finishT > 1.2) text(G.mode === 'online' ? 'Enter: back to the room' : 'Enter: race again      Esc: menu', W / 2, py + ph - 20 * u, 16 * u, '#fff', 'center', 700, false);
+    if (G.finishT > 1.2) {
+      let hint = 'Enter: race again      Esc: menu';
+      if (G.mode === 'online') {
+        const r = NET.room, cupMode = r && r.omode === 1, cupDone = cupMode && NET.cup && NET.cup.done;
+        if (!r || r.state !== 'lobby') hint = 'waiting for all racers...      Enter: back to the room';
+        else if (r.host !== NET.id) hint = 'the host picks what is next      Enter: back to the room';
+        else if (cupMode && !cupDone) hint = 'N: next race      Enter: back to the room';
+        else if (cupDone) hint = 'N: next cup      R: same cup again      Enter: room';
+        else hint = 'N: next track      R: rematch      Enter: room';
+      }
+      text(hint, W / 2, py + ph - 20 * u, 16 * u, '#fff', 'center', 700, false);
+    }
   }
   // ---- weer: deeltjes over het beeld (regen, sneeuw, zand, as, confetti, ...), bewegen mee met de camera
   // soort: [kleuren, aantal, grootte, valsnelheid x, y (per seconde, in schermhoogtes), slingeren, streep (regen), gloed/knipper]
@@ -4728,13 +4817,27 @@ function drawItemSlot(u) {
     ctx.globalAlpha = 1; HUD_MUL = prevHM;
   }
 
+  // slipstream: witte windstrepen die langs de randen naar achteren schieten
+  function drawDraft(u) {
+    const d = S.player && G3.state !== 'menu' ? S.player.draft || 0 : 0; if (d < 0.25) return;
+    const prevHM = HUD_MUL; HUD_MUL = 1; ctx.fillStyle = '#ffffff';
+    const t = performance.now() / 1000;
+    for (let i = 0; i < 14; i++) {
+      const a = i * 2.39996, side = i & 1 ? 1 : -1, ph = (t * 2.2 + i * 0.37) % 1;
+      const x0 = W / 2 + side * W * (0.18 + 0.32 * ph), y0 = H * (0.25 + 0.55 * ((i * 0.618) % 1)), len = Math.round((20 + 60 * ph) * u), th = Math.max(1, Math.round(2 * u));
+      ctx.globalAlpha = (d - 0.25) * 0.6 * (1 - ph);
+      ctx.fillRect(Math.round(x0 + side * ph * 40 * u), Math.round(y0), len * side > 0 ? len : len, th);
+    }
+    ctx.globalAlpha = 1; HUD_MUL = prevHM;
+  }
+
   // per beeld: de toestand van het 3D-spel omzetten naar wat de komeet-code verwacht, en tekenen
   function frame() {
     W = hud.width; H = hud.height;
     const u = H / 720, P = S.player;   // zoals render() in komeet.html
     ctx.imageSmoothingEnabled = false;
     ctx.clearRect(0, 0, W, H);
-    try { drawWeather(u); } catch (err) {}
+    try { drawWeather(u); drawDraft(u); } catch (err) {}
     for (const e of S.ents) { e.name = nameOf(e); e.finishTime = e.finishT; if (e.isPlayer) e.face = ui.char; }
     const phase = S.phase;
     T = { name: TR.def.name, cup: TR.def.cup, index: Math.max(0, TR.idx - 1), id: TR.def.id, haz: TR.haz || [], pads: TR.pads || [], grav: 1, def: TR.def };
