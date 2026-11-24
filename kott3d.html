@@ -33,7 +33,7 @@ const LAPS = 3, SHIP_R = 22, HOVER = 5, SHIP_SIZE = 1.2;
 const WALL_H = 26, WALL_T = 10, ROAD_T = 16;
 const BERM = 420;   // vlakke berm naast de vangrail (op wegniveau) waar het decor op staat; daarachter de helling
 // Versie van de 3D-versie, rechtsonder op het startscherm. Bij elke publicatie op de website eentje ophogen.
-const GAME_VERSION = '3D-103';
+const GAME_VERSION = '3D-104';
 const LOW_H = 1080;           // aantal beeldlijnen (zoals FINE in komeet.html); daarna zonder vervaging vergroot
 const GROUND_Y = -40;        // grond iets onder het laagste stuk weg
 
@@ -3068,13 +3068,14 @@ const SHIP_CELLS = {
 };
 // beste beeldje: hoek zo dicht mogelijk, dan de helling; th = kijkhoek (radialen, > 0 = gespiegeld), roll = gewenste helling
 // in de wereld (+ = naar links), boost = motoren fel. prev: vorige keuze, die krijgt een klein voordeel (geen geflikker)
+const SHIP_SKIP = { valk: ['a4', 'a5'] };   // zijaanzichten van de valk raken het schip ernaast op het vel: niet gebruiken
 function shipPick(carId, th, roll, boost, prev) {
   const deg = Math.abs(th) * 180 / Math.PI, fl = th > 0;
   let best = null, bc = 1e9;
   for (const L in SHIP_CELLS) {
     if (!SHIP_SHEETS[L][carId]) continue;
     SHIP_CELLS[L].forEach(([d, r, b], k) => {
-      if (b && !boost) return;
+      if ((b && !boost) || (SHIP_SKIP[carId] || []).includes(L + k)) return;
       for (const f of d === 0 ? [false, true] : [fl]) {   // recht van achteren mag het plaatje beide kanten op
         const shown = f ? -r : r, id = L + k + (f ? 'f' : '');
         const cost = Math.abs(d - deg) + 0.4 * Math.abs(shown - roll) - (b ? 6 : 0) - (id === prev ? 1 : 0);
@@ -3100,16 +3101,41 @@ function shipCanvas(carId, pal, k, L = 'a') {
   const sh = SHIP_SHEETS[L][carId]; if (!sh) return null;
   const key = carId + pal.join() + k + L;
   if (SHIP_TINT[key]) return SHIP_TINT[key];
-  const cw = Math.floor(sh.width / 3), ch = Math.floor(sh.height / 3), cv = document.createElement('canvas'); cv.width = cw; cv.height = ch;
-  const x = cv.getContext('2d'); x.drawImage(sh, (k % 3) * cw, Math.floor(k / 3) * ch, cw, ch, 0, 0, cw, ch);
+  // ruim uitsnijden (anderhalf vakje rond het midden): sommige schepen steken buiten hun vakje. Daarna alleen de stukken houden
+  // waarvan het midden in dit vakje ligt (geen stukjes van de buren, geen losse puntjes), en dichte gaten vullen
+  const c0 = Math.floor(sh.width / 3), r0 = Math.floor(sh.height / 3), K = 1.5, cw = Math.round(c0 * K), ch = Math.round(r0 * K);
+  const ox = (k % 3) * c0 - (cw - c0) / 2, oy = Math.floor(k / 3) * r0 - (ch - r0) / 2, cv = document.createElement('canvas'); cv.width = cw; cv.height = ch;
+  const x = cv.getContext('2d', { willReadFrequently: true }); x.drawImage(sh, Math.round(ox), Math.round(oy), cw, ch, 0, 0, cw, ch);
   const img = x.getImageData(0, 0, cw, ch), d = img.data, lut = shipRamp(pal);
+  { const N = cw * ch, lab = new Int32Array(N).fill(-1), solid = i => d[i * 4 + 3] >= 8, keep = [], wide = [], st = [];
+    const ix0 = (cw - c0) / 2, iy0 = (ch - r0) / 2;
+    for (let i = 0; i < N; i++) {
+      if (!solid(i) || lab[i] >= 0) continue;
+      const id = keep.length; let n = 0, sx = 0, sy = 0, bx0 = cw, bx1 = 0; st.length = 0; st.push(i); lab[i] = id;
+      while (st.length) { const j = st.pop(), jx = j % cw, jy = (j / cw) | 0; n++; sx += jx; sy += jy; if (jx < bx0) bx0 = jx; if (jx > bx1) bx1 = jx;
+        for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) { const qx = jx + dx, qy = jy + dy; if (qx < 0 || qy < 0 || qx >= cw || qy >= ch) continue; const q = qy * cw + qx; if (lab[q] < 0 && solid(q)) { lab[q] = id; st.push(q); } } }
+      const mx = sx / n, my = sy / n; keep.push(n >= 6 && mx >= ix0 && mx < ix0 + c0 && my >= iy0 && my < iy0 + r0); wide.push(bx1 - bx0 > c0 * 1.3);
+    }
+    // een stuk dat aan het schip ernaast vastzit (veel breder dan een vakje): alleen het deel bij dit vakje houden
+    const m = c0 * 0.12;
+    for (let i = 0; i < N; i++) if (lab[i] >= 0 && (!keep[lab[i]] || (wide[lab[i]] && (i % cw < ix0 - m || i % cw >= ix0 + c0 + m)))) { d[i * 4 + 3] = 0; lab[i] = -1; }
+    // gaten: doorzichtige stukken die de rand niet raken (kleiner dan 500 pixels) worden licht grijs, zoals ze bedoeld waren
+    const seen = new Uint8Array(N);
+    for (let i = 0; i < N; i++) {
+      if (seen[i] || d[i * 4 + 3] >= 8) continue;
+      const reg = []; let edge = false; st.length = 0; st.push(i); seen[i] = 1;
+      while (st.length) { const j = st.pop(), jx = j % cw, jy = (j / cw) | 0; reg.push(j); if (jx === 0 || jy === 0 || jx === cw - 1 || jy === ch - 1) edge = true;
+        for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const qx = jx + dx, qy = jy + dy; if (qx < 0 || qy < 0 || qx >= cw || qy >= ch) continue; const q = qy * cw + qx; if (!seen[q] && d[q * 4 + 3] < 8) { seen[q] = 1; st.push(q); } } }
+      if (!edge && reg.length < 500) for (const j of reg) { d[j * 4] = d[j * 4 + 1] = d[j * 4 + 2] = 228; d[j * 4 + 3] = 255; }
+    }
+  }
   for (let i = 0; i < d.length; i += 4) { if (d[i + 3] < 8) continue; const L = Math.round(0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2]); d[i] = lut[L * 3]; d[i + 1] = lut[L * 3 + 1]; d[i + 2] = lut[L * 3 + 2]; }
   x.putImageData(img, 0, 0);
   const t = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, t);
   gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, cv); gl.generateMipmap(gl.TEXTURE_2D);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-  return (SHIP_TINT[key] = { cv, tex: t, w: cw, h: ch });
+  return (SHIP_TINT[key] = { cv, tex: t, w: cw, h: ch, k: K });
 }
 // welk vakje en gespiegeld of niet: hoek tussen de neus van het schip en de kijkrichting van de camera
 function shipTh(fr, eye) { const v = norm(sub(fr.pos, eye)); return Math.atan2(dot(v, fr.r), dot(v, fr.f)); }
@@ -3121,7 +3147,7 @@ function drawShipSprites() {
     const vw = shipPick(e.car.id, shipTh(fr, cam.pos), roll, e.boosting && !e.air, e.shipFr); if (!vw) continue;
     e.shipFr = vw.id;
     const t = shipCanvas(e.car.id, e.pal, vw.k, vw.L); if (!t) continue;
-    const sz = SHIP_CELL_U * SHIP_SIZE * (CER && e.cer ? 2 : 1), h = sz * t.h / t.w, c = [fr.pos[0], fr.pos[1] + 3 * SHIP_SIZE - h / 2, fr.pos[2]], data = [];
+    const sz = SHIP_CELL_U * SHIP_SIZE * (CER && e.cer ? 2 : 1) * (t.k || 1), h = sz * t.h / t.w, c = [fr.pos[0], fr.pos[1] + 3 * SHIP_SIZE - h / 2, fr.pos[2]], data = [];
     for (const [cx, cy] of [[-0.5, 0], [0.5, 0], [0.5, 1], [-0.5, 0], [0.5, 1], [-0.5, 1]]) data.push(c[0], c[1], c[2], cx, cy, vw.flip ? -sz : sz, h);
     gl.bindBuffer(gl.ARRAY_BUFFER, hazBB.buf); gl.bufferSubData(gl.ARRAY_BUFFER, 0, new Float32Array(data));
     gl.bindTexture(gl.TEXTURE_2D, t.tex); gl.bindVertexArray(hazBB.vao); gl.drawArrays(gl.TRIANGLES, 0, 6);
@@ -4842,10 +4868,10 @@ function drawMenu(u) {
     } else drawFace(ui.char, ax, pcy - 80 * u, 3);
     if (isCar) {
       const c = CARS[ui.car], since = (performance.now() - (ui.carT || 0)) / 1000, pop = since < 0.3 ? 1 - since / 0.3 : 0;
-      let cv = null, flip = false;
-      if (SHIP_SHEET[c.id]) { const a = ((G.time * 0.9) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2), th = a > Math.PI ? a - Math.PI * 2 : a; const p = shipPick(c.id, th, 0, false), t = p && shipCanvas(c.id, ap, p.k, p.L); if (t) { cv = t.cv; flip = p.flip; } }
-      if (cv && flip) { const sc = Math.max(1, Math.round(1.9 * u)), w2 = cv.width * sc, h2 = cv.height * sc; ctx.save(); ctx.imageSmoothingEnabled = false; ctx.translate(Math.round(pcx + prx * 0.52 + w2 / 2), 0); ctx.scale(-1, 1); ctx.drawImage(cv, 0, Math.round(pcy - 10 * u - h2 * 0.62 - pop * 30 * u), w2, h2); ctx.restore(); cv = null; }
-      else if (cv) { const sc = Math.max(1, Math.round(1.9 * u)), w2 = cv.width * sc, h2 = cv.height * sc; ctx.imageSmoothingEnabled = false; ctx.drawImage(cv, Math.round(pcx + prx * 0.52 - w2 / 2), Math.round(pcy - 10 * u - h2 * 0.62 - pop * 30 * u), w2, h2); cv = null; }
+      let cv = null, flip = false, cvk = 1;
+      if (SHIP_SHEET[c.id]) { const a = ((G.time * 0.9) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2), th = a > Math.PI ? a - Math.PI * 2 : a; const p = shipPick(c.id, th, 0, false), t = p && shipCanvas(c.id, ap, p.k, p.L); if (t) { cv = t.cv; flip = p.flip; cvk = t.k || 1; } }
+      if (cv && flip) { const sc = Math.max(1, Math.round(1.9 * u)), w2 = cv.width * sc, h2 = cv.height * sc; ctx.save(); ctx.imageSmoothingEnabled = false; ctx.translate(Math.round(pcx + prx * 0.52 + w2 / 2), 0); ctx.scale(-1, 1); ctx.drawImage(cv, 0, Math.round(pcy - 10 * u - h2 * (0.5 + 0.12 / cvk) - pop * 30 * u), w2, h2); ctx.restore(); cv = null; }
+      else if (cv) { const sc = Math.max(1, Math.round(1.9 * u)), w2 = cv.width * sc, h2 = cv.height * sc; ctx.imageSmoothingEnabled = false; ctx.drawImage(cv, Math.round(pcx + prx * 0.52 - w2 / 2), Math.round(pcy - 10 * u - h2 * (0.5 + 0.12 / cvk) - pop * 30 * u), w2, h2); cv = null; }
       else if (!SHIP_SHEET[c.id]) try { cv = shipPreview(c, ap, G.time * 0.9); } catch (err) {}
       if (cv) { const sc = Math.max(2, Math.round(3.2 * u)), w2 = cv.width * sc, h2 = cv.height * sc; ctx.imageSmoothingEnabled = false; ctx.drawImage(cv, Math.round(pcx + prx * 0.42 - w2 / 2), Math.round(pcy - 10 * u - h2 * 0.62 - pop * 30 * u), w2, h2); }
       else if (!SHIP_SHEET[c.id]) drawCar34(pcx + prx * 0.42, pcy - 22 * u - pop * 30 * u, 4.2 * u, Object.assign({}, c, { pal: ap }), ap, G.time * 0.9);
