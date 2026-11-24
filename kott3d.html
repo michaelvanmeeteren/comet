@@ -33,7 +33,7 @@ const LAPS = 3, SHIP_R = 22, HOVER = 5, SHIP_SIZE = 1.2;
 const WALL_H = 26, WALL_T = 10, ROAD_T = 16;
 const BERM = 420;   // vlakke berm naast de vangrail (op wegniveau) waar het decor op staat; daarachter de helling
 // Versie van de 3D-versie, rechtsonder op het startscherm. Bij elke publicatie op de website eentje ophogen.
-const GAME_VERSION = '3D-119';
+const GAME_VERSION = '3D-120';
 const LOW_H = 1080;           // aantal beeldlijnen (zoals FINE in komeet.html); daarna zonder vervaging vergroot
 const GROUND_Y = -40;        // grond iets onder het laagste stuk weg
 
@@ -3070,8 +3070,8 @@ const SHIP_CELLS = {
 SHIP_CELLS.x = SHIP_CELLS.a.map(([d, r]) => [d, r, 1]); SHIP_CELLS.y = SHIP_CELLS.c.map(([d, r]) => [d, r, 1]); SHIP_CELLS.z = SHIP_CELLS.d.map(([d, r]) => [d, r, 1]);
 // beste beeldje: hoek zo dicht mogelijk, dan de helling; th = kijkhoek (radialen, > 0 = gespiegeld), roll = gewenste helling
 // in beeld (+ = rechterkant omlaag), boost = motoren fel. prev: vorige keuze, die krijgt een klein voordeel (geen geflikker)
-// foute beeldjes: zijaanzichten van de valk raken het schip ernaast; de beetle op vel D en Z (en c0/y0) is achterstevoren getekend
-const SHIP_SKIP = { valk: ['a4', 'a5', 'x4', 'x5'], kever: ['c0', 'y0', ...[0, 1, 2, 3, 4, 5, 6, 7, 8].flatMap(k => ['d' + k, 'z' + k])] };   // zijaanzichten van de valk raken het schip ernaast op het vel: niet gebruiken
+// foute beeldjes: zijaanzichten van de valk raken het schip ernaast; bij de beetle zijn c0 en y0 een vooraanzicht
+const SHIP_SKIP = { valk: ['a4', 'a5', 'x4', 'x5'], kever: ['c0', 'y0'] };   // vel d en z van de beetle zijn opnieuw gemaakt (motoren achter)   // zijaanzichten van de valk raken het schip ernaast op het vel: niet gebruiken
 function shipPick(carId, th, roll, boost, prev) {
   const deg = Math.abs(th) * 180 / Math.PI, fl = th > 0;
   let best = null, bc = 1e9;
