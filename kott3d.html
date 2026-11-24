@@ -33,7 +33,7 @@ const LAPS = 3, SHIP_R = 22, HOVER = 5, SHIP_SIZE = 1.2;
 const WALL_H = 26, WALL_T = 10, ROAD_T = 16;
 const BERM = 420;   // vlakke berm naast de vangrail (op wegniveau) waar het decor op staat; daarachter de helling
 // Versie van de 3D-versie, rechtsonder op het startscherm. Bij elke publicatie op de website eentje ophogen.
-const GAME_VERSION = '3D-120';
+const GAME_VERSION = '3D-121';
 const LOW_H = 1080;           // aantal beeldlijnen (zoals FINE in komeet.html); daarna zonder vervaging vergroot
 const GROUND_Y = -40;        // grond iets onder het laagste stuk weg
 
@@ -3144,6 +3144,14 @@ function shipCanvas(carId, pal, k, L = 'a') {
     for (const j of fillL) { d[j * 4] = d[j * 4 + 1] = d[j * 4 + 2] = 236; d[j * 4 + 3] = 255; }
   }
   for (let i = 0; i < d.length; i += 4) { if (d[i + 3] < 8) continue; const L = Math.round(0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2]); d[i] = lut[L * 3]; d[i + 1] = lut[L * 3 + 1]; d[i + 2] = lut[L * 3 + 2]; }
+  // centreren: het schip staat niet in elk vakje op dezelfde plek; schuif het zodat het midden van het schip in het midden van het
+  // plaatje staat, anders springt het heen en weer als er een ander beeldje komt
+  { let bx0 = cw, bx1 = -1, by0 = ch, by1 = -1;
+    for (let y = 0; y < ch; y++) for (let xx = 0; xx < cw; xx++) if (d[(y * cw + xx) * 4 + 3] >= 8) { if (xx < bx0) bx0 = xx; if (xx > bx1) bx1 = xx; if (y < by0) by0 = y; if (y > by1) by1 = y; }
+    const dx = bx1 < 0 ? 0 : Math.round(cw / 2 - (bx0 + bx1 + 1) / 2), dy = by1 < 0 ? 0 : Math.round(ch / 2 - (by0 + by1 + 1) / 2);
+    if (dx || dy) { const src = d.slice(); d.fill(0);
+      for (let y = 0; y < ch; y++) { const ty = y + dy; if (ty < 0 || ty >= ch) continue;
+        for (let xx = 0; xx < cw; xx++) { const tx = xx + dx; if (tx < 0 || tx >= cw) continue; const a = (y * cw + xx) * 4, b = (ty * cw + tx) * 4; d[b] = src[a]; d[b + 1] = src[a + 1]; d[b + 2] = src[a + 2]; d[b + 3] = src[a + 3]; } } } }
   x.putImageData(img, 0, 0);
   const t = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, t);
   gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, cv); gl.generateMipmap(gl.TEXTURE_2D);
