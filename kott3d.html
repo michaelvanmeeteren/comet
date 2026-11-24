@@ -33,7 +33,7 @@ const LAPS = 3, SHIP_R = 22, HOVER = 5, SHIP_SIZE = 1.2;
 const WALL_H = 26, WALL_T = 10, ROAD_T = 16;
 const BERM = 420;   // vlakke berm naast de vangrail (op wegniveau) waar het decor op staat; daarachter de helling
 // Versie van de 3D-versie, rechtsonder op het startscherm. Bij elke publicatie op de website eentje ophogen.
-const GAME_VERSION = '3D-101';
+const GAME_VERSION = '3D-102';
 const LOW_H = 1080;           // aantal beeldlijnen (zoals FINE in komeet.html); daarna zonder vervaging vergroot
 const GROUND_Y = -40;        // grond iets onder het laagste stuk weg
 
@@ -3731,7 +3731,8 @@ function drawDynamic() {
       const w0 = clamp(c - dir * WAVE_HW * 2.4, -HW, HW), w1 = clamp(c - dir * WAVE_HW, -HW, HW);
       if (Math.abs(w1 - w0) > 1) pushQuad(out, wp(sv, w0, 0.9), wp(sb, w0, 0.9), wp(sb, w1, 0.9), wp(sv, w1, 0.9), lit(WC[7], n, 0.8));
       // spatwater boven de kop: kleine witte blokjes die meedansen
-      for (let q = 0; q < 2; q++) {
+      if (ART.obj.hzfoam && fa > 0.3) { const dd = c + dir * WAVE_HW * 0.9; if (Math.abs(dd) < HW) spr(wp(sv + segL / 2, dd, 30 * fa + 18), fxName('hzfoam', Math.floor(t * 8 + sv * 0.01) % 3), 46, null, 1, 0, dir < 0); }
+      else for (let q = 0; q < 2; q++) {
         const ph = Math.sin(sv * 12.9898 + q * 78.233) * 43758.5453, rr = ph - Math.floor(ph), life = (t * 2.2 + rr) % 1;
         const dd = c + dir * WAVE_HW * (0.85 + life * 0.5), hh = 30 * fa + life * 22 - life * life * 30, ss = sv + rr * segL;
         if (Math.abs(dd) > HW || fa < 0.3) continue;
@@ -3739,6 +3740,18 @@ function drawDynamic() {
         pushQuad(out, a, b, cc, d, WC[6]);
       }
     }
+  }
+  {
+    const near = p => (p[0] - cam.pos[0]) ** 2 + (p[2] - cam.pos[2]) ** 2 < 3200 * 3200;
+    const rnd = (a, b) => { const v = Math.sin(a * 12.9898 + b * 78.233) * 43758.5453; return v - Math.floor(v); };
+    const put = (sv, d, h, name, sz, a, glow, flip) => { const p = wp(sv, d, h); if (near(p)) spr(p, name, sz, null, a, glow, flip); };
+    for (const hz of TR.haz || []) {
+      if (hz.type === 'ice' && ART.obj.hzice) for (let sv = hz.s0 + 40; sv < hz.s1 - 20; sv += 130) { const d = (rnd(sv, 1) * 2 - 1) * HW * 0.85; put(sv, d, 12, fxName('hzice', Math.floor(t * 3 + rnd(sv, 2) * 3) % 3), 26, 1, 0.3, rnd(sv, 3) > 0.5); }
+      else if (hz.type === 'slow' && ART.obj.hzmud) for (let sv = hz.s0 + 40; sv < hz.s1 - 20; sv += 110) { const d = hz.d0 + rnd(sv, 1) * (hz.d1 - hz.d0); put(sv, d, 10, fxName('hzmud', Math.floor(t * 2.5 + rnd(sv, 2) * 3) % 3), 22, 1, 0); }
+      else if (hz.type === 'current' && ART.obj.hzcur) for (let sv = hz.s0 + 60; sv < hz.s1 - 30; sv += 160) for (let q = -1; q <= 1; q++) put(sv + q * 40, q * HW * 0.55 + Math.sin(t * 2 + sv) * 10, 14, fxName('hzcur', Math.floor(t * 9) % 3), 30, 0.85, 0.5, hz.dir < 0);
+      else if (hz.type === 'jump' && ART.obj.hzlaunch) put(hz.s0 - 40, 0, (hz.launch ? 34 : 24) + 34 + Math.sin(t * 4) * 4, fxName('hzlaunch', Math.floor(t * 6) % 3), hz.launch ? 48 : 38, 1, 1);
+    }
+    if (ART.obj.hzboost) for (const p of TR.pads || []) put(p.s, p.d, 30 + Math.sin(t * 5 + p.s) * 3, fxName('hzboost', Math.floor(t * 8 + p.s * 0.01) % 3), 40, 0.9, 1);
   }
   // kubus rond een punt, in de assen van de weg
   const cube = (sv, d, h, r, rot, cols) => {
