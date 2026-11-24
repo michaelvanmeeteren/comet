@@ -33,7 +33,7 @@ const LAPS = 3, SHIP_R = 22, HOVER = 5, SHIP_SIZE = 1.2;
 const WALL_H = 26, WALL_T = 10, ROAD_T = 16;
 const BERM = 420;   // vlakke berm naast de vangrail (op wegniveau) waar het decor op staat; daarachter de helling
 // Versie van de 3D-versie, rechtsonder op het startscherm. Bij elke publicatie op de website eentje ophogen.
-const GAME_VERSION = '3D-104';
+const GAME_VERSION = '3D-105';
 const LOW_H = 1080;           // aantal beeldlijnen (zoals FINE in komeet.html); daarna zonder vervaging vergroot
 const GROUND_Y = -40;        // grond iets onder het laagste stuk weg
 
@@ -3147,8 +3147,13 @@ function drawShipSprites() {
     const vw = shipPick(e.car.id, shipTh(fr, cam.pos), roll, e.boosting && !e.air, e.shipFr); if (!vw) continue;
     e.shipFr = vw.id;
     const t = shipCanvas(e.car.id, e.pal, vw.k, vw.L); if (!t) continue;
-    const sz = SHIP_CELL_U * SHIP_SIZE * (CER && e.cer ? 2 : 1) * (t.k || 1), h = sz * t.h / t.w, c = [fr.pos[0], fr.pos[1] + 3 * SHIP_SIZE - h / 2, fr.pos[2]], data = [];
-    for (const [cx, cy] of [[-0.5, 0], [0.5, 0], [0.5, 1], [-0.5, 0], [0.5, 1], [-0.5, 1]]) data.push(c[0], c[1], c[2], cx, cy, vw.flip ? -sz : sz, h);
+    const sz = SHIP_CELL_U * SHIP_SIZE * (CER && e.cer ? 2 : 1) * (t.k || 1), h = sz * t.h / t.w, data = [];
+    // het plaatje staat rechtop; in een schuine bocht zou de onderkant in de weg zakken. Daarom iets omhoog langs de weg en een stukje
+    // naar de camera toe (dan wint het schip van het wegdek eronder), zonder dat je het verschil in grootte ziet
+    const toC = sub(cam.pos, fr.pos), dC = Math.hypot(...toC), tc = scale(toC, 1 / Math.max(1, dC)), lift = 3 * SHIP_SIZE + 6 * Math.min(1, Math.hypot(fr.u[0], fr.u[2]) * 3);
+    const sh = Math.min(26 * SHIP_SIZE, dC * 0.3), kk = (dC - sh) / Math.max(1, dC);   // stukje naar de camera, en even veel kleiner
+    const w2 = sz * kk, h2 = h * kk, c = [fr.pos[0] + fr.u[0] * lift + tc[0] * sh, fr.pos[1] + fr.u[1] * lift - h2 / 2 + tc[1] * sh, fr.pos[2] + fr.u[2] * lift + tc[2] * sh];
+    for (const [cx, cy] of [[-0.5, 0], [0.5, 0], [0.5, 1], [-0.5, 0], [0.5, 1], [-0.5, 1]]) data.push(c[0], c[1], c[2], cx, cy, vw.flip ? -w2 : w2, h2);
     gl.bindBuffer(gl.ARRAY_BUFFER, hazBB.buf); gl.bufferSubData(gl.ARRAY_BUFFER, 0, new Float32Array(data));
     gl.bindTexture(gl.TEXTURE_2D, t.tex); gl.bindVertexArray(hazBB.vao); gl.drawArrays(gl.TRIANGLES, 0, 6);
   }
@@ -3591,6 +3596,7 @@ function render(dt) {
     const sm = shipCache.get(e.car.id + e.pal.join());
     if (!shipSpriteOn(e)) { gl.bindVertexArray(sm.vao); gl.drawArrays(gl.TRIANGLES, 0, sm.count); }   // anders als plaatje (drawShipSprites)
     if (S.ghost && e === S.ghost.ent) continue;
+    if (CER && e.cer) continue;   // bij de kroning geen schaduw (het plaatje is daar dubbel zo groot, de schaduw klopt dan niet)
     // schaduw plat op het wegdek (niet boven het gat)
     const gpos = gapPos(e.s);
     if (gpos > 0 && gpos < TR.gapL) continue;
@@ -3905,8 +3911,8 @@ function drawDynamic() {
     for (const sd of [-1, 1]) {
       deco(-130, sd * 250, 'pztrophy', 70, sd > 0); deco(-100, sd * 340, 'pzspot', 120, sd > 0); deco(-150, sd * 440, 'pzflag', 240, sd < 0);
       deco(-80, sd * 560, 'pzspeaker', 150, sd > 0); deco(-20, sd * 700, 'pzrockets', 80); deco(120, sd * 660, 'pzpalm', 230, sd > 0);
-      for (let f = 260; f <= 620; f += 90) deco(f, sd * 100, 'pzrope', 46, sd > 0);
-      deco(330, sd * 150, 'pzroses', 60); deco(560, sd * 150, 'pzroses', 60);
+      for (let f = 280; f <= 460; f += 90) deco(f, sd * 100, 'pzrope', 40, sd > 0);
+      deco(-40, sd * 250, 'pzroses', 50);
     }
     const ct = CER.t;
     if (ct > 2.5) for (let i = 0; i < 40; i++) {   // confetti: wolkjes snippers die dwarrelend vallen
