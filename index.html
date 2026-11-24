@@ -33,7 +33,7 @@ const LAPS = 3, SHIP_R = 22, HOVER = 5, SHIP_SIZE = 1.2;
 const WALL_H = 26, WALL_T = 10, ROAD_T = 16;
 const BERM = 420;   // vlakke berm naast de vangrail (op wegniveau) waar het decor op staat; daarachter de helling
 // Versie van de 3D-versie, rechtsonder op het startscherm. Bij elke publicatie op de website eentje ophogen.
-const GAME_VERSION = '3D-105';
+const GAME_VERSION = '3D-106';
 const LOW_H = 1080;           // aantal beeldlijnen (zoals FINE in komeet.html); daarna zonder vervaging vergroot
 const GROUND_Y = -40;        // grond iets onder het laagste stuk weg
 
@@ -2462,7 +2462,8 @@ function soundEvents() {
   if (ev.land) thud(0.25);
   if (ev.pad) { beep(660, 0.12, 'sawtooth', 0.03); beep(990, 0.18, 'sawtooth', 0.025); whoosh(0.12); }
   // eigen boost: een whoosh bij het begin
-  const mb = S.player.in.boost && S.player.energy > 0.01; if (mb && !S.player.wasBoost) { whoosh(0.08); beep(330, 0.2, 'sawtooth', 0.018); }   // boost: zachter S.player.wasBoost = mb;
+  const mb = S.player.in.boost && S.player.energy > 0.01; if (mb && !S.player.wasBoost) { whoosh(0.08); beep(330, 0.2, 'sawtooth', 0.018); }
+  S.player.wasBoost = mb;   // eerder stond dit per ongeluk achter het commentaar: dan klonk de boost-piep elk beeld opnieuw
   if (ev.drift) beep([0, 700, 900, 1200][ev.drift], 0.15, 'square', 0.06);
   if (ev.splash || ev.fall) splash();
   { const p = S.player, sa = ((p.s % TR.len) + TR.len) % TR.len;
