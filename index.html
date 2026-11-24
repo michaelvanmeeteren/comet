@@ -33,7 +33,7 @@ const LAPS = 3, SHIP_R = 22, HOVER = 5, SHIP_SIZE = 1.2;
 const WALL_H = 26, WALL_T = 10, ROAD_T = 16;
 const BERM = 420;   // vlakke berm naast de vangrail (op wegniveau) waar het decor op staat; daarachter de helling
 // Versie van de 3D-versie, rechtsonder op het startscherm. Bij elke publicatie op de website eentje ophogen.
-const GAME_VERSION = '3D-123';
+const GAME_VERSION = '3D-124';
 const LOW_H = 1080;           // aantal beeldlijnen (zoals FINE in komeet.html); daarna zonder vervaging vergroot
 const GROUND_Y = -40;        // grond iets onder het laagste stuk weg
 
@@ -3673,6 +3673,7 @@ function render(dt) {
   common(PM); gl.uniform3f(PM.u.uFlame, 1, 0.6, 0.2);
   gl.bindVertexArray(roadMesh.vao); gl.drawArrays(gl.TRIANGLES, 0, roadMesh.count);
   // schepen en hun schaduw (de ghost in ghostkleuren, zonder schaduw)
+  const burns = [];
   for (const e of (S.ghost && S.phase !== 'count' ? S.ents.concat([S.ghost.ent]) : S.ents)) {
     const fr = entFrame(e, {});
     const roll = -e.steer * 0.32 * Math.min(1, e.speed / 500) + (e.in.drift ? -e.steer * 0.15 : 0);
@@ -3692,14 +3693,7 @@ function render(dt) {
       gl.uniform1f(PSH.u.uOut, 0); gl.depthMask(true); gl.drawArrays(gl.TRIANGLES, 0, sm.count);
       // afterburner bij boost: komt snel op, dooft langzamer uit
       e.burn = (e.burn || 0) + ((e.boosting ? 1 : 0) - (e.burn || 0)) * (e.boosting ? 0.25 : 0.08);
-      if (e.burn > 0.03 && MODELS[e.car.id].eng.length) {
-        const bm = burnCache[e.car.id] || (burnCache[e.car.id] = burnMesh(MODELS[e.car.id], e.car.id));
-        const bs = BURN_STYLE[e.car.id] || BURN_STYLE.valk; gl.uniform3fv(PSH.u.uBurnA, bs.a); gl.uniform3fv(PSH.u.uBurnB, bs.b);
-        gl.uniform1f(PSH.u.uBurn, Math.min(1, e.burn * 1.2)); gl.uniform1f(PSH.u.uLen, (0.35 + 0.65 * e.burn) * (0.9 + 0.1 * Math.sin(flick * 90 + e.s)));
-        gl.enable(gl.BLEND); gl.blendFuncSeparate(gl.ONE, gl.ONE, gl.ZERO, gl.ONE); gl.depthMask(false);
-        gl.bindVertexArray(bm.vao); gl.drawArrays(gl.TRIANGLES, 0, bm.count);
-        gl.disable(gl.BLEND); gl.depthMask(true);
-      }
+      if (e.burn > 0.03 && MODELS[e.car.id].eng.length) burns.push([e, M]);   // pas na alle schepen en schaduwen tekenen (anders tekent een schaduw eroverheen)
       gl.useProgram(PM.p);
     }
     if (S.ghost && e === S.ghost.ent) continue;
@@ -3715,6 +3709,18 @@ function render(dt) {
     const sh = shadowCache[e.car.id];
     gl.bindVertexArray(sh.vao); gl.drawArrays(gl.TRIANGLES, 0, sh.count);
     gl.disable(gl.POLYGON_OFFSET_FILL);
+  }
+  if (burns.length) {   // afterburners: opgeteld bij wat erachter zit, zonder diepte te schrijven
+    gl.useProgram(PSH.p); gl.uniform1f(PSH.u.uOut, 0);
+    gl.enable(gl.BLEND); gl.blendFuncSeparate(gl.ONE, gl.ONE, gl.ZERO, gl.ONE); gl.depthMask(false);
+    for (const [e, M] of burns) {
+      const bm = burnCache[e.car.id] || (burnCache[e.car.id] = burnMesh(MODELS[e.car.id], e.car.id));
+      const bs = BURN_STYLE[e.car.id] || BURN_STYLE.valk; gl.uniform3fv(PSH.u.uBurnA, bs.a); gl.uniform3fv(PSH.u.uBurnB, bs.b);
+      gl.uniformMatrix4fv(PSH.u.uM, false, M);
+      gl.uniform1f(PSH.u.uBurn, Math.min(1, e.burn * 1.2)); gl.uniform1f(PSH.u.uLen, (0.35 + 0.65 * e.burn) * (0.9 + 0.1 * Math.sin(flick * 90 + e.s)));
+      gl.bindVertexArray(bm.vao); gl.drawArrays(gl.TRIANGLES, 0, bm.count);
+    }
+    gl.disable(gl.BLEND); gl.depthMask(true);
   }
   drawDynamic();
   // decor
