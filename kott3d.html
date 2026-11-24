@@ -33,7 +33,7 @@ const LAPS = 3, SHIP_R = 22, HOVER = 5, SHIP_SIZE = 1.2;
 const WALL_H = 26, WALL_T = 10, ROAD_T = 16;
 const BERM = 420;   // vlakke berm naast de vangrail (op wegniveau) waar het decor op staat; daarachter de helling
 // Versie van de 3D-versie, rechtsonder op het startscherm. Bij elke publicatie op de website eentje ophogen.
-const GAME_VERSION = '3D-116';
+const GAME_VERSION = '3D-117';
 const LOW_H = 1080;           // aantal beeldlijnen (zoals FINE in komeet.html); daarna zonder vervaging vergroot
 const GROUND_Y = -40;        // grond iets onder het laagste stuk weg
 
@@ -4389,7 +4389,7 @@ function drawTTResult(u) {
 // cx = midden, fy = onderkant (voeten), bh = hoogte van het gewone staande plaatje; alle beeldjes in dezelfde pixelmaat
 // geen losse animaties meer: elk dier heeft één vaste houding (gekozen door de gebruiker) en stuitert af en toe even
 // x staan, x2 juichen, w en v zwaaien, d wijzen, q armen wijd
-const BODY_PICK = ['x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x'];
+const BODY_PICK = ['x', 'x', 'x', 'w', 'w', 'x2', 'x', 'x', 'w', 'q', 'd', 'x2', 'x2', 'x2', 'x', 'x', 'q', 'v'];
 function bodyAnim(i, anim, t) { return [BODY_PICK[i] || 'x', false]; }
 function drawBody(i, cx, fy, bh, anim, t) {
   const b1 = ART_OBJ['b' + i + 'x']; if (!b1) return false;
