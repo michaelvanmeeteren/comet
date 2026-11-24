@@ -33,7 +33,7 @@ const LAPS = 3, SHIP_R = 22, HOVER = 5, SHIP_SIZE = 1.2;
 const WALL_H = 26, WALL_T = 10, ROAD_T = 16;
 const BERM = 420;   // vlakke berm naast de vangrail (op wegniveau) waar het decor op staat; daarachter de helling
 // Versie van de 3D-versie, rechtsonder op het startscherm. Bij elke publicatie op de website eentje ophogen.
-const GAME_VERSION = '3D-107';
+const GAME_VERSION = '3D-108';
 const LOW_H = 1080;           // aantal beeldlijnen (zoals FINE in komeet.html); daarna zonder vervaging vergroot
 const GROUND_Y = -40;        // grond iets onder het laagste stuk weg
 
@@ -3151,7 +3151,7 @@ function drawShipSprites() {
     const sz = SHIP_CELL_U * SHIP_SIZE * (CER && e.cer ? 2 : 1) * (t.k || 1), h = sz * t.h / t.w, data = [];
     // het plaatje staat rechtop; in een schuine bocht zou de onderkant in de weg zakken. Daarom iets omhoog langs de weg en een stukje
     // naar de camera toe (dan wint het schip van het wegdek eronder), zonder dat je het verschil in grootte ziet
-    const toC = sub(cam.pos, fr.pos), dC = Math.hypot(...toC), tc = scale(toC, 1 / Math.max(1, dC)), lift = 3 * SHIP_SIZE + 6 * Math.min(1, Math.hypot(fr.u[0], fr.u[2]) * 3);
+    const toC = sub(cam.pos, fr.pos), dC = Math.hypot(...toC), tc = scale(toC, 1 / Math.max(1, dC)), lift = 3 * SHIP_SIZE;
     const sh = Math.min(26 * SHIP_SIZE, dC * 0.3), kk = (dC - sh) / Math.max(1, dC);   // stukje naar de camera, en even veel kleiner
     const w2 = sz * kk, h2 = h * kk, c = [fr.pos[0] + fr.u[0] * lift + tc[0] * sh, fr.pos[1] + fr.u[1] * lift - h2 / 2 + tc[1] * sh, fr.pos[2] + fr.u[2] * lift + tc[2] * sh];
     for (const [cx, cy] of [[-0.5, 0], [0.5, 0], [0.5, 1], [-0.5, 0], [0.5, 1], [-0.5, 1]]) data.push(c[0], c[1], c[2], cx, cy, vw.flip ? -w2 : w2, h2);
@@ -3602,7 +3602,8 @@ function render(dt) {
     const gpos = gapPos(e.s);
     if (gpos > 0 && gpos < TR.gapL) continue;
     const b = add(fr.base, scale(fr.u, 0.6));
-    const Ms = [fr.r[0] * k, fr.r[1] * k, fr.r[2] * k, 0, fr.f[0] * k, fr.f[1] * k, fr.f[2] * k, 0, fr.u[0], fr.u[1], fr.u[2], 0, b[0], b[1], b[2], 1];
+    const ks = shipSpriteOn(e) ? k * 0.8 : k;   // onder een plaatje iets kleiner, anders steekt de schaduw als een zwarte plaat uit
+    const Ms = [fr.r[0] * ks, fr.r[1] * ks, fr.r[2] * ks, 0, fr.f[0] * ks, fr.f[1] * ks, fr.f[2] * ks, 0, fr.u[0], fr.u[1], fr.u[2], 0, b[0], b[1], b[2], 1];
     gl.enable(gl.POLYGON_OFFSET_FILL); gl.polygonOffset(-2, -4);
     gl.uniformMatrix4fv(PM.u.uM, false, Ms);
     const sh = shadowCache[e.car.id];
@@ -3936,10 +3937,10 @@ function drawDynamic() {
   for (const e of S.ents) {
     const cs = Math.cos(e.psi), sn = Math.sin(e.psi), behind = (L, side) => [e.s - cs * L - sn * side, e.d - sn * L + cs * side];
     // boost: een vlammenstaart achter het schip (wit-blauw), flakkerend
-    if (e.boosting && !e.finished) {   // fel blauw-witte straal, twee vlammen achter elkaar die om beurten flakkeren
+    if (e.boosting && !e.finished && !/^b[56]/.test(e.shipFr || '')) {   // straal achter het schip; van achteren niet: dan gloeien de motoren al op het plaatje zelf
       const fi = Math.floor(flick * 15 + e.s * 0.01), [b1s, b1d] = behind(26, 0), [b2s, b2d] = behind(44, 0);
-      spr(wp(b1s, b1d, e.z + 9), fxName('fxboost', fi % 3), 24 + Math.sin(flick * 50) * 2, null, 1, 1);
-      spr(wp(b2s, b2d, e.z + 8), fxName('fxboost', (fi + 1) % 3), 15, null, 0.7, 1);
+      spr(wp(b1s, b1d, e.z + 9), fxName('fxboost', fi % 3), 16 + Math.sin(flick * 50) * 1.5, null, 1, 1);
+      spr(wp(b2s, b2d, e.z + 8), fxName('fxboost', (fi + 1) % 3), 10, null, 0.7, 1);
     }
     if (e === S.player && (e.draft || 0) > 0.4 && !e.finished) for (const side of [-1, 1]) {   // slipstream: windlijnen langs het schip
       const [ws, wd] = behind(-10 + ((flick * 300) % 60), side * 34);
