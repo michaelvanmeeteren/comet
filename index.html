@@ -33,7 +33,7 @@ const LAPS = 3, SHIP_R = 22, HOVER = 5, SHIP_SIZE = 1.2;
 const WALL_H = 26, WALL_T = 10, ROAD_T = 16;
 const BERM = 420;   // vlakke berm naast de vangrail (op wegniveau) waar het decor op staat; daarachter de helling
 // Versie van de 3D-versie, rechtsonder op het startscherm. Bij elke publicatie op de website eentje ophogen.
-const GAME_VERSION = '3D-122';
+const GAME_VERSION = '3D-123';
 const LOW_H = 1080;           // aantal beeldlijnen (zoals FINE in komeet.html); daarna zonder vervaging vergroot
 const GROUND_Y = -40;        // grond iets onder het laagste stuk weg
 
@@ -2647,14 +2647,21 @@ void main(){ vec4 c = texture(uTex, vUV); if (c.a < 0.5) discard;
 // schepen: getekende textuur in pixelstijl (plaatwerk, naden, klinknagels, racestreep, slijtage), licht in stappen en een glimrand.
 // Met uOut > 0 dezelfde vorm een paar pixels verschoven (uOff) in donker: de rand om het schip (eerst tekenen, zonder diepte te schrijven)
 const VS_SHIP = `#version 300 es
-in vec3 aPos; in vec3 aCol; uniform mat4 uVP, uM; uniform float uOut; uniform vec2 uPx, uOff;
-out vec3 vW; out vec3 vP; flat out vec3 vC;
-void main(){ vec4 w = uM * vec4(aPos, 1.0); vW = w.xyz; vP = aPos; vC = aCol; gl_Position = uVP * w;
+in vec3 aPos; in vec3 aCol; uniform mat4 uVP, uM; uniform float uOut, uLen; uniform vec2 uPx, uOff;
+out vec3 vW; out vec3 vP; out float vT; flat out vec3 vC;
+void main(){ vec3 p = aPos; vT = 0.0;
+  if (aCol.r < -1.5) { vT = (aCol.g - p.y) / abs(aCol.b); p.y = aCol.g - (aCol.g - p.y) * uLen; }
+  vec4 w = uM * vec4(p, 1.0); vW = w.xyz; vP = aPos; vC = aCol; gl_Position = uVP * w;
   if (uOut > 0.0) gl_Position.xy += uOff * uPx * uOut * gl_Position.w; }`;
 const FS_SHIP = `#version 300 es
-precision highp float; in vec3 vW; in vec3 vP; flat in vec3 vC; uniform vec3 uFlame, uStripe; uniform float uOut; out vec4 o;
+precision highp float; in vec3 vW; in vec3 vP; in float vT; flat in vec3 vC; uniform vec3 uFlame, uStripe, uBurnA, uBurnB; uniform float uOut, uBurn; out vec4 o;
 ${GLSL_COMMON}
 void main(){
+  if (vC.r < -1.5) {   // afterburner: wit-blauwe kern, naar achteren blauw en uitdovend in stappen (opgeteld bij wat erachter zit)
+    bool core = vC.b < 0.0; float t = clamp(vT, 0.0, 1.0), a = pow(1.0 - t, 1.6) * uBurn * (core ? 1.0 : 0.75);
+    a = floor(a * 5.0 + bayer(gl_FragCoord.xy)) / 5.0; if (a <= 0.0) discard;
+    vec3 c = mix(uBurnA, uBurnB, pow(1.0 - t, 3.0) * (core ? 1.0 : 0.5));
+    o = vec4(c * a, 1.0); return; }
   if (uOut > 0.0) { o = vec4(fog(vec3(0.07, 0.05, 0.12), vW), 1.0); return; }
   if (vC.r < 0.0) { o = vec4(fog(uFlame / max(uNight, vec3(0.05)), vW), 1.0); return; }
   vec3 c = vC; bool glass = c.b > 1.5; if (glass) c.b -= 2.0;
@@ -3081,6 +3088,22 @@ function shipMesh(M, pal) {
   }
   return meshVAO(out, PSH);
 }
+const BURN_STYLE = {
+  valk:    { o: [5.2, 54], i: [2.4, 22], a: [0.15, 0.35, 1.0], b: [0.8, 0.95, 1.0] },    // een grote motor: lange blauwe straal
+  pijl:    { o: [3.0, 66], i: [1.4, 30], a: [0.05, 0.7, 1.0], b: [0.85, 1.0, 1.0] },    // twee dunne, heel lange cyaan stralen
+  kever:   { o: [5.0, 26], i: [2.6, 12], a: [0.45, 0.3, 1.0], b: [0.95, 0.85, 1.0] },   // korte, dikke paarsblauwe puffen
+  mammoet: { o: [5.8, 38], i: [3.0, 16], a: [0.1, 0.2, 0.95], b: [0.6, 0.85, 1.0] }    // drie zware, brede donkerblauwe stralen
+};
+function burnMesh(M, id) {
+  const out = [], st = BURN_STYLE[id] || BURN_STYLE.valk;
+  for (const [x, y, z] of M.eng) for (const [r, L] of [st.o, st.i]) {
+    const y0 = y - 0.8, col = [-2, y0, L === st.i[1] ? -L : L], tip = [x, y0 - L, z];
+    for (let q = 0; q < 8; q++) { const a0 = q / 8 * Math.PI * 2, a1 = (q + 1) / 8 * Math.PI * 2;
+      pushTri(out, [x + Math.cos(a0) * r, y0, z + Math.sin(a0) * r], [x + Math.cos(a1) * r, y0, z + Math.sin(a1) * r], tip, col); }
+  }
+  return meshVAO(out, PSH);
+}
+const burnCache = {};
 function shadowMesh(M) {
   const out = [], s = M.sh, c = [0.16, 0.13, 0.2];
   for (let t = 1; t + 1 < s.length; t++) pushTri(out, [s[0][0], s[0][1], 0], [s[t][0], s[t][1], 0], [s[t + 1][0], s[t + 1][1], 0], c);
@@ -3667,6 +3690,16 @@ function render(dt) {
       gl.uniform1f(PSH.u.uOut, Math.max(1, Math.round(gl.drawingBufferHeight / 400))); gl.depthMask(false);
       for (const [ox, oy] of SHIP_OUT) { gl.uniform2f(PSH.u.uOff, ox, oy); gl.drawArrays(gl.TRIANGLES, 0, sm.count); }
       gl.uniform1f(PSH.u.uOut, 0); gl.depthMask(true); gl.drawArrays(gl.TRIANGLES, 0, sm.count);
+      // afterburner bij boost: komt snel op, dooft langzamer uit
+      e.burn = (e.burn || 0) + ((e.boosting ? 1 : 0) - (e.burn || 0)) * (e.boosting ? 0.25 : 0.08);
+      if (e.burn > 0.03 && MODELS[e.car.id].eng.length) {
+        const bm = burnCache[e.car.id] || (burnCache[e.car.id] = burnMesh(MODELS[e.car.id], e.car.id));
+        const bs = BURN_STYLE[e.car.id] || BURN_STYLE.valk; gl.uniform3fv(PSH.u.uBurnA, bs.a); gl.uniform3fv(PSH.u.uBurnB, bs.b);
+        gl.uniform1f(PSH.u.uBurn, Math.min(1, e.burn * 1.2)); gl.uniform1f(PSH.u.uLen, (0.35 + 0.65 * e.burn) * (0.9 + 0.1 * Math.sin(flick * 90 + e.s)));
+        gl.enable(gl.BLEND); gl.blendFuncSeparate(gl.ONE, gl.ONE, gl.ZERO, gl.ONE); gl.depthMask(false);
+        gl.bindVertexArray(bm.vao); gl.drawArrays(gl.TRIANGLES, 0, bm.count);
+        gl.disable(gl.BLEND); gl.depthMask(true);
+      }
       gl.useProgram(PM.p);
     }
     if (S.ghost && e === S.ghost.ent) continue;
