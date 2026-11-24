@@ -33,7 +33,7 @@ const LAPS = 3, SHIP_R = 22, HOVER = 5, SHIP_SIZE = 1.2;
 const WALL_H = 26, WALL_T = 10, ROAD_T = 16;
 const BERM = 420;   // vlakke berm naast de vangrail (op wegniveau) waar het decor op staat; daarachter de helling
 // Versie van de 3D-versie, rechtsonder op het startscherm. Bij elke publicatie op de website eentje ophogen.
-const GAME_VERSION = '3D-132';
+const GAME_VERSION = '3D-133';
 const LOW_H = 1080;           // aantal beeldlijnen (zoals FINE in komeet.html); daarna zonder vervaging vergroot
 const GROUND_Y = -40;        // grond iets onder het laagste stuk weg
 
@@ -913,7 +913,7 @@ function placeHaz3d() {
   scan(want.current || 0, 900, 300, (k, p) => k.mx < [1 / 1500, 1 / 1000, 1 / 600][p], sv => haz.push({ type: 'current', s0: sv, s1: sv + 900, dir: rnd() < 0.5 ? -1 : 1 }));
   scan(want.wisp || 0, 260, 260, (k, p) => true, sv => haz.push({ type: 'wisp', s0: sv, s1: sv + 260, ph: rnd() * 6.28 }));
   scan(want.geyser || 0, 160, 320, (k, p) => k.mx < [1 / 1500, 1 / 900, 1 / 500][p], sv => haz.push({ type: 'geyser', s0: sv, s1: sv + 160, ph: rnd() * GEY_P }));
-  scan(want.piston || 0, 180, 420, (k, p) => k.mx < [1 / 1500, 1 / 900, 1 / 500][p], sv => { const sd = rnd() < 0.5 ? -1 : 1; haz.push({ type: 'piston', s0: sv, s1: sv + 150, d0: sd > 0 ? 0 : -HW, d1: sd > 0 ? HW : 0, ph: rnd() * 3 }); });
+  scan(want.piston || 0, 180, 420, (k, p) => k.mx < [1 / 1500, 1 / 900, 1 / 500][p], sv => { rnd(); rnd(); });   // stampers zijn eruit (rare kijkhoek); de plek en de toevalsgetallen blijven, zodat de rest van de baan precies gelijk blijft
   scan(want.icefall || 0, 160, 420, (k, p) => true, sv => { const dc = (rnd() * 2 - 1) * (HW - 70); haz.push({ type: 'icefall', s0: sv, s1: sv + 130, d0: dc - 70, d1: dc + 70, ph: rnd() * 4 }); });
   scan(want.lava || 0, 200, 420, (k, p) => k.mx < [1 / 1200, 1 / 800, 1 / 450][p], sv => { const dc = (rnd() * 2 - 1) * (HW - 65); haz.push({ type: 'lava', s0: sv, s1: sv + 170, d0: dc - 65, d1: dc + 65, ph: rnd() * 4, dir: dc > 0 ? -1 : 1 }); });
   scan(want.bubble || 0, 180, 420, (k, p) => k.mx < [1 / 1500, 1 / 900, 1 / 500][p], sv => haz.push({ type: 'bubble', s0: sv, s1: sv + 160, ph: rnd() * 3 }));
