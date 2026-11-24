@@ -33,7 +33,7 @@ const LAPS = 3, SHIP_R = 22, HOVER = 5, SHIP_SIZE = 1.2;
 const WALL_H = 26, WALL_T = 10, ROAD_T = 16;
 const BERM = 420;   // vlakke berm naast de vangrail (op wegniveau) waar het decor op staat; daarachter de helling
 // Versie van de 3D-versie, rechtsonder op het startscherm. Bij elke publicatie op de website eentje ophogen.
-const GAME_VERSION = '3D-102';
+const GAME_VERSION = '3D-103';
 const LOW_H = 1080;           // aantal beeldlijnen (zoals FINE in komeet.html); daarna zonder vervaging vergroot
 const GROUND_Y = -40;        // grond iets onder het laagste stuk weg
 
@@ -3694,7 +3694,7 @@ function drawFxSprites() {
     const tx = cachedTex(src); if (!tx.ready) continue;
     gl.uniform4f(PB.u.uTint, q.tint[0], q.tint[1], q.tint[2], q.a); gl.uniform1f(PB.u.uGlow, q.glow);
     const w = q.sz, h = q.sz * tx.h / tx.w, data = [];
-    for (const [cx, cy] of [[-0.5, 0], [0.5, 0], [0.5, 1], [-0.5, 0], [0.5, 1], [-0.5, 1]]) data.push(q.p[0], q.p[1] - h / 2, q.p[2], cx, cy, q.flip ? -w : w, h);
+    for (const [cx, cy] of [[-0.5, 0], [0.5, 0], [0.5, 1], [-0.5, 0], [0.5, 1], [-0.5, 1]]) data.push(q.p[0], q.base ? q.p[1] : q.p[1] - h / 2, q.p[2], cx, cy, q.flip ? -w : w, h);
     gl.bindBuffer(gl.ARRAY_BUFFER, hazBB.buf); gl.bufferSubData(gl.ARRAY_BUFFER, 0, new Float32Array(data));
     gl.bindTexture(gl.TEXTURE_2D, tx.tex); gl.bindVertexArray(hazBB.vao); gl.drawArrays(gl.TRIANGLES, 0, 6);
   }
@@ -3703,7 +3703,7 @@ function drawFxSprites() {
 function drawDynamic() {
   const out = [], t = S.raceTime;
   FX.spr = [];
-  const spr = (p, name, sz, tint, a, glow, flip) => { if (a == null || a > 0.02) FX.spr.push({ p, name, sz, tint: tint || [1, 1, 1], a: a == null ? 1 : a, glow: glow || 0, flip }); };
+  const spr = (p, name, sz, tint, a, glow, flip, base) => { if (a == null || a > 0.02) FX.spr.push({ p, name, sz, tint: tint || [1, 1, 1], a: a == null ? 1 : a, glow: glow || 0, flip, base }); };
   const wp = (sv, d, up) => { at(sv, DQ); return [DQ.px + DQ.rx * d + DQ.ux * up, DQ.py + DQ.ry * d + DQ.uy * up, DQ.pz + DQ.rz * d + DQ.uz * up]; };
   const up = sv => { at(sv, DQ); return [DQ.ux, DQ.uy, DQ.uz]; };
   // golven: een schuimende band die dwars over de weg spoelt
@@ -3873,15 +3873,24 @@ function drawDynamic() {
     const COLS = [[[1, 0.84, 0.25], [0.85, 0.62, 0.1]], [[0.86, 0.88, 0.92], [0.62, 0.65, 0.72]], [[0.85, 0.55, 0.3], [0.62, 0.36, 0.18]]];
     CER_STEPS.forEach(([d, h], k) => box(sp - 55, sp + 55, d - 72, d + 72, h, COLS[k][0], COLS[k][1]));
     for (let q = 0; q < 11; q++) pushQuad(out, pw(sp + 60 + q * 50, -70, 1.6), pw(sp + 100 + q * 50, -70, 1.6), pw(sp + 100 + q * 50, 70, 1.6), pw(sp + 60 + q * 50, 70, 1.6), q & 1 ? [0.75, 0.08, 0.12] : [0.85, 0.12, 0.16]);   // rode loper
+    // aankleding van het plein: ballonnenboog achter het podium, spots, vlaggen, boxen, rozen en een rode koord langs de loper
+    const deco = (f, r, name, sz, flip) => spr(pw(f, r, 0), name, sz, null, 1, 0, flip, true);
+    deco(-170, 0, 'pzballoon', 330);
+    for (const sd of [-1, 1]) {
+      deco(-130, sd * 250, 'pztrophy', 70, sd > 0); deco(-100, sd * 340, 'pzspot', 120, sd > 0); deco(-150, sd * 440, 'pzflag', 240, sd < 0);
+      deco(-80, sd * 560, 'pzspeaker', 150, sd > 0); deco(-20, sd * 700, 'pzrockets', 80); deco(120, sd * 660, 'pzpalm', 230, sd > 0);
+      for (let f = 260; f <= 620; f += 90) deco(f, sd * 100, 'pzrope', 46, sd > 0);
+      deco(330, sd * 150, 'pzroses', 60); deco(560, sd * 150, 'pzroses', 60);
+    }
     const ct = CER.t;
     if (ct > 2.5) for (let i = 0; i < 40; i++) {   // confetti: wolkjes snippers die dwarrelend vallen
       const p = (ct * 0.3 + i * 0.137) % 1;
-      spr(wp(sp - 220 + (i * 53) % 440 + Math.sin(ct * 2 + i) * 15, -300 + (i * 97) % 600, 40 + 560 * (1 - p)), fxName('fxconf', Math.floor(ct * 8 + i) % 3), 34, null, 1, 0.6, i & 1);
+      spr(pw(sp - 220 + (i * 53) % 440 + Math.sin(ct * 2 + i) * 15, -300 + (i * 97) % 600, 40 + 560 * (1 - p)), fxName('fxconf', Math.floor(ct * 8 + i) % 3), 34, null, 1, 0.6, i & 1);
     }
     [5, 6.1, 7.3, 8.5, 9.6, 10.4, 11.2].forEach((tb, b) => {   // vuurwerk: een witte knal in een eigen kleur, die uitzet, zakt en uitdooft
       const a = ct - tb; if (a < 0 || a > 1.3) return;
       const col = [[1, 0.45, 0.35], [0.45, 0.9, 1], [1, 0.9, 0.35], [0.75, 0.55, 1], [0.55, 1, 0.6], [1, 0.6, 0.9], [1, 1, 1]][b];
-      spr(wp(sp - 650, [-320, 260, -60, 380, 80, -200, 200][b], 560 + b * 30 - a * a * 90), fxName('fxfire', a < 0.25 ? 0 : 1), 120 + a * 420, col, Math.min(1, 1.6 - a * 1.2), 1);
+      spr(pw(sp - 650, [-320, 260, -60, 380, 80, -200, 200][b], 560 + b * 30 - a * a * 90), fxName('fxfire', a < 0.25 ? 0 : 1), 120 + a * 420, col, Math.min(1, 1.6 - a * 1.2), 1);
     });
   }
   // rookwolkjes van het driften: oud spul weg, de rest groeit en stijgt
@@ -3946,7 +3955,7 @@ const KUI = (() => {
   const SPR_BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5].map(v => (v + 0.5) / 16);
   const ART_OBJ = {};
   const proj3 = p => { const m = LAST_VP; if (!m) return null; const x = m[0] * p[0] + m[4] * p[1] + m[8] * p[2] + m[12], y = m[1] * p[0] + m[5] * p[1] + m[9] * p[2] + m[13], w = m[3] * p[0] + m[7] * p[1] + m[11] * p[2] + m[15]; return w > 1 ? [(x / w * 0.5 + 0.5) * W, (1 - (y / w * 0.5 + 0.5)) * H, w] : null; };
-  for (const k of ['mtime', 'mcup', 'monline', 'cls50', 'cls100', 'cls150', 'icolock', 'icostar', 'icogear', 'icoghost', 'icowatch', 'icocrown', 'icoflag', 'icoglobe', 'icomedals', ...TRO_NAMES, 'logo', 'trophy', 'e0', 'e1', 'e2', 'e3', 'e4', 'e5', 'e6', 'e7', 'e8', 'e9', 'e10', 'e11', 'trophygold', 'trophysilver', 'trophybronze', 'podium', 'confetti', 'crown', 'selhi', 'sello', ...Array.from({ length: 18 }, (_, i) => ['b' + i + 'x', 'b' + i + 'x2', 'b' + i + 's', 'b' + i + 'w', 'b' + i + 'v', 'b' + i + 'd', 'b' + i + 'q', 'f' + i + 'h', 'f' + i + 'a', 'f' + i + 'o', 'f' + i + 's']).flat()]) if (ART.obj[k]) { const im = new Image(); im.onload = () => { ART_OBJ[k] = im; }; im.src = ART.obj[k]; }
+  for (const k of ['keyart', ...Array.from({ length: 12 }, (_, i) => 'cupcard' + i), 'mtime', 'mcup', 'monline', 'cls50', 'cls100', 'cls150', 'icolock', 'icostar', 'icogear', 'icoghost', 'icowatch', 'icocrown', 'icoflag', 'icoglobe', 'icomedals', ...TRO_NAMES, 'logo', 'trophy', 'e0', 'e1', 'e2', 'e3', 'e4', 'e5', 'e6', 'e7', 'e8', 'e9', 'e10', 'e11', 'trophygold', 'trophysilver', 'trophybronze', 'podium', 'confetti', 'crown', 'selhi', 'sello', ...Array.from({ length: 18 }, (_, i) => ['b' + i + 'x', 'b' + i + 'x2', 'b' + i + 's', 'b' + i + 'w', 'b' + i + 'v', 'b' + i + 'd', 'b' + i + 'q', 'f' + i + 'h', 'f' + i + 'a', 'f' + i + 'o', 'f' + i + 's']).flat()]) if (ART.obj[k]) { const im = new Image(); im.onload = () => { ART_OBJ[k] = im; }; im.src = ART.obj[k]; }
   const TRACKS_ALL = TRACKS_OUTER, TRACKS = TRACKS_ALL.slice(1);
   const LOOKS = TRACKS.map(t => ({ names: THEMES[CUPS[t.cup].theme].names }));
   const roadWx = () => null;
@@ -4149,6 +4158,18 @@ function drawIntro(u) {
   const cutAt = Math.round(t / SHOT_T) * SHOT_T, cutD = Math.abs(t - cutAt);
   if (cutAt > 0 && cutAt <= INTRO_SPOTS.length * SHOT_T + 0.01 && cutD < 0.12) {
     ctx.globalAlpha = 1 - cutD / 0.12; ctx.fillStyle = '#0a0612'; ctx.fillRect(0, bar, W, H - 2 * bar); ctx.globalAlpha = 1;
+  }
+  const card = cupRun && cupRun.race === 0 && G.mode === 'cup' && ART_OBJ['cupcard' + cupRun.cup];
+  if (card && t < 2.8) {   // de kaart van de cup: groot beeld, naam en beker, daarna vervaagt hij naar de vlucht over de baan
+    const cc = cupRun.cup, a = Math.min(1, (2.8 - t) / 0.6, t * 4);
+    ctx.globalAlpha = a; drawCover(card, 1.04 + t * 0.02);
+    ctx.fillStyle = 'rgba(5,3,12,0.55)'; ctx.fillRect(0, Math.round(H * 0.66), W, Math.round(H * 0.34));
+    const tc = trophyCanvas(cc, 3); if (tc) drawArt(tc, W / 2, H * 0.5 - Math.max(0, 1 - t * 3) * 40 * u, 150 * u);
+    text(CUPS[cc].name, W / 2, H * 0.78, 64 * u, THEMES[CUPS[cc].theme].accent || '#ffb833', 'center', 900);
+    text(CUPS[cc].sub, W / 2, H * 0.78 + 40 * u, 20 * u, '#fff', 'center', 700, false);
+    text(CLASSES[ui.cls].name + '  -  3 RACES', W / 2, H * 0.78 + 72 * u, 15 * u, '#cfd3ff', 'center', 700);
+    ctx.globalAlpha = 1;
+    if (t < 2.2) return;
   }
   if (open < 1) return;
   const slide = Math.round(Math.max(0, 1 - (t - 0.2) * 4) * 60 * u);
@@ -4556,6 +4577,10 @@ function trophyCanvas(c, m) {
   return (TRO_CV[key] = cv);
 }
 // plaatje gecentreerd op (cx, cy) met hoogte h, scherp vergroot
+function drawCover(im, zoom) {
+  const k = Math.max(W / im.width, H / im.height) * (zoom || 1), w = im.width * k, h = im.height * k;
+  ctx.imageSmoothingEnabled = false; ctx.drawImage(im, Math.round((W - w) / 2), Math.round((H - h) / 2), Math.round(w), Math.round(h));
+}
 function drawArt(im, cx, cy, h) {
   if (!im) return false;
   const w = im.width * h / im.height; ctx.imageSmoothingEnabled = false;
@@ -4670,6 +4695,8 @@ function drawMenu(u) {
     ctx.fillStyle = '#0a0612'; ctx.fillRect(0, 0, W, bar); ctx.fillRect(0, H - bar, W, bar);
     text(T.name.toUpperCase() + '  -  ' + CUPS[T.cup].name, 16 * u, H - bar - 12 * u, 14 * u, '#cfd3ff', 'left', 700);
     if (songTitle) text('MUSIC: ' + songTitle + ' - RETRO BIT', 16 * u, bar - 13 * u, 13 * u, '#7dffb0', 'left');
+    { const ka = ART_OBJ.keyart; if (ka && ka._t == null) ka._t = titleT() < 15 ? performance.now() : -1;   // titelbeeld bij het opstarten (vanaf het moment dat het geladen is)
+      const kt = ka && ka._t > 0 ? (performance.now() - ka._t) / 1000 : 9; if (kt < 3.6) { ctx.globalAlpha = Math.min(1, (3.6 - kt) / 0.8); drawCover(ka, 1 + kt * 0.015); ctx.globalAlpha = 1; } }
     drawLogo(u);
     // racers in twee kolommen, links en rechts; ze schuiven een voor een binnen
     const per = Math.ceil(RIVALS.length / 2), tt = titleT(), gy = Math.min(60 * u, (H - 2 * bar - 40 * u) / per);
