@@ -33,7 +33,7 @@ const LAPS = 3, SHIP_R = 22, HOVER = 5, SHIP_SIZE = 1.2;
 const WALL_H = 26, WALL_T = 10, ROAD_T = 16;
 const BERM = 420;   // vlakke berm naast de vangrail (op wegniveau) waar het decor op staat; daarachter de helling
 // Versie van de 3D-versie, rechtsonder op het startscherm. Bij elke publicatie op de website eentje ophogen.
-const GAME_VERSION = '3D-118';
+const GAME_VERSION = '3D-119';
 const LOW_H = 1080;           // aantal beeldlijnen (zoals FINE in komeet.html); daarna zonder vervaging vergroot
 const GROUND_Y = -40;        // grond iets onder het laagste stuk weg
 
@@ -3059,7 +3059,7 @@ function shipFor(e) {
 // art/obj/shipsheetc<id> en shipsheetd<id>: tussenhoeken en zachter hellen (zie SHIP_CELLS), zodat het draaien vloeiend is
 const SHIP_SHEETS = { a: {}, b: {}, c: {}, d: {}, x: {}, y: {}, z: {} }, SHIP_SHEET = SHIP_SHEETS.a, SHIP_TINT = {};
 for (const c of CARS) for (const L in SHIP_SHEETS) { const n = 'shipsheet' + (L === 'a' ? '' : L) + c.id; if (ART.obj[n]) { const im = new Image(); im.onload = () => { SHIP_SHEETS[L][c.id] = im; }; im.src = ART.obj[n]; } }
-// per vakje: [graden vanaf recht achter, helling (+ = schip helt naar links in het ongespiegelde plaatje), boost]
+// per vakje: [graden vanaf recht achter, helling (+ = rechterkant omlaag in het ongespiegelde plaatje), boost]
 const SHIP_CELLS = {
   a: [0, 1, 2, 3, 4, 5, 6, 7, 8].map(k => [k * 22.5, 0]),
   b: [[0, 22], [22.5, 22], [22.5, -22], [45, 22], [45, -22]],
@@ -3069,8 +3069,9 @@ const SHIP_CELLS = {
 // x, y, z: dezelfde vellen als a, c en d, maar met fel gloeiende motoren (boost)
 SHIP_CELLS.x = SHIP_CELLS.a.map(([d, r]) => [d, r, 1]); SHIP_CELLS.y = SHIP_CELLS.c.map(([d, r]) => [d, r, 1]); SHIP_CELLS.z = SHIP_CELLS.d.map(([d, r]) => [d, r, 1]);
 // beste beeldje: hoek zo dicht mogelijk, dan de helling; th = kijkhoek (radialen, > 0 = gespiegeld), roll = gewenste helling
-// in de wereld (+ = naar links), boost = motoren fel. prev: vorige keuze, die krijgt een klein voordeel (geen geflikker)
-const SHIP_SKIP = { valk: ['a4', 'a5', 'x4', 'x5'] };   // zijaanzichten van de valk raken het schip ernaast op het vel: niet gebruiken
+// in beeld (+ = rechterkant omlaag), boost = motoren fel. prev: vorige keuze, die krijgt een klein voordeel (geen geflikker)
+// foute beeldjes: zijaanzichten van de valk raken het schip ernaast; de beetle op vel D en Z (en c0/y0) is achterstevoren getekend
+const SHIP_SKIP = { valk: ['a4', 'a5', 'x4', 'x5'], kever: ['c0', 'y0', ...[0, 1, 2, 3, 4, 5, 6, 7, 8].flatMap(k => ['d' + k, 'z' + k])] };   // zijaanzichten van de valk raken het schip ernaast op het vel: niet gebruiken
 function shipPick(carId, th, roll, boost, prev) {
   const deg = Math.abs(th) * 180 / Math.PI, fl = th > 0;
   let best = null, bc = 1e9;
@@ -3156,7 +3157,7 @@ const shipSpriteOn = e => !!SHIP_SHEET[e.car.id];
 function drawShipSprites() {
   for (const e of (S.ghost && S.phase !== 'count' ? S.ents.concat([S.ghost.ent]) : S.ents)) {
     if (!shipSpriteOn(e)) continue;
-    const fr = entFrame(e, {}), roll = e.air ? 0 : -Math.max(-1, Math.min(1, e.steer || 0)) * 22;   // sturen naar links = naar links hellen
+    const fr = entFrame(e, {}), roll = e.air ? 0 : Math.max(-1, Math.min(1, e.steer || 0)) * 22;   // de bocht in hellen: op de vellen helt een plaatje met + naar rechts (rechterkant omlaag)
     const vw = shipPick(e.car.id, shipTh(fr, cam.pos), roll, e.boosting && !e.air, e.shipFr); if (!vw) continue;
     e.shipFr = vw.id;
     const t = shipCanvas(e.car.id, e.pal, vw.k, vw.L); if (!t) continue;
