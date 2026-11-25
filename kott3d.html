@@ -33,7 +33,7 @@ const LAPS = 3, SHIP_R = 22, HOVER = 5, SHIP_SIZE = 1.2;
 const WALL_H = 26, WALL_T = 10, ROAD_T = 16;
 const BERM = 420;   // vlakke berm naast de vangrail (op wegniveau) waar het decor op staat; daarachter de helling
 // Versie van de 3D-versie, rechtsonder op het startscherm. Bij elke publicatie op de website eentje ophogen.
-const GAME_VERSION = '3D-149';
+const GAME_VERSION = '3D-152';
 const LOW_H = 1080;           // aantal beeldlijnen (zoals FINE in komeet.html); daarna zonder vervaging vergroot
 const GROUND_Y = -40;        // grond iets onder het laagste stuk weg
 
@@ -4805,12 +4805,14 @@ function drawCover(im, zoom) {
   const k = Math.max(W / im.width, H / im.height) * (zoom || 1), w = im.width * k, h = im.height * k;
   ctx.imageSmoothingEnabled = false; ctx.drawImage(im, Math.round((W - w) / 2), Math.round((H - h) / 2), Math.round(w), Math.round(h));
 }
+// schaal in hele stappen: 1, 2, 3 ... (of 1/2, 1/3 ... bij verkleinen), zo dicht mogelijk bij de gewenste hoogte
+const intK = (src, want) => want >= src ? Math.max(1, Math.round(want / src)) : 1 / Math.max(1, Math.round(src / want));
 function drawArt(im, cx, cy, h) {
   if (!im) return false;
-  const w = im.width * h / im.height; ctx.imageSmoothingEnabled = false;
-  ctx.drawImage(im, Math.round(cx - w / 2), Math.round(cy - h / 2), Math.round(w), Math.round(h)); return true;
+  const k = intK(im.height, h), w = im.width * k, hh = im.height * k; ctx.imageSmoothingEnabled = false;   // pixelart alleen in hele stappen
+  ctx.drawImage(im, Math.round(cx - w / 2), Math.round(cy - hh / 2), Math.round(w), Math.round(hh)); return true;
 }
-// lijst om een kaart: hoeken (30% van het plaatje) blijven gelijk, de randen rekken mee; iets buiten de kaart zodat de binnenkant vrij blijft
+// lijst om een kaart: hoeken (30% van het plaatje) heel, de randen herhaald; iets buiten de kaart zodat de binnenkant vrij blijft
 const FRAME_T = new Map();
 // dikte van de rand in het plaatje: vanaf het midden naar buiten tot de eerste niet-doorzichtige pixel, gemiddeld over de vier kanten
 function frameThick(im) {
@@ -4823,12 +4825,16 @@ function frameThick(im) {
   FRAME_T.set(im, th); return th;
 }
 function drawFrame9(im, x, y, w, h, u) {
-  const T = 24 * u, e = 10 * u; x -= e; y -= e; w += 2 * e; h += 2 * e;   // rand overal ongeveer T breed, een stukje buiten de kaart
-  const sw = im.width, sh = im.height, c = Math.round(Math.min(sw, sh) * 0.3), k = T / frameThick(im), d = Math.min(Math.round(c * k), Math.round(w * 0.42));
-  const xs = [0, c, sw - c, sw], ys = [0, c, sh - c, sh], xd = [x, x + d, x + w - d, x + w], yd = [y, y + d, y + h - d, y + h];
+  // pixelart: alleen in hele stappen vergroten (k = 1, 2, 3 ...); de hoeken blijven heel, de randen worden herhaald (niet uitgerekt)
+  const sw = im.width, sh = im.height, k = Math.max(1, Math.round(24 * u / frameThick(im))), e = Math.round(10 * u);
+  x = Math.round(x) - e; y = Math.round(y) - e; w = Math.round(w) + 2 * e; h = Math.round(h) + 2 * e;
+  let c = Math.round(Math.min(sw, sh) * 0.3); c = Math.min(c, Math.floor(Math.min(w, h) / (2 * k)));
+  const D = c * k, mx = sw - 2 * c, my = sh - 2 * c;
   ctx.imageSmoothingEnabled = false;
-  for (let a = 0; a < 3; a++) for (let b = 0; b < 3; b++) { if (a === 1 && b === 1) continue;
-    ctx.drawImage(im, xs[a], ys[b], xs[a + 1] - xs[a], ys[b + 1] - ys[b], Math.round(xd[a]), Math.round(yd[b]), Math.round(xd[a + 1]) - Math.round(xd[a]), Math.round(yd[b + 1]) - Math.round(yd[b])); }
+  const blit = (sx, sy, sW, sH, dx, dy) => ctx.drawImage(im, sx, sy, sW, sH, dx, dy, sW * k, sH * k);
+  blit(0, 0, c, c, x, y); blit(sw - c, 0, c, c, x + w - D, y); blit(0, sh - c, c, c, x, y + h - D); blit(sw - c, sh - c, c, c, x + w - D, y + h - D);
+  for (let p = 0, L = w - 2 * D; p < L; p += mx * k) { const n = Math.min(mx, Math.ceil((L - p) / k)); blit(c, 0, n, c, x + D + p, y); blit(c, sh - c, n, c, x + D + p, y + h - D); }
+  for (let p = 0, L = h - 2 * D; p < L; p += my * k) { const n = Math.min(my, Math.ceil((L - p) / k)); blit(0, c, c, n, x, y + D + p); blit(sw - c, c, c, n, x + w - D, y + D + p); }
 }
 // bewegende deeltjes per cup, binnen de kaart: zee-belletjes, bloesem, vonken, sterren, zand, lichtjes, sneeuw, noorderlicht, bellen, hagelslag, dwaallichtjes, stoom
 function cupFx(i, x, y, w, h, u) {
@@ -4863,29 +4869,25 @@ function drawCupGrid(u, sel, mode) {
     const off = i - cupScroll, ao = Math.abs(off); if (ao > 3.4) return;
     const k = 1 - 0.13 * Math.min(ao, 3), sx = Math.sign(off) * (Math.min(ao, 1) * (cw + gap) + Math.max(0, ao - 1) * (cw * 0.72 + gap * 0.5));
     const x = Math.round(W / 2 - cw / 2 + sx), y = y0;
-    ctx.save(); ctx.translate(x + cw / 2, y + ch / 2); ctx.scale(k, k); ctx.translate(-(x + cw / 2), -(y + ch / 2));
+    ctx.save();   // niet verkleinen (pixelart): verder van het midden alleen donkerder (ook de lijst en het embleem) en half erachter
+    const isSel0 = sel === i; if (!isSel0) ctx.filter = 'brightness(' + Math.max(0.25, 0.62 - 0.14 * ao).toFixed(2) + ')';
     const t2 = THEMES[c.theme], isSel = sel === i;
     card(x, y, cw, ch, isSel, t2.ui);
     cupFx(i, x, y, cw, ch, u);
     const fr = ART_OBJ[CUP_FRAME[i]];
     if (fr) drawFrame9(fr, x, y, cw, ch, u); else { ctx.fillStyle = t2.ui; ctx.fillRect(Math.round(x + 18 * u), Math.round(y + 18 * u), Math.round(cw - 36 * u), Math.round(6 * u)); }
-    text(c.name, x + cw / 2, y + 72 * u, 26 * u, isSel ? t2.accent : '#fff', 'center', 900);
+    text(c.name, x + cw / 2, y + 96 * u, 26 * u, isSel ? t2.accent : '#fff', 'center', 900);
     for (let k = 0; k < 3; k++) {
-      const tr = TRACKS[i * 3 + k], yy = y + (126 + 38 * k) * u;   // gecentreerd; in de tijdrit met de medaille rechts ernaast
+      const tr = TRACKS[i * 3 + k], yy = y + (160 + 40 * k) * u;   // gecentreerd; in de tijdrit met de medaille rechts ernaast
       text(tr.name, mode === 0 ? x + cw / 2 - 14 * u : x + cw / 2, yy, mode === 0 ? 15.5 * u : 17 * u, '#fff', 'center', 600, false);
       if (mode === 0) medalDot(x + cw - 38 * u, yy - 7 * u, 8 * u, medalFor(tr));
     }
     if (mode === 1) {
       const best = OUT.save.cups[i + '-' + ui.cls];
-      text(best ? 'Best: ' + ord(best) + ' place' : 'Not raced yet', x + cw / 2, y + 250 * u, 17 * u, best && best <= 3 ? MEDAL_COL[4 - best] : '#cfd3ff', 'center', 700, false);
+      text(best ? 'Best: ' + ord(best) + ' place' : 'Not raced yet', x + cw / 2, y + 310 * u, 17 * u, best && best <= 3 ? MEDAL_COL[4 - best] : '#cfd3ff', 'center', 700, false);
     }
     const em = ART_OBJ['e' + i];
-    if (em) { const es = Math.round(72 * u); ctx.drawImage(em, Math.round(x + cw / 2 - es / 2), Math.round(y + ch - es - 22 * u + (isSel ? Math.sin(G.time * 4) * 2 * u : 0)), es, es); }
-    if (mode === 1) {   // de beker van deze cup: in de kleur van je beste plek, of donker als je hem nog niet hebt
-      const best = OUT.save.cups[i + '-' + ui.cls], tc = trophyCanvas(i, best && best <= 3 ? 4 - best : 0);
-      if (tc) drawArt(tc, x + cw - 48 * u, y + ch - 56 * u + (isSel && best <= 3 ? Math.sin(G.time * 3) * 2 * u : 0), 66 * u);
-    }
-    if (!isSel) { ctx.fillStyle = 'rgba(5,3,12,' + Math.min(0.8, 0.3 + 0.17 * ao).toFixed(2) + ')'; ctx.fillRect(x, y, Math.round(cw), Math.round(ch)); }
+    if (em) drawArt(em, x + cw / 2, y - 6 * u, 72 * u);   // embleem midden op de bovenrand van de lijst
     ctx.restore();
   });
   // stipjes onder de rij: waar je bent tussen alle cups
@@ -5006,7 +5008,7 @@ function drawMenu(u) {
           ctx.fillStyle = ['#ff4f8a', '#ffd24a', '#7de8ff', '#7dffb0'][k % 4];
           ctx.fillRect(Math.round(cx - 60 * u + fx * 120 * u + Math.sin(G.time * 3 + k) * 4 * u), Math.round(iy - 70 * u + fy * 140 * u), Math.max(2, Math.round(3 * u)), Math.max(2, Math.round(5 * u)));
         }
-        drawArt(MART, cx, iy - 4 * u + Math.sin(G.time * 2.2 + i) * 4 * u, (sel ? 128 : 116) * u);
+        drawArt(MART, cx, iy - 4 * u + Math.round(Math.sin(G.time * 2.2 + i) * 4 * u), 128 * u);
         text(i === 0 ? fmt(G.time % 60).slice(0, -1) : i === 1 ? '10 PT' : 'ROOM ' + [0, 1, 2, 3].map(k => 'ABCDEFGHJKLMNPQRSTUVWXYZ'[Math.floor(G.time * 2 + k * 7) % 24]).join(''), cx, iy + 78 * u, 15 * u, col, 'center', 800);
       } else if (i === 0) {
         // je schip met zijn ghost erachter, en een lopende stopwatch
@@ -5049,7 +5051,7 @@ function drawMenu(u) {
       card(x, y0, cw, ch, sel, cols[i]);
       text(cl.name, x + cw / 2, y0 + 96 * u, 46 * u, sel ? cols[i] : '#fff', 'center', 900);
       text(cl.sub, x + cw / 2, y0 + 134 * u, 15 * u, '#fff', 'center', 700, false);
-      if (!drawArt(ART_OBJ[['cls50', 'cls100', 'cls150'][i]], x + cw / 2, y0 + 250 * u + (sel ? Math.sin(G.time * 3) * 3 * u : 0), (sel ? 140 : 126) * u))
+      if (!drawArt(ART_OBJ[['cls50', 'cls100', 'cls150'][i]], x + cw / 2, y0 + 250 * u + (sel ? Math.round(Math.sin(G.time * 3) * 3 * u) : 0), 140 * u))
         for (let k = 0; k <= i; k++) { ctx.fillStyle = cols[i]; ctx.fillRect(Math.round(x + cw / 2 + (k - i / 2) * 22 * u - 7 * u), Math.round(y0 + 300 * u), Math.round(14 * u), Math.round(14 * u)); }
       if (!sel) { ctx.fillStyle = 'rgba(5,3,12,0.38)'; ctx.fillRect(Math.round(x), Math.round(y0), Math.round(cw), Math.round(ch)); }
     });
