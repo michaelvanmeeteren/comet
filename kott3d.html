@@ -33,7 +33,7 @@ const LAPS = 3, SHIP_R = 22, HOVER = 5, SHIP_SIZE = 1.2;
 const WALL_H = 26, WALL_T = 10, ROAD_T = 16;
 const BERM = 420;   // vlakke berm naast de vangrail (op wegniveau) waar het decor op staat; daarachter de helling
 // Versie van de 3D-versie, rechtsonder op het startscherm. Bij elke publicatie op de website eentje ophogen.
-const GAME_VERSION = '3D-134';
+const GAME_VERSION = '3D-135';
 const LOW_H = 1080;           // aantal beeldlijnen (zoals FINE in komeet.html); daarna zonder vervaging vergroot
 const GROUND_Y = -40;        // grond iets onder het laagste stuk weg
 
@@ -4906,11 +4906,11 @@ function drawMenu(u) {
   if (ui.screen === 'mode') {
     header(u, 'CHOOSE A MODE', hint);
     // drie kaarten, elk met een eigen kleur en een plaatje; de gekozen kaart komt omhoog, de andere zakken weg in het donker
-    const gap = 30 * u, cw = Math.min(330 * u, (W - 60 * u - 2 * gap) / 3), ch = 430 * u, x0 = W / 2 - (cw * 3 + gap * 2) / 2, y0 = H * 0.19;
+    const gap = 30 * u, cw = Math.min(330 * u, (W - 60 * u - 2 * gap) / 3), ch = 300 * u, x0 = W / 2 - (cw * 3 + gap * 2) / 2, y0 = H * 0.19;
     const items = [
-      ['TIME TRIAL', 'Just you against the clock.', ['3 laps on any track', 'Race your own ghost', 'Bronze, silver or gold'], '#7de8ff'],
-      ['CUP', 'Three races, five rivals.', ['Points: 10-7-5-3-2-1', 'You start at the back', 'Win the trophy'], '#ffb833'],
-      ['ONLINE', 'Race your friends.', ['Up to 6 players', 'Share a room code', 'Add computer racers'], '#7dffb0']
+      ['TIME TRIAL', '', [], '#7de8ff'],   // alleen de naam en het plaatje: geen uitlegregels
+      ['CUP', '', [], '#ffb833'],
+      ['ONLINE', '', [], '#7dffb0']
     ];
     items.forEach((it, i) => {
       const sel = ui.mode === i, col = it[3], x = x0 + i * (cw + gap), y = y0 - (sel ? Math.round((8 + Math.sin(G.time * 3) * 3) * u) : 0);
@@ -4958,8 +4958,6 @@ function drawMenu(u) {
         const L = 'ABCDEFGHJKLMNPQRSTUVWXYZ', code = [0, 1, 2, 3].map(k => L[Math.floor(G.time * 2 + k * 7) % L.length]).join('');
         text('ROOM ' + code, cx, iy + 78 * u, 15 * u, col, 'center', 800);
       }
-      text(it[1], cx, y + 288 * u, 14 * u, '#fff', 'center', 600, false);
-      it[2].forEach((l, k) => text(l, cx, y + (330 + 30 * k) * u, 13 * u, sel ? '#fff' : '#cfd3ff', 'center', 500, false));
       if (!sel) { ctx.fillStyle = 'rgba(5,3,12,0.38)'; ctx.fillRect(Math.round(x), Math.round(y), Math.round(cw), Math.round(ch)); }
     });
     return;
