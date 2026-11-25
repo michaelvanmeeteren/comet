@@ -33,7 +33,7 @@ const LAPS = 3, SHIP_R = 22, HOVER = 5, SHIP_SIZE = 1.2;
 const WALL_H = 26, WALL_T = 10, ROAD_T = 16;
 const BERM = 420;   // vlakke berm naast de vangrail (op wegniveau) waar het decor op staat; daarachter de helling
 // Versie van de 3D-versie, rechtsonder op het startscherm. Bij elke publicatie op de website eentje ophogen.
-const GAME_VERSION = '3D-153';
+const GAME_VERSION = '3D-154';
 const LOW_H = 1080;           // aantal beeldlijnen (zoals FINE in komeet.html); daarna zonder vervaging vergroot
 const GROUND_Y = -40;        // grond iets onder het laagste stuk weg
 
@@ -2089,7 +2089,7 @@ function menuKey(code) {
   // de baan op de achtergrond volgt de keuze (zoals ui.bgWant in komeet.html)
   if (ui.screen !== 'title' && ui.mode !== 2) {
     const want = 1 + ui.cup * 3 + (ui.screen === 'track' || ((ui.screen === 'car' || ui.screen === 'char') && ui.mode === 0) ? ui.track : 0);
-    if (want !== ui.bg) { ui.bg = want; ui.bgAt = performance.now() + 250; }
+    if (want !== ui.bg) { ui.bg = want; ui.bgAt = performance.now() + 420; }   // even wachten: snel doorbladeren laadt niet elke baan
   }
 }
 // Titelscherm zoals in komeet.html: het logo-plaatje (art/obj/logo.png) met snelheidsstrepen, alle portretten,
@@ -2097,8 +2097,13 @@ function menuKey(code) {
 const LOGO_IMG = new Image(); if (ART.obj.logo) LOGO_IMG.src = ART.obj.logo;
 let logoBox = null;
 const REEL_SHOT = 3.0, REEL_PER = 2;
+const BG_FADE = 160;   // ms naar donker en weer terug bij het wisselen van de achtergrondbaan in het menu
+function bgFadeA() { const n = performance.now(); if (ui.bgOut) return Math.min(1, (n - ui.bgOut) / BG_FADE); if (ui.bgIn) { const a = 1 - (n - ui.bgIn) / (BG_FADE * 1.5); if (a <= 0) { ui.bgIn = 0; return 0; } return a; } return 0; }
 function titleTick(dt) {
-  if (ui.bgAt && performance.now() > ui.bgAt && G3.state === 'menu') { ui.bgAt = 0; if (TR.idx !== ui.bg) loadTrack(ui.bg); }
+  // andere achtergrondbaan: eerst kort naar donker, dan laden (dat hapert even, maar dat zie je dan niet), dan weer open
+  const nowB = performance.now();
+  if (ui.bgAt && nowB > ui.bgAt && G3.state === 'menu') { ui.bgAt = 0; if (TR.idx !== ui.bg) { ui.bgOut = nowB; ui.bgIn = 0; } }
+  if (ui.bgOut && nowB - ui.bgOut > BG_FADE) { ui.bgOut = 0; if (TR.idx !== ui.bg && G3.state === 'menu') loadTrack(ui.bg); ui.bgIn = performance.now(); }
   // medailletijden voor de baankaarten: een per beeld uitrekenen in plaats van alles tegelijk
   if (G3.state === 'menu' && medalQueue.length) { const [i, c] = medalQueue.shift(); medalsAny(i, c); }
   if (G3.state === 'menu' && ui.screen !== 'title') ui.menuT = (ui.menuT || 0) + dt;   // menu's: doorlopende vlucht
@@ -4747,6 +4752,7 @@ function nineSlice(im, x, y, w, h, c, k) {
 function menuBox(u) { const gap = 30 * u, cw = Math.min(300 * u, (W - 80 * u - 2 * gap) / 3), ch = 400 * u, y0 = 150 * u; return { gap, cw, ch, y0, x0: W / 2 - (cw * 3 + gap * 2) / 2 }; }
 function header(u, title, hint) {
   ctx.fillStyle = 'rgba(5,3,12,0.45)'; ctx.fillRect(0, 0, W, H);
+  const fa = bgFadeA(); if (fa > 0) { ctx.fillStyle = 'rgba(5,3,12,' + fa.toFixed(2) + ')'; ctx.fillRect(0, 0, W, H); }   // achtergrondbaan wisselt
   text(title, W / 2, 86 * u, 46 * u, '#fff', 'center', 900);
   text(hint, W / 2, H - 34 * u, 16 * u, '#cfd3ff', 'center', 600, false);
 }
