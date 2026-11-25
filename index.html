@@ -33,7 +33,7 @@ const LAPS = 3, SHIP_R = 22, HOVER = 5, SHIP_SIZE = 1.2;
 const WALL_H = 26, WALL_T = 10, ROAD_T = 16;
 const BERM = 420;   // vlakke berm naast de vangrail (op wegniveau) waar het decor op staat; daarachter de helling
 // Versie van de 3D-versie, rechtsonder op het startscherm. Bij elke publicatie op de website eentje ophogen.
-const GAME_VERSION = '3D-159';
+const GAME_VERSION = '3D-160';
 const LOW_H = 1080;           // aantal beeldlijnen (zoals FINE in komeet.html); daarna zonder vervaging vergroot
 const GROUND_Y = -40;        // grond iets onder het laagste stuk weg
 
@@ -1466,6 +1466,7 @@ const CLASSES = [
 ];
 // volgorde in het menu (van rustig naar het coolst); intern houden de cups hun nummer (records, bekers, muziek, plaatjes)
 const CUP_ORDER = [0, 1, 4, 5, 9, 6, 2, 10, 8, 11, 3, 7];
+const RACE_ORDER = CUP_ORDER.flatMap(c => [1 + c * 3, 2 + c * 3, 3 + c * 3]);   // alle banen voor een losse online race
 const cupPos = c => CUP_ORDER.indexOf(c), cupStep = (c, d) => CUP_ORDER[(cupPos(c) + d + CUP_ORDER.length) % CUP_ORDER.length];
 const CUPS = [
   { name: 'SUNNY CUP', theme: 0, sub: 'Beach, harbour and funfair' },
@@ -1883,7 +1884,7 @@ function netNext(next) {
   } else { tr = room.track || 1; if (next) { tr = 1 + (tr % (TRACKS.length - 1)); netSet({ track: tr }); } }
   setTimeout(() => NET.send({ t: 'start', track: tr }), 120);
 }
-function netSet(o) { if (!NET.room) return; Object.assign(NET.room, o); NET.seq = (NET.seq || 0) + 1; NET.send({ t: 'set', seq: NET.seq, step: 'lobby', ...o }); }
+function netSet(o) { if (!NET.room) return; Object.assign(NET.room, o); NET.seq = (NET.seq || 0) + 1; NET.send({ t: 'set', seq: NET.seq, step: NET.room.step || 'lobby', ...o }); }
 const netEnt = id => S.ents.find(e => e.remote === id);
 const EMOTES = ['GG!', 'NICE!', 'WOW!', 'OOPS!'];
 function emoteShow(name, i) { (NET.feed = NET.feed || []).push({ text: name + ': ' + EMOTES[i], until: performance.now() + 2600 }); if (NET.feed.length > 4) NET.feed.shift(); }
@@ -1909,6 +1910,7 @@ function netOnMessage(m) {
       // oude antwoorden op keuzes van de host niet over de eigen keuze heen zetten
       if (m.code && NET.room && m.host === NET.id && (m.hs || 0) < (NET.seq || 0)) { NET.room.players = m.players; NET.room.state = m.state; break; }
       NET.room = m.code ? m : null; if (m.code) { NET.err = ''; NET.typing = false; }
+      if (m.code && m.state === 'lobby') { const want = m.omode === 1 ? cupTrack(m.cup || 0, m.cupRace || 0) : (m.track || 1); if (want !== ui.bg) { ui.bg = want; ui.bgAt = performance.now() + 300; } }
       break;
     case 'start':
       NET.race = { id: m.raceId, host: m.host, grid: m.grid, bots: m.bots, seed: m.seed, cls: m.cls, items: m.items == null ? 0 : m.items, done: {}, omode: m.omode, cupRace: m.cupRace || 0 };
@@ -2008,6 +2010,7 @@ function onlineKey(code) {
     if (OK && NET.code.length === 4) NET.send({ t: 'join', code: NET.code });
     return true;
   }
+  if (code === 'Escape' && room && isHost && room.state === 'lobby' && room.step && room.step !== 'lobby') { netSet({ step: 'lobby' }); return true; }   // eerst het scherm van de instelling sluiten
   if (code === 'Escape') { if (room) { NET.send({ t: 'leave' }); NET.room = null; return true; } return false; }
   if (NET.status !== 'on') { if (OK) netConnect(); return OK; }
   if (!room) {
@@ -2017,18 +2020,25 @@ function onlineKey(code) {
   }
   if (code.startsWith('Digit') && room.state === 'race') return true;
   if (!isHost) return true;
-  if (U || D) NET.sel = (NET.sel + (D ? 1 : 4)) % 5;
-  const cupMode = room.omode === 1, busy = cupMode && room.cupRace > 0;
-  if (NET.sel === 0 && (L || R) && !busy) { netSet({ omode: cupMode ? 0 : 1, cupRace: 0 }); NET.cup = null; }
-  if (NET.sel === 1 && (L || R) && !busy) {
-    if (cupMode) { const c = cupStep(room.cup || 0, R ? 1 : -1); netSet({ cup: c }); ui.bg = cupTrack(c, 0); }
-    else { ui.bg = 1 + ((((room.track || 1) - 1) + (R ? 1 : TRACKS.length - 2)) % (TRACKS.length - 1)); netSet({ track: ui.bg }); }
-    loadTrack(ui.bg);
+  const cupMode = room.omode === 1, busy = cupMode && room.cupRace > 0, step = room.step && room.step !== 'lobby' ? room.step : null;
+  if (step && room.state === 'lobby') {   // eigen scherm van een instelling: iedereen kijkt mee
+    if (OK || code === 'Escape' || code === 'Backspace') { netSet({ step: 'lobby' }); return true; }
+    if (!(L || R)) return true;
+    const d = R ? 1 : -1;
+    if (step === 'mode' && !busy) { netSet({ omode: cupMode ? 0 : 1, cupRace: 0 }); NET.cup = null; }
+    if (step === 'cup' && !busy) netSet({ cup: CUP_ORDER[clamp(cupPos(room.cup || 0) + d, 0, CUP_ORDER.length - 1)] });
+    if (step === 'track') { const p = RACE_ORDER.indexOf(room.track || 1); netSet({ track: RACE_ORDER[clamp((p < 0 ? 0 : p) + d, 0, RACE_ORDER.length - 1)] }); }
+    if (step === 'bots') netSet({ bots: clamp((room.bots || 0) + d, 0, Math.max(0, 6 - room.players.length)) });
+    if (step === 'cls') netSet({ cls: clamp((room.cls == null ? 1 : room.cls) + d, 0, 2) });
+    if (step === 'ready') netSet({ items: R ? 1 : 0 });   // 'ready' is het scherm voor items (de server kent die naam al)
+    return true;
   }
-  if (NET.sel === 2 && (L || R)) netSet({ bots: clamp((room.bots || 0) + (R ? 1 : -1), 0, Math.max(0, 6 - room.players.length)) });
-  if (NET.sel === 3 && (L || R)) netSet({ cls: ((room.cls == null ? 1 : room.cls) + (R ? 1 : 2)) % 3 });
-  if (NET.sel === 4 && (L || R)) netSet({ items: room.items === 1 ? 0 : 1 });
+  if (U || D) NET.sel = (NET.sel + (D ? 1 : 5)) % 6;
   if (OK && room.state === 'lobby') {
+    if (NET.sel < 5) {   // instelling openen (midden in een cup liggen modus en cup vast)
+      if (busy && NET.sel < 2) return true;
+      netSet({ step: ['mode', cupMode ? 'cup' : 'track', 'bots', 'cls', 'ready'][NET.sel] }); return true;
+    }
     if (cupMode && NET.cup && NET.cup.done) { NET.cup = null; netSet({ cupRace: 0 }); return true; }
     NET.send({ t: 'start', track: cupMode ? cupTrack(room.cup || 0, room.cupRace || 0) : room.track || 1 });
   }
@@ -5255,8 +5265,9 @@ function drawItemSlot(u) {
 }
   // online-scherm in de stijl van komeet.html: verbinden, kamer maken of meedoen, en de kamer
   function drawOnlineMenu(u) {
-    const room = NET.room, hint = room ? (room.host === NET.id ? 'arrows: change      Enter: start      Esc: leave room' : 'waiting for the host      Esc: leave room') : 'up/down: select      Enter: continue      Esc: back';
-    header(u, room ? 'ROOM ' + room.code : 'ONLINE', hint);
+    const room = NET.room, hint = room ? (room.host === NET.id ? (room.step && room.step !== 'lobby' ? 'left / right: change      Enter: done' : 'up / down: pick      Enter: open      Esc: leave room') : 'the host is choosing      Esc: leave room') : 'up/down: select      Enter: continue      Esc: back';
+    const stT = room && room.state === 'lobby' && room.step && room.step !== 'lobby' ? { mode: 'MODE', cup: 'CHOOSE A CUP', track: 'CHOOSE A TRACK', bots: 'COMPUTER RACERS', cls: 'CHOOSE A CLASS', ready: 'ITEMS' }[room.step] : null;
+    header(u, room ? (stT ? 'ROOM ' + room.code + ' - ' + stT : 'ROOM ' + room.code) : 'ONLINE', hint);
     const pw = Math.min(760 * u, W - 40 * u), px = W / 2 - pw / 2, y0 = H * 0.2;
     if (NET.status !== 'on') {
       card(px, y0, pw, 150 * u, false);
@@ -5275,6 +5286,7 @@ function drawItemSlot(u) {
       return;
     }
     const isHost = room.host === NET.id, cupMode = room.omode === 1;
+    if (room.state === 'lobby' && room.step && room.step !== 'lobby') { drawRoomStep(u, room, isHost); return; }
     card(px, y0, pw * 0.58, 330 * u, false);
     text('PLAYERS', px + 22 * u, y0 + 34 * u, 15 * u, '#ffb833', 'left', 800);
     room.players.forEach((p, i) => {
@@ -5298,17 +5310,69 @@ function drawItemSlot(u) {
       if (isHost && !locked) {   // pijltjes; bij het gekozen vakje knipperen ze
         const blink = on && Math.floor(G.time * 2.5) % 2 === 0, col = on ? (blink ? '#ffffff' : '#ffb833') : 'rgba(255,255,255,0.35)';
         const tri = (x, dir) => { const p = Math.max(1, Math.round(2 * u)), cy = Math.round(by + bh / 2); ctx.fillStyle = col; for (let q = 0; q < 4; q++) ctx.fillRect(Math.round(x + dir * q * p), cy - (3 - q) * p, p, (7 - 2 * q) * p); };   // pixeldriehoekje
-        tri(bx + bw * 0.4, -1); tri(bx + bw - 16 * u, 1);
+        tri(bx + bw - 16 * u, 1);   // Enter opent het scherm van deze instelling
       }
     });
-    if (isHost) text('up / down: pick    left / right: change', sx + sw / 2, y0 + 212 * u, 11 * u, '#cfd3ff', 'center', 600, false);
-    if (cupMode) text('race ' + ((room.cupRace || 0) + 1) + '/3', sx + sw / 2, y0 + 226 * u, 13 * u, '#7dffb0', 'center', 700, false);
+    if (isHost) { const by = y0 + (40 + 32 * 5) * u + 6 * u, on = NET.sel === 5;   // START als eigen knop onder de instellingen
+      card(sx + 12 * u, by, sw - 24 * u, 28 * u, on, '#ffb833'); text(cupMode && NET.cup && NET.cup.done ? 'NEW CUP' : 'START', sx + sw / 2, by + 20 * u, 15 * u, on ? '#ffb833' : '#fff', 'center', 900); }
+    if (cupMode) text('race ' + ((room.cupRace || 0) + 1) + '/3', sx + sw / 2, y0 + 254 * u, 13 * u, '#7dffb0', 'center', 700, false);
     if (NET.cup && Object.keys(NET.cup.pts).length) {
       const rowsP = Object.entries(NET.cup.pts).sort((a, b) => b[1] - a[1]);
-      text(NET.cup.done ? 'FINAL STANDINGS' : 'STANDINGS', sx + sw / 2, y0 + 246 * u, 14 * u, '#ffb833', 'center', 800);
-      rowsP.slice(0, 6).forEach(([k, v], i) => { text((NET.cup.names[k] || '?'), sx + 18 * u, y0 + (264 + 11 * i) * u, 11 * u, k == NET.id ? '#ffb833' : '#fff', 'left', 600, false); text(v + ' pt', sx + sw - 18 * u, y0 + (264 + 11 * i) * u, 12 * u, '#fff', 'right', 600, false); });
+      text(NET.cup.done ? 'FINAL STANDINGS' : 'STANDINGS', sx + sw / 2, y0 + 272 * u, 14 * u, '#ffb833', 'center', 800);
+      rowsP.slice(0, 6).forEach(([k, v], i) => { text((NET.cup.names[k] || '?'), sx + 18 * u, y0 + (264 + 11 * i) * u, 11 * u, k == NET.id ? '#ffb833' : '#fff', 'left', 600, false); text(v + ' pt', sx + sw - 18 * u, y0 + (288 + 11 * i) * u, 12 * u, '#fff', 'right', 600, false); });
     }
-    text(room.state === 'race' ? 'race in progress...' : isHost ? (cupMode && NET.cup && NET.cup.done ? 'Enter: new cup' : 'Enter: start the race') : 'waiting for the host...', W / 2, y0 + 360 * u, 18 * u, '#ffb833', 'center', 800, false);
+    text(room.state === 'race' ? 'race in progress...' : isHost ? '' : 'waiting for the host...', W / 2, y0 + 360 * u, 18 * u, '#ffb833', 'center', 800, false);
+  }
+  // eigen scherm per instelling in de kamer; alleen de host bedient het, de anderen kijken mee
+  let roomScroll = 0;
+  function drawRoomStep(u, room, isHost) {
+    const st = room.step, { gap, cw, ch, x0, y0 } = menuBox(u), cupMode = room.omode === 1;
+    const watch = isHost ? '' : '  (HOST)';
+    if (st === 'cup') { text(CLASSES[room.cls == null ? 1 : room.cls].name, W / 2, 124 * u, 18 * u, '#ffb833', 'center', 800); drawCupGrid(u, room.cup || 0, 2); return; }
+    if (st === 'track') {   // alle banen in een schuivende rij, met de lijst van hun cup
+      const sel = Math.max(0, RACE_ORDER.indexOf(room.track || 1));
+      roomScroll += (sel - roomScroll) * 0.2; if (Math.abs(sel - roomScroll) < 0.01) roomScroll = sel;
+      const vis = RACE_ORDER.map((t, p) => p).filter(p => Math.abs(p - roomScroll) <= 3.4).sort((a, b) => Math.abs(b - roomScroll) - Math.abs(a - roomScroll));
+      for (const p of vis) {
+        const t = RACE_ORDER[p], c = Math.floor((t - 1) / 3), tr = TRACKS_ALL[t], off = p - roomScroll, ao = Math.abs(off), isSel = p === sel;
+        const x = Math.round(W / 2 - cw / 2 + Math.sign(off) * (Math.min(ao, 1) * (cw + gap) + Math.max(0, ao - 1) * (cw * 0.72 + gap * 0.5))), y = y0;
+        card(x, y, cw, ch, isSel, THEMES[CUPS[c].theme].ui);
+        if (isSel) cupFx(c, x, y, cw, ch, u);
+        const fr = ART_OBJ[CUP_FRAME[c]]; if (fr) drawFrame9(isSel ? fr : darkImg(fr), x, y, cw, ch, u);
+        text(tr.name.toUpperCase(), x + cw / 2, y + 74 * u, 22 * u, isSel ? THEMES[CUPS[c].theme].accent : '#fff', 'center', 900);
+        text(CUPS[c].name, x + cw / 2, y + 100 * u, 13 * u, '#cfd3ff', 'center', 700);
+        const sz = Math.min(cw - 70 * u, 210 * u); ctx.__trackCol = isSel ? THEMES[CUPS[c].theme].ui : '#b8b4d0';
+        pixelTrack(ctx, tr, x + (cw - sz) / 2, y + 130 * u, sz, '#16101a', 5);
+        if (!isSel) { ctx.fillStyle = 'rgba(5,3,12,' + Math.min(0.75, 0.45 + 0.12 * ao).toFixed(2) + ')'; ctx.fillRect(x, y, Math.round(cw), Math.round(ch)); }
+        const em = ART_OBJ['e' + c]; if (em) drawArt(isSel ? em : darkImg(em), x + cw / 2, y - 6 * u, 72 * u);
+      }
+      return;
+    }
+    // vaste schermen met kaarten naast elkaar (modus, klasse, items) of het aantal computerrijders
+    const cards = st === 'mode' ? [['RACE', '#7de8ff', 'icoflag'], ['CUP', '#ffb833', 'mcup']]
+      : st === 'cls' ? CLASSES.map((cl, i) => [cl.name, ['#7dffb0', '#ffb833', '#ff4f8a'][i], ['cls50', 'cls100', 'cls150'][i]])
+      : st === 'ready' ? [['OFF', '#cfd3ff', 'icolock'], ['ON', '#7dffb0', 'icostar']] : null;
+    if (cards) {
+      const cur = st === 'mode' ? (cupMode ? 1 : 0) : st === 'cls' ? (room.cls == null ? 1 : room.cls) : (room.items === 1 ? 1 : 0), n = cards.length;
+      const xs = W / 2 - (cw * n + gap * (n - 1)) / 2;
+      cards.forEach(([name, col, art], i) => {
+        const x = xs + i * (cw + gap), sel = cur === i;
+        card(x, y0, cw, ch, sel, col);
+        text(name, x + cw / 2, y0 + 96 * u, 44 * u, sel ? col : '#fff', 'center', 900);
+        drawArt(ART_OBJ[art], x + cw / 2, y0 + 240 * u + (sel ? Math.round(Math.sin(G.time * 3) * 3 * u) : 0), 140 * u);
+        if (!sel) { ctx.fillStyle = 'rgba(5,3,12,0.5)'; ctx.fillRect(Math.round(x), Math.round(y0), Math.round(cw), Math.round(ch)); }
+      });
+      return;
+    }
+    if (st === 'bots') {   // één grote kaart met het aantal en de gezichtjes van de computerrijders
+      const nB = room.bots || 0, max = Math.max(0, 6 - room.players.length), bw = Math.min(W - 80 * u, 620 * u), bx = W / 2 - bw / 2;
+      card(bx, y0, bw, ch, true, '#ffb833');
+      text('COMPUTER RACERS', W / 2, y0 + 60 * u, 22 * u, '#ffb833', 'center', 900);
+      text(String(nB), W / 2, y0 + 170 * u, 90 * u, '#fff', 'center', 900);
+      for (let k = 0; k < max; k++) { ctx.globalAlpha = k < nB ? 1 : 0.25; drawFace((k * 5 + 3) % 18, W / 2 + (k - (max - 1) / 2) * 70 * u, y0 + 270 * u + (k < nB ? Math.round(Math.sin(G.time * 3 + k) * 3 * u) : 0), 1.6); ctx.globalAlpha = 1; }
+      if (!max) text('ROOM IS FULL', W / 2, y0 + 270 * u, 18 * u, '#cfd3ff', 'center', 800);
+      text('0 - ' + max, W / 2, y0 + 350 * u, 15 * u, '#cfd3ff', 'center', 700);
+    }
   }
   function netDrawFeed(u) {
     const now = performance.now(); NET.feed = (NET.feed || []).filter(f => f.until > now);
