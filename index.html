@@ -33,19 +33,19 @@ const LAPS = 3, SHIP_R = 22, HOVER = 5, SHIP_SIZE = 1.2;
 const WALL_H = 26, WALL_T = 10, ROAD_T = 16;
 const BERM = 420;   // vlakke berm naast de vangrail (op wegniveau) waar het decor op staat; daarachter de helling
 // Versie van de 3D-versie, rechtsonder op het startscherm. Bij elke publicatie op de website eentje ophogen.
-const GAME_VERSION = '3D-137';
+const GAME_VERSION = '3D-138';
 const LOW_H = 1080;           // aantal beeldlijnen (zoals FINE in komeet.html); daarna zonder vervaging vergroot
 const GROUND_Y = -40;        // grond iets onder het laagste stuk weg
 
 // ---------------------------------------------------------------- voertuigen (uit komeet.html)
 const CARS = [
-  { id: 'valk', name: 'FALCON', cls: 'MEDIUM', top: 1150, acc: 796, turn: 1.78, grip: 6.84, boostTop: 1555, boostAcc: 1135, drain: 0.275, tough: 1.1, mass: 1.22, w: 1.0, l: 1.0,
+  { id: 'valk', name: 'FALCON', cls: 'MEDIUM', top: 1158, acc: 812, turn: 1.78, grip: 6.9, boostTop: 1563, boostAcc: 1156, drain: 0.275, tough: 1.1, mass: 1.22, w: 1.0, l: 1.0,
     pal: ['#fff2e0', '#e8d2c4', '#ff8a2a', '#e06a12', '#2a1830', '#ffcf40', '#1b2a44'] },
-  { id: 'pijl', name: 'ARROW', cls: 'MEDIUM', top: 1210, acc: 720, turn: 1.72, grip: 5.9, boostTop: 1615, boostAcc: 1036, drain: 0.285, tough: 1.0, mass: 1.09, w: 0.82, l: 1.18,
+  { id: 'pijl', name: 'ARROW', cls: 'MEDIUM', top: 1210, acc: 720, turn: 1.72, grip: 6.2, boostTop: 1615, boostAcc: 1036, drain: 0.285, tough: 1.0, mass: 1.09, w: 0.82, l: 1.18,
     pal: ['#fff7c2', '#efe09a', '#ffd21f', '#d9a800', '#2a2410', '#ffffff', '#3a2a10'] },
   { id: 'kever', name: 'BEETLE', cls: 'LIGHT', top: 1120, acc: 1000, turn: 2.05, grip: 7.9, boostTop: 1525, boostAcc: 1400, drain: 0.27, tough: 0.8, mass: 0.83, w: 1.06, l: 0.86,
     pal: ['#e9ffd0', '#cdeeb0', '#6fdc3a', '#48b020', '#12240f', '#d8ff5a', '#143018'] },
-  { id: 'mammoet', name: 'MAMMOTH', cls: 'HEAVY', top: 1203, acc: 612, turn: 1.54, grip: 7.28, boostTop: 1608, boostAcc: 896, drain: 0.235, tough: 1.7, mass: 2.0, w: 1.22, l: 1.05,
+  { id: 'mammoet', name: 'MAMMOTH', cls: 'HEAVY', top: 1203, acc: 612, turn: 1.54, grip: 7.28, boostTop: 1608, boostAcc: 896, drain: 0.235, tough: 1.35, mass: 1.55, w: 1.22, l: 1.05,
     pal: ['#e3ecff', '#c3d0ee', '#4f86ff', '#2e5fd8', '#101a33', '#9fd0ff', '#0d1a40'] }
 ];
 const MODELS = {
