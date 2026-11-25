@@ -33,7 +33,7 @@ const LAPS = 3, SHIP_R = 22, HOVER = 5, SHIP_SIZE = 1.2;
 const WALL_H = 26, WALL_T = 10, ROAD_T = 16;
 const BERM = 420;   // vlakke berm naast de vangrail (op wegniveau) waar het decor op staat; daarachter de helling
 // Versie van de 3D-versie, rechtsonder op het startscherm. Bij elke publicatie op de website eentje ophogen.
-const GAME_VERSION = '3D-133';
+const GAME_VERSION = '3D-134';
 const LOW_H = 1080;           // aantal beeldlijnen (zoals FINE in komeet.html); daarna zonder vervaging vergroot
 const GROUND_Y = -40;        // grond iets onder het laagste stuk weg
 
@@ -2590,7 +2590,36 @@ void main(){ vec4 w = uM * vec4(aPos, 1.0); vW = w.xyz; vC = aCol; gl_Position =
 const FS_MESH = `#version 300 es
 precision highp float; in vec3 vW; flat in vec3 vC; uniform vec3 uFlame; out vec4 o;
 ${GLSL_COMMON}
-void main(){ vec3 c = vC.r < 0.0 ? uFlame / max(uNight, vec3(0.05)) : vC; o = vec4(fog(c, vW), 1.0); }`;   // vlammen blijven fel, ook 's nachts
+// materialen: 1 asfalt, 2 vangrail (binnenkant), 3 beton (buitenkant), 4 gras/zand op hellingen, 5 onderkant en pilaren
+vec3 matTex(vec3 c, float m){
+  vec3 n = normalize(cross(dFdx(vW), dFdy(vW)));
+  vec3 t = abs(n.y) > 0.9 ? vec3(1.0, 0.0, 0.0) : normalize(cross(vec3(0.0, 1.0, 0.0), n)), b = cross(n, t);
+  vec2 uv = vec2(dot(vW, t), dot(vW, b)), q = floor(uv / 5.0), f;
+  float h = hash(q), h2 = hash(q + 7.31), k = 1.0;
+  if (m == 1.0) {   // asfalt: korrel, lichte steentjes, donkere vlekjes en hier en daar een scheur
+    k = 1.0 + (h - 0.5) * 0.09; if (h2 > 0.975) k = 1.13; else if (h2 < 0.02) k = 0.86;
+    vec2 g = floor(uv / 90.0); f = fract(uv / 90.0);
+    if (hash(g) > 0.82 && abs(f.x - f.y + (hash(floor(uv / 15.0)) - 0.5) * 0.08) < 0.022 && f.x > 0.15 && f.x < 0.85) k = 0.78;
+  } else if (m == 2.0) {   // vangrail: platen met naden, boutjes bij de naden, geborsteld metaal
+    k = 1.0 + (hash(vec2(floor(uv.y / 3.0), 1.0)) - 0.5) * 0.08; f = fract(uv / vec2(70.0, 1.0));
+    if (f.x < 0.035) k = 0.72; else if (f.x < 0.07) k = 1.12;
+    if (f.x > 0.08 && f.x < 0.12 && mod(floor(uv.y / 5.0), 3.0) == 1.0) k = 1.25;
+  } else if (m == 3.0) {   // beton: blokken in verband, vlekjes
+    vec2 bq = uv / vec2(48.0, 22.0); bq.x += mod(floor(bq.y), 2.0) * 0.5; f = fract(bq);
+    k = 1.0 + (h - 0.5) * 0.12; if (f.x < 0.05 || f.y < 0.08) k = 0.78; if (h2 > 0.985) k = 0.86;
+  } else if (m == 4.0) {   // helling: plukjes en vlekjes
+    k = 1.0 + (h - 0.5) * 0.1; if (h2 > 0.93) k = 1.12; else if (h2 < 0.07) k = 0.88;
+  } else if (m == 5.0) {   // onderkant en pilaren: beton met verticale bekisting
+    k = 1.0 + (h - 0.5) * 0.12; if (fract(uv.x / 18.0) < 0.08) k = 0.8;
+  }
+  float fade = clamp(1.0 - (distance(vW, uCam) - 700.0) / 1600.0, 0.0, 1.0);
+  return c * mix(1.0, k, fade);
+}
+void main(){
+  vec3 c = vC;
+  if (c.r < 0.0) c = uFlame / max(uNight, vec3(0.05));   // vlammen blijven fel, ook 's nachts
+  else if (c.r > 9.5) { float m = floor(c.r / 10.0); c.r -= m * 10.0; c = matTex(c, m); }
+  o = vec4(fog(c, vW), 1.0); }`;
 const FS_GROUND = `#version 300 es
 precision highp float; in vec3 vW; flat in vec3 vC; uniform vec3 uG[6]; uniform vec3 uCenter; uniform sampler2D uDist; uniform vec3 uDistBox; out vec4 o;
 ${GLSL_COMMON}
@@ -2731,6 +2760,7 @@ function lit(col, n, amb = 0.62) {
   const k = Math.round((amb + (1 - amb) * Math.max(0, dot(n, SUN))) * 12) / 12 * 1.08;
   return [Math.min(1, col[0] * k), Math.min(1, col[1] * k), Math.min(1, col[2] * k)];
 }
+const mat = (c, m) => [c[0] + 10 * m, c[1], c[2]];   // materiaal voor de textuur in de shader (zie matTex)
 function pushTri(out, a, b, c, col) { for (const p of [a, b, c]) out.push(p[0], p[1], p[2], col[0], col[1], col[2]); }
 function pushQuad(out, a, b, c, d, col) { pushTri(out, a, b, c, col); pushTri(out, a, c, d, col); }
 
@@ -2862,20 +2892,20 @@ function buildRoadMesh() {
     const E = k => [[-hwi, -hwj], [-hwi + 18, -hwj + 18], [hwi - 18, hwj - 18], [hwi, hwj]][k];
     for (let k = 0; k < 3; k++) {
       const col = k === 1 ? (band ? COL.asphA : COL.asphB) : (curb ? COL.curbR : COL.curbW), a = E(k), b = E(k + 1);
-      pushQuad(out, pos(i, ci + a[0], hi), pos(j, cj + a[1], hj), pos(j, cj + b[1], hj), pos(i, ci + b[0], hi), lit(col, Ui));
+      pushQuad(out, pos(i, ci + a[0], hi), pos(j, cj + a[1], hj), pos(j, cj + b[1], hj), pos(i, ci + b[0], hi), k === 1 ? mat(lit(col, Ui), 1) : lit(col, Ui));
     }
     for (const sd of [-1, 1]) {
       const wc = ((i / 3) | 0) & 1 ? COL.wallA : COL.wallB, ei = ci + sd * hwi, ej = cj + sd * hwj, fi = ei + sd * WALL_T, fj = ej + sd * WALL_T;
-      pushQuad(out, pos(i, ei, hi), pos(j, ej, hj), pos(j, ej, hj + WALL_H), pos(i, ei, hi + WALL_H), lit(wc, scale(Ri, -sd)));
+      pushQuad(out, pos(i, ei, hi), pos(j, ej, hj), pos(j, ej, hj + WALL_H), pos(i, ei, hi + WALL_H), mat(lit(wc, scale(Ri, -sd)), 2));
       pushQuad(out, pos(i, ei, hi + WALL_H), pos(j, ej, hj + WALL_H), pos(j, fj, hj + WALL_H), pos(i, fi, hi + WALL_H), lit(COL.wallTop, Ui));
-      pushQuad(out, pos(i, fi, hi + WALL_H), pos(j, fj, hj + WALL_H), pos(j, fj, -ROAD_T), pos(i, fi, -ROAD_T), lit(COL.side, scale(Ri, sd)));
+      pushQuad(out, pos(i, fi, hi + WALL_H), pos(j, fj, hj + WALL_H), pos(j, fj, -ROAD_T), pos(i, fi, -ROAD_T), mat(lit(COL.side, scale(Ri, sd)), 3));
     }
   };
   const slopeAt = (i, j, di, dj, sd) => {
     const a = pos(i, di, -ROAD_T), b = pos(j, dj, -ROAD_T); if (a[1] < GROUND_Y + 2 && b[1] < GROUND_Y + 2) return;
     const ha = norm([R[i][0] * sd, 0, R[i][2] * sd]), hb = norm([R[j][0] * sd, 0, R[j][2] * sd]);
     const fa = [a[0] + ha[0] * (a[1] - GROUND_Y) * 1.1, GROUND_Y, a[2] + ha[2] * (a[1] - GROUND_Y) * 1.1], fb = [b[0] + hb[0] * (b[1] - GROUND_Y) * 1.1, GROUND_Y, b[2] + hb[2] * (b[1] - GROUND_Y) * 1.1];
-    pushQuad(out, a, b, fb, fa, lit((Math.floor(i / 8) & 1) ? COL.grassA : COL.grassB, norm([ha[0], 1.1, ha[2]])));
+    pushQuad(out, a, b, fb, fa, mat(lit((Math.floor(i / 8) & 1) ? COL.grassA : COL.grassB, norm([ha[0], 1.1, ha[2]])), 4));
   };
   for (let i = 0; i < N; i++) {
     const j = (i + 1) % N, Ui = U[i], Ri = R[i];
@@ -2888,7 +2918,7 @@ function buildRoadMesh() {
       } else {                         // twee routes met een grasveld ertussen; rechts op zijn eigen hoogte
         const hi = sp.hr[i], hj = sp.hr[j];
         roadSeg(i, j, -ci, -cj, HW, HW, 0, 0); roadSeg(i, j, ci, cj, HW, HW, hi, hj);
-        pushQuad(out, pos(i, -ci + EW2, -ROAD_T + 2), pos(j, -cj + EW2, -ROAD_T + 2), pos(j, cj - EW2, -ROAD_T + 2), pos(i, ci - EW2, -ROAD_T + 2), lit(COL.grassA, Ui));
+        pushQuad(out, pos(i, -ci + EW2, -ROAD_T + 2), pos(j, -cj + EW2, -ROAD_T + 2), pos(j, cj - EW2, -ROAD_T + 2), pos(i, ci - EW2, -ROAD_T + 2), mat(lit(COL.grassA, Ui), 4));
         slopeAt(i, j, -(ci + EW2), -(cj + EW2), -1); slopeAt(i, j, ci + EW2, cj + EW2, 1);
         // neus van het eiland: een gestreept blok waar de routes uit elkaar gaan en weer samenkomen
         const w0 = splitW((i - 1) * TR.step) * sp.D, w2 = splitW((j + 1) * TR.step) * sp.D;
@@ -2900,7 +2930,7 @@ function buildRoadMesh() {
     for (let k = 0; k < 5; k++) {
       let col = k === 0 || k === 4 ? (curb ? COL.curbR : COL.curbW) : k === 2 ? (curb ? COL.line : (band ? COL.asphA : COL.asphB)) : (band ? COL.asphA : COL.asphB);
       if (i < 3) col = null;   // startlijn: geblokt
-      if (col) pushQuad(out, pos(i, edges[k], 0), pos(j, edges[k], 0), pos(j, edges[k + 1], 0), pos(i, edges[k + 1], 0), lit(col, Ui));
+      if (col) pushQuad(out, pos(i, edges[k], 0), pos(j, edges[k], 0), pos(j, edges[k + 1], 0), pos(i, edges[k + 1], 0), col === COL.asphA || col === COL.asphB ? mat(lit(col, Ui), 1) : lit(col, Ui));
     }
     if (i < 3) for (let c = 0; c < 12; c++) {
       const d0 = -HW + c * HW / 6, d1 = d0 + HW / 6;
@@ -2912,11 +2942,11 @@ function buildRoadMesh() {
       let wc = ((i / 3) | 0) & 1 ? COL.wallA : COL.wallB;
       if (steep) wc = ((i + (sd > 0 ? 0 : 2)) >> 1) % 3 === 0 ? COL.chevB : COL.chevA;
       const inner = scale(Ri, -sd);
-      pushQuad(out, pos(i, e0, 0), pos(j, e0, 0), pos(j, e0, WALL_H), pos(i, e0, WALL_H), lit(wc, inner));
+      pushQuad(out, pos(i, e0, 0), pos(j, e0, 0), pos(j, e0, WALL_H), pos(i, e0, WALL_H), mat(lit(wc, inner), 2));
       pushQuad(out, pos(i, e0, WALL_H), pos(j, e0, WALL_H), pos(j, e1, WALL_H), pos(i, e1, WALL_H), lit(COL.wallTop, Ui));
-      pushQuad(out, pos(i, e1, WALL_H), pos(j, e1, WALL_H), pos(j, e1, -ROAD_T), pos(i, e1, -ROAD_T), lit(COL.side, scale(Ri, sd)));
+      pushQuad(out, pos(i, e1, WALL_H), pos(j, e1, WALL_H), pos(j, e1, -ROAD_T), pos(i, e1, -ROAD_T), mat(lit(COL.side, scale(Ri, sd)), 3));
     }
-    pushQuad(out, pos(i, -HW - WALL_T, -ROAD_T), pos(j, -HW - WALL_T, -ROAD_T), pos(j, HW + WALL_T, -ROAD_T), pos(i, HW + WALL_T, -ROAD_T), lit(COL.under, scale(Ui, -1), 0.4));
+    pushQuad(out, pos(i, -HW - WALL_T, -ROAD_T), pos(j, -HW - WALL_T, -ROAD_T), pos(j, HW + WALL_T, -ROAD_T), pos(i, HW + WALL_T, -ROAD_T), mat(lit(COL.under, scale(Ui, -1), 0.4), 5));
     // talud naar de grond (een heuvel), of pilaren bij een brug
     if (TR.loop[i] || TR.loop[j]) { /* looping: vrij in de lucht */ }
     else if (!isBridge[i] && !isBridge[j] && TRACK_STYLE[TR.def.id] !== 'skyway') {
@@ -2926,12 +2956,12 @@ function buildRoadMesh() {
         const ha = norm([R[i][0] * sd, 0, R[i][2] * sd]), hb = norm([R[j][0] * sd, 0, R[j][2] * sd]);
         const bw = Math.max(0, Math.min(BERM, (Math.min(a[1], b[1]) - GROUND_Y) * 4, nearO[i] - 2 * (HW + WALL_T) - 80, nearO[j] - 2 * (HW + WALL_T) - 80));   // lage weg of een andere weg vlakbij: smallere berm
         const a2 = [a[0] + ha[0] * bw, a[1], a[2] + ha[2] * bw], b2 = [b[0] + hb[0] * bw, b[1], b[2] + hb[2] * bw];
-        pushQuad(out, a, b, b2, a2, lit(COL.grassA, [0, 1, 0]));
+        pushQuad(out, a, b, b2, a2, mat(lit(COL.grassA, [0, 1, 0]), 4));
         const fa = [a2[0] + ha[0] * (a[1] - GROUND_Y) * 1.1, GROUND_Y, a2[2] + ha[2] * (a[1] - GROUND_Y) * 1.1];
         const fb = [b2[0] + hb[0] * (b[1] - GROUND_Y) * 1.1, GROUND_Y, b2[2] + hb[2] * (b[1] - GROUND_Y) * 1.1];
         const n = norm([ha[0], 1.1, ha[2]]);
         const gc = (Math.floor(i / 8) & 1) ? COL.grassA : COL.grassB;
-        pushQuad(out, a2, b2, fb, fa, lit(gc, n));
+        pushQuad(out, a2, b2, fb, fa, mat(lit(gc, n), 4));
       }
     } else if (i % (TRACK_STYLE[TR.def.id] === 'skyway' ? 30 : 22) === 0 && P[i * 3 + 1] > 60) {
       const c = pos(i, 0, -ROAD_T), w = 22, top = c[1] + 4;
@@ -2940,7 +2970,7 @@ function buildRoadMesh() {
       for (let q = 0; q < N; q += 2) { const dx = P[q * 3] - c[0], dz = P[q * 3 + 2] - c[2]; if (P[q * 3 + 1] < top - 120 && dx * dx + dz * dz < (HW + 70) ** 2) { free = false; break; } }
       if (free) for (const [nx, nz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
         const ox = nx * w, oz = nz * w, px = -nz * w, pz = nx * w;
-        pushQuad(out, [c[0] + ox - px, top, c[2] + oz - pz], [c[0] + ox + px, top, c[2] + oz + pz], [c[0] + ox + px, GROUND_Y, c[2] + oz + pz], [c[0] + ox - px, GROUND_Y, c[2] + oz - pz], lit(COL.pillar, [nx, 0, nz]));
+        pushQuad(out, [c[0] + ox - px, top, c[2] + oz - pz], [c[0] + ox + px, top, c[2] + oz + pz], [c[0] + ox + px, GROUND_Y, c[2] + oz + pz], [c[0] + ox - px, GROUND_Y, c[2] + oz - pz], mat(lit(COL.pillar, [nx, 0, nz]), 5));
       }
     }
   }
