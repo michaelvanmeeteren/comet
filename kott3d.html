@@ -33,7 +33,7 @@ const LAPS = 3, SHIP_R = 22, HOVER = 5, SHIP_SIZE = 1.2;
 const WALL_H = 26, WALL_T = 10, ROAD_T = 16;
 const BERM = 420;   // vlakke berm naast de vangrail (op wegniveau) waar het decor op staat; daarachter de helling
 // Versie van de 3D-versie, rechtsonder op het startscherm. Bij elke publicatie op de website eentje ophogen.
-const GAME_VERSION = '3D-138';
+const GAME_VERSION = '3D-139';
 const LOW_H = 1080;           // aantal beeldlijnen (zoals FINE in komeet.html); daarna zonder vervaging vergroot
 const GROUND_Y = -40;        // grond iets onder het laagste stuk weg
 
@@ -187,6 +187,7 @@ const TRACK_DEFS = [
     pts: [[1000,4400],[1000,2400],[1700,1200],[3000,1000],[3800,1800],[4000,3200],[4800,3900],[5800,3300],[6000,1900],[6600,1100],[7300,1700],[7400,3400],[7400,5400],[6800,6800],[5400,7400],[3600,7400],[2000,7000],[1100,6000]] }
 ];
 // gevaren (zelfde maten als in komeet.html)
+const PADC = { frame: hex('#0c1430'), base: hex('#1650c8'), base2: hex('#1a5cd8'), lane: hex('#1f78ee'), rail: hex('#8ff6ff'), arrow: [hex('#2ad8ff'), hex('#7ff0ff'), hex('#ffffff')] };   // kleuren van de boostplaten
 const PAD_HW = 55, PAD_HL = 80, WAVE_HW = 55, WAVE_RUN = 1.6, WAVE_P = 3.6, GAP_L = 300, GAP_BACK = 1200;   // terugzetten na een val: ver genoeg om weer vaart te maken (heuvels!)
 const GEY_P = 3.2, GEY_ON = 0.9;   // geiser: elke 3,2 seconden 0,9 seconde stoom
 // getimede gevaren: [periode, actief, waarschuwing] in seconden
@@ -3087,13 +3088,11 @@ function buildRoadMesh() {
   }
   hzRoute = 0;
   for (const p of TR.pads || []) {
-    // boostpad: drie pijlen op een blauwe plaat
-    strip(p.s - PAD_HL, p.s + PAD_HL, p.d - PAD_HW, p.d + PAD_HW, HC.pad, 0.7);
-    for (let k = 0; k < 3; k++) {
-      const s0 = p.s - PAD_HL + 20 + k * 48, tip = wpt(s0 + 30, p.d, 1.2), l = wpt(s0, p.d - PAD_HW * 0.7, 1.2), r = wpt(s0, p.d + PAD_HW * 0.7, 1.2), m = wpt(s0 + 12, p.d, 1.2);
-      at(s0, Q3); const n = [Q3.ux, Q3.uy, Q3.uz];
-      pushTri(out, l, tip, m, lit(HC.pad2, n)); pushTri(out, m, tip, r, lit(HC.pad2, n));
-    }
+    // boostpad: donkere rand, diepblauwe plaat met een lichtere baan in het midden en lichtgevende zijlijnen; de pijlen bewegen (drawDynamic)
+    strip(p.s - PAD_HL - 7, p.s + PAD_HL + 7, p.d - PAD_HW - 7, p.d + PAD_HW + 7, PADC.frame, 0.55);
+    strip(p.s - PAD_HL, p.s + PAD_HL, p.d - PAD_HW, p.d + PAD_HW, PADC.base, 0.7, 0.7, 20, PADC.base2);
+    strip(p.s - PAD_HL, p.s + PAD_HL, p.d - PAD_HW * 0.55, p.d + PAD_HW * 0.55, PADC.lane, 0.8);
+    for (const sd of [-1, 1]) strip(p.s - PAD_HL, p.s + PAD_HL, p.d + sd * (PAD_HW - 7), p.d + sd * (PAD_HW - 2), PADC.rail, 0.85);
   }
   roadMesh = meshVAO(out, PM);
 }
@@ -3888,6 +3887,18 @@ function drawDynamic() {
   const spr = (p, name, sz, tint, a, glow, flip, base) => { if (a == null || a > 0.02) FX.spr.push({ p, name, sz, tint: tint || [1, 1, 1], a: a == null ? 1 : a, glow: glow || 0, flip, base }); };
   const wp = (sv, d, up) => { at(sv, DQ); return [DQ.px + DQ.rx * d + DQ.ux * up, DQ.py + DQ.ry * d + DQ.uy * up, DQ.pz + DQ.rz * d + DQ.uz * up]; };
   const up = sv => { at(sv, DQ); return [DQ.ux, DQ.uy, DQ.uz]; };
+  // boostplaten: vier V-pijlen die over de plaat naar voren schuiven (achteraan donker, voorin wit)
+  { const tp = performance.now() / 1000, NA = 4, gapA = (2 * PAD_HL - 20) / NA, Lh = 26, th = 12, W2 = PAD_HW * 0.72;
+    for (const p of TR.pads || []) {
+      const pp = wp(p.s, p.d, 0); if ((pp[0] - cam.pos[0]) ** 2 + (pp[2] - cam.pos[2]) ** 2 > 2600 * 2600) continue;
+      const n = up(p.s);
+      for (let k = 0; k < NA; k++) {
+        const f = ((k + tp * 1.6) % NA) / NA, s0 = p.s - PAD_HL + 6 + f * (2 * PAD_HL - Lh - th - 12);
+        const ci = f < 0.33 ? 0 : f < 0.7 ? 1 : 2, col = lit(PADC.arrow[ci], n, 1);
+        for (const sd of [-1, 1]) pushQuad(out, wp(s0, p.d + sd * W2, 1.3), wp(s0 + Lh, p.d, 1.3), wp(s0 + Lh + th, p.d, 1.3), wp(s0 + th, p.d + sd * W2, 1.3), col);
+      }
+    }
+  }
   // golven: een schuimende band die dwars over de weg spoelt
   for (const hz of TR.haz || []) {
     if (hz.type !== 'wave') continue;
