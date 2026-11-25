@@ -33,7 +33,7 @@ const LAPS = 3, SHIP_R = 22, HOVER = 5, SHIP_SIZE = 1.2;
 const WALL_H = 26, WALL_T = 10, ROAD_T = 16;
 const BERM = 420;   // vlakke berm naast de vangrail (op wegniveau) waar het decor op staat; daarachter de helling
 // Versie van de 3D-versie, rechtsonder op het startscherm. Bij elke publicatie op de website eentje ophogen.
-const GAME_VERSION = '3D-154';
+const GAME_VERSION = '3D-155';
 const LOW_H = 1080;           // aantal beeldlijnen (zoals FINE in komeet.html); daarna zonder vervaging vergroot
 const GROUND_Y = -40;        // grond iets onder het laagste stuk weg
 
@@ -1465,20 +1465,20 @@ const CLASSES = [
   { name: '150CC', sub: 'Fast and fierce', mul: 1.13, ai: 0.03, lead: 0.972, chase: 1.05, info: ['Everything faster', 'Rivals fight back', 'For the experts'] }
 ];
 const CUPS = [
-  { name: 'COAST CUP', theme: 0, sub: 'Beach, harbour and funfair' },
-  { name: 'SAKURA CUP', theme: 1, sub: 'Blossoms, bamboo and neon' },
-  { name: 'CASTLE CUP', theme: 2, sub: 'Moat, dungeon and stormy keep' },
-  { name: 'STAR CUP', theme: 3, sub: 'Meteors, a ring and a supernova' },
+  { name: 'SUNNY CUP', theme: 0, sub: 'Beach, harbour and funfair' },
+  { name: 'BLOOMING CUP', theme: 1, sub: 'Blossoms, bamboo and neon' },
+  { name: 'STORMY CUP', theme: 2, sub: 'Moat, dungeon and stormy keep' },
+  { name: 'STARRY CUP', theme: 3, sub: 'Meteors, a ring and a supernova' },
   // De tweede vier cups zijn verwant aan de eerste vier (zelfde basisthema en muziek), met eigen banen en kleuren.
-  { name: 'DUNE CUP', theme: 0, sub: 'Oasis, bazaar and canyon' },
-  { name: 'LOTUS CUP', theme: 1, sub: 'Marigolds, monsoon and festival' },
-  { name: 'FROST CUP', theme: 2, sub: 'Glacier, crypt and frozen throne' },
-  { name: 'LEGEND CUP', theme: 3, sub: 'Aurora, a titan and the big bang' },
+  { name: 'SCORCHING CUP', theme: 0, sub: 'Oasis, bazaar and canyon' },
+  { name: 'FESTIVE CUP', theme: 1, sub: 'Marigolds, monsoon and festival' },
+  { name: 'ICY CUP', theme: 2, sub: 'Glacier, crypt and frozen throne' },
+  { name: 'LEGENDARY CUP', theme: 3, sub: 'Aurora, a titan and the big bang' },
   // vier nieuwe cups met een eigen thema
-  { name: 'ABYSS CUP', theme: 4, sub: 'Glass tubes under the sea' },
-  { name: 'SUGAR CUP', theme: 5, sub: 'Frosting, gumdrops and chocolate' },
-  { name: 'PHANTOM CUP', theme: 6, sub: 'Bogs, lanterns and a crypt' },
-  { name: 'GEAR CUP', theme: 7, sub: 'Cogs, steam and a clocktower' }
+  { name: 'DEEP CUP', theme: 4, sub: 'Glass tubes under the sea' },
+  { name: 'SWEET CUP', theme: 5, sub: 'Frosting, gumdrops and chocolate' },
+  { name: 'SPOOKY CUP', theme: 6, sub: 'Bogs, lanterns and a crypt' },
+  { name: 'STEAMY CUP', theme: 7, sub: 'Cogs, steam and a clocktower' }
 ];
 const POINTS = [10, 7, 5, 3, 2, 1];
 const CUP_FRAME = ['cfra', 'cfrb', 'cfrc', 'cfrd', 'cfre', 'cfrf', 'cfrg', 'cfrh', 'cfri', 'cfrj', 'cfrk', 'cfrl'];   // lijst per cup (art/obj, SpriteCook)
