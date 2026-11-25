@@ -13,7 +13,7 @@
 <canvas id="gl"></canvas>
 <canvas id="hud"></canvas>
 <div id="msg"></div>
-<script src="art/sprites.js?h=c077d379e8"></script>
+<script src="art/sprites.js?h=5fca200a98"></script>
 <script>
 'use strict';
 // =====================================================================================================
@@ -33,7 +33,7 @@ const LAPS = 3, SHIP_R = 22, HOVER = 5, SHIP_SIZE = 1.2;
 const WALL_H = 26, WALL_T = 10, ROAD_T = 16;
 const BERM = 420;   // vlakke berm naast de vangrail (op wegniveau) waar het decor op staat; daarachter de helling
 // Versie van de 3D-versie, rechtsonder op het startscherm. Bij elke publicatie op de website eentje ophogen.
-const GAME_VERSION = '3D-146';
+const GAME_VERSION = '3D-147';
 const LOW_H = 1080;           // aantal beeldlijnen (zoals FINE in komeet.html); daarna zonder vervaging vergroot
 const GROUND_Y = -40;        // grond iets onder het laagste stuk weg
 
@@ -1481,6 +1481,7 @@ const CUPS = [
   { name: 'GEAR CUP', theme: 7, sub: 'Cogs, steam and a clocktower' }
 ];
 const POINTS = [10, 7, 5, 3, 2, 1];
+const CUP_FRAME = ['cfra', 'cfrb', 'cfrc', 'cfrd', 'cfre', 'cfrf', 'cfrg', 'cfrh', 'cfri', 'cfrj', 'cfrk', 'cfrl'];   // lijst per cup (art/obj, SpriteCook)
 const CUP_DECO = ['cdka', 'cdkb', 'cdkc', 'cdkd', 'cdke', 'cdkf', 'cdkg', 'cdkh', 'cdki', 'cdkj', 'cdkk', 'cdkl'];   // versiering per cup (art/obj, SpriteCook)
 const TRO_NAMES = ['tcoast', 'tsakura', 'tcastle', 'tstar', 'tdune', 'tlotus', 'tfrost', 'tlegend', 'tabyss', 'tsugar', 'tphantom', 'tgear'];   // beker per cup (art/obj)
 const MEDAL_COL = ['#4a4860', '#c8793a', '#cfd6e0', '#ffd24a'], MEDAL_NAME = ['', 'BRONZE', 'SILVER', 'GOLD'];
@@ -4178,7 +4179,7 @@ const KUI = (() => {
   const SPR_BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5].map(v => (v + 0.5) / 16);
   const ART_OBJ = {};
   const proj3 = p => { const m = LAST_VP; if (!m) return null; const x = m[0] * p[0] + m[4] * p[1] + m[8] * p[2] + m[12], y = m[1] * p[0] + m[5] * p[1] + m[9] * p[2] + m[13], w = m[3] * p[0] + m[7] * p[1] + m[11] * p[2] + m[15]; return w > 1 ? [(x / w * 0.5 + 0.5) * W, (1 - (y / w * 0.5 + 0.5)) * H, w] : null; };
-  for (const k of [...CUP_DECO, 'keyart', ...Array.from({ length: 12 }, (_, i) => 'cupcard' + i), 'mtime', 'mcup', 'monline', 'cls50', 'cls100', 'cls150', 'icolock', 'icostar', 'icogear', 'icoghost', 'icowatch', 'icocrown', 'icoflag', 'icoglobe', 'icomedals', ...TRO_NAMES, 'logo', 'trophy', 'e0', 'e1', 'e2', 'e3', 'e4', 'e5', 'e6', 'e7', 'e8', 'e9', 'e10', 'e11', 'trophygold', 'trophysilver', 'trophybronze', 'podium', 'confetti', 'crown', 'selhi', 'sello', ...Array.from({ length: 18 }, (_, i) => ['b' + i + 'x', 'b' + i + 'x2', 'b' + i + 's', 'b' + i + 'w', 'b' + i + 'v', 'b' + i + 'd', 'b' + i + 'q', 'f' + i + 'h', 'f' + i + 'a', 'f' + i + 'o', 'f' + i + 's']).flat()]) if (ART.obj[k]) { const im = new Image(); im.onload = () => { ART_OBJ[k] = im; }; im.src = ART.obj[k]; }
+  for (const k of [...CUP_DECO, ...CUP_FRAME, 'keyart', ...Array.from({ length: 12 }, (_, i) => 'cupcard' + i), 'mtime', 'mcup', 'monline', 'cls50', 'cls100', 'cls150', 'icolock', 'icostar', 'icogear', 'icoghost', 'icowatch', 'icocrown', 'icoflag', 'icoglobe', 'icomedals', ...TRO_NAMES, 'logo', 'trophy', 'e0', 'e1', 'e2', 'e3', 'e4', 'e5', 'e6', 'e7', 'e8', 'e9', 'e10', 'e11', 'trophygold', 'trophysilver', 'trophybronze', 'podium', 'confetti', 'crown', 'selhi', 'sello', ...Array.from({ length: 18 }, (_, i) => ['b' + i + 'x', 'b' + i + 'x2', 'b' + i + 's', 'b' + i + 'w', 'b' + i + 'v', 'b' + i + 'd', 'b' + i + 'q', 'f' + i + 'h', 'f' + i + 'a', 'f' + i + 'o', 'f' + i + 's']).flat()]) if (ART.obj[k]) { const im = new Image(); im.onload = () => { ART_OBJ[k] = im; }; im.src = ART.obj[k]; }
   const TRACKS_ALL = TRACKS_OUTER, TRACKS = TRACKS_ALL.slice(1);
   const LOOKS = TRACKS.map(t => ({ names: THEMES[CUPS[t.cup].theme].names }));
   const roadWx = () => null;
@@ -4809,6 +4810,38 @@ function drawArt(im, cx, cy, h) {
   const w = im.width * h / im.height; ctx.imageSmoothingEnabled = false;
   ctx.drawImage(im, Math.round(cx - w / 2), Math.round(cy - h / 2), Math.round(w), Math.round(h)); return true;
 }
+// lijst om een kaart: hoeken (30% van het plaatje) blijven gelijk, de randen rekken mee; iets buiten de kaart zodat de binnenkant vrij blijft
+function drawFrame9(im, x, y, w, h, u) {
+  const e = 14 * u; x -= e; y -= e; w += 2 * e; h += 2 * e;
+  const sw = im.width, sh = im.height, c = Math.round(Math.min(sw, sh) * 0.3), k = w / sw, d = Math.round(c * k);
+  const xs = [0, c, sw - c, sw], ys = [0, c, sh - c, sh], xd = [x, x + d, x + w - d, x + w], yd = [y, y + d, y + h - d, y + h];
+  ctx.imageSmoothingEnabled = false;
+  for (let a = 0; a < 3; a++) for (let b = 0; b < 3; b++) { if (a === 1 && b === 1) continue;
+    ctx.drawImage(im, xs[a], ys[b], xs[a + 1] - xs[a], ys[b + 1] - ys[b], Math.round(xd[a]), Math.round(yd[b]), Math.round(xd[a + 1]) - Math.round(xd[a]), Math.round(yd[b + 1]) - Math.round(yd[b])); }
+}
+// bewegende deeltjes per cup, binnen de kaart: zee-belletjes, bloesem, vonken, sterren, zand, lichtjes, sneeuw, noorderlicht, bellen, hagelslag, dwaallichtjes, stoom
+function cupFx(i, x, y, w, h, u) {
+  const t = G.time, R = (k, n) => { const v = Math.sin(k * 127.1 + n * 311.7) * 43758.5453; return v - Math.floor(v); }, px = Math.max(2, Math.round(3 * u));
+  ctx.save(); ctx.beginPath(); ctx.rect(x, y, w, h); ctx.clip();
+  const dot = (cx, cy, s, col, a) => { ctx.globalAlpha = a == null ? 1 : a; ctx.fillStyle = col; ctx.fillRect(Math.round(cx), Math.round(cy), Math.round(s), Math.round(s)); };
+  const fall = (k, sp, sway) => { const f = (t * sp * (0.6 + R(k, 1) * 0.8) + R(k, 2)) % 1; return [x + R(k, 3) * w + Math.sin(t * 1.3 + k) * sway * u, y - 10 * u + f * (h + 20 * u)]; };
+  const rise = (k, sp, sway) => { const f = (t * sp * (0.6 + R(k, 1) * 0.8) + R(k, 2)) % 1; return [x + R(k, 3) * w + Math.sin(t * 1.7 + k * 2) * sway * u, y + h + 10 * u - f * (h + 20 * u), f]; };
+  if (i === 0) { for (let k = 0; k < 14; k++) { const [a, b, f] = rise(k, 0.12, 6); dot(a, b, px, '#bff6ff', 0.75 * (1 - f)); }
+    for (let k = 0; k < 6; k++) { const yy = y + h * (0.2 + 0.13 * k), xx = x + ((t * 30 * u + k * 70 * u) % (w + 60 * u)) - 30 * u; dot(xx, yy, 18 * u, '#7fe8ff', 0.25); } }
+  else if (i === 1) for (let k = 0; k < 18; k++) { const [a, b] = fall(k, 0.1, 14); dot(a + b * 0.15 - h * 0.08, b, px * (1 + (k % 2)), k % 3 ? '#ffb7d5' : '#ff8fbf', 0.85); }
+  else if (i === 2) for (let k = 0; k < 16; k++) { const [a, b, f] = rise(k, 0.18, 8); dot(a, b, px, Math.sin(t * 9 + k) > 0 ? '#ffb030' : '#ff5a1a', 1 - f); }
+  else if (i === 3 || i === 7) { for (let k = 0; k < 22; k++) { const tw = Math.sin(t * (2 + R(k, 4) * 3) + k * 1.7); if (tw > 0.2) dot(x + R(k, 5) * w, y + R(k, 6) * h, px * (tw > 0.8 ? 2 : 1), tw > 0.8 ? '#fff' : '#ffe680', tw); }
+    if (i === 7) for (let b = 0; b < 3; b++) for (let q = 0; q < 24; q++) { const xx = x + q * w / 24, yy = y + h * 0.18 + b * 10 * u + Math.sin(t * 1.2 + q * 0.5 + b) * 8 * u; dot(xx, yy, w / 24 + 1, ['#5dffb0', '#7de8ff', '#c070ff'][b], 0.22); }
+    else { const f = (t * 0.35) % 1; if (f < 0.25) { const g = f / 0.25; for (let q = 0; q < 6; q++) dot(x + w * (0.9 - g * 0.8) + q * 4 * u, y + h * (0.1 + g * 0.3) - q * 1.5 * u, px, '#fff', 1 - q / 6); } } }
+  else if (i === 4) for (let k = 0; k < 20; k++) { const f = (t * 0.25 * (0.6 + R(k, 1)) + R(k, 2)) % 1; dot(x - 10 * u + f * (w + 20 * u), y + R(k, 3) * h + Math.sin(t * 2 + k) * 4 * u, px, k % 2 ? '#f2c27a' : '#d89a4a', 0.8); }
+  else if (i === 5) for (let k = 0; k < 14; k++) { const [a, b, f] = rise(k, 0.07, 10); const gl = 0.5 + 0.5 * Math.sin(t * 4 + k); dot(a, b, px * 2, '#ffd24a', (1 - f) * gl); dot(a + px * 0.5, b + px * 0.5, px, '#fff6c0', (1 - f) * gl); }
+  else if (i === 6) for (let k = 0; k < 22; k++) { const [a, b] = fall(k, 0.07, 10); dot(a, b, px * (k % 3 ? 1 : 2), '#ffffff', 0.85); }
+  else if (i === 8) for (let k = 0; k < 12; k++) { const [a, b, f] = rise(k, 0.1, 5); const r = (2 + (k % 3)) * u; ctx.globalAlpha = 0.6 * (1 - f); ctx.strokeStyle = '#9ff4ff'; ctx.lineWidth = Math.max(1, u); ctx.beginPath(); ctx.arc(Math.round(a), Math.round(b), r * 1.6, 0, 6.283); ctx.stroke(); }
+  else if (i === 9) for (let k = 0; k < 20; k++) { const [a, b] = fall(k, 0.12, 4); dot(a, b, px, ['#ff4f8a', '#ffd24a', '#7de8ff', '#7dffb0', '#c070ff'][k % 5], 0.9); dot(a, b + px, px, ['#ff4f8a', '#ffd24a', '#7de8ff', '#7dffb0', '#c070ff'][k % 5], 0.9); }
+  else if (i === 10) for (let k = 0; k < 10; k++) { const a = x + w * (0.5 + 0.42 * Math.sin(t * 0.4 * (0.5 + R(k, 1)) + k * 2.1)), b = y + h * (0.5 + 0.42 * Math.cos(t * 0.33 * (0.5 + R(k, 2)) + k * 1.3)), gl = 0.5 + 0.5 * Math.sin(t * 3 + k); dot(a, b, px * 2, '#7dff9a', 0.35 * gl); dot(a + px * 0.5, b + px * 0.5, px, '#e0ffd0', gl); }
+  else if (i === 11) for (let k = 0; k < 8; k++) { const [a, b, f] = rise(k, 0.09, 6); const r = (6 + f * 14) * u; ctx.globalAlpha = 0.28 * (1 - f); ctx.fillStyle = '#e8e4f0'; ctx.beginPath(); ctx.arc(Math.round(a), Math.round(b), r, 0, 6.283); ctx.fill(); }
+  ctx.globalAlpha = 1; ctx.restore();
+}
 function drawCupGrid(u, sel, mode) {
   // een rij cups die van links naar rechts schuift: de gekozen staat in het midden, links en rechts zie je de buren (niet voor de eerste/na de laatste)
   const { gap, cw, ch, y0 } = menuBox(u);
@@ -4822,12 +4855,14 @@ function drawCupGrid(u, sel, mode) {
     ctx.save(); ctx.translate(x + cw / 2, y + ch / 2); ctx.scale(k, k); ctx.translate(-(x + cw / 2), -(y + ch / 2));
     const t2 = THEMES[c.theme], isSel = sel === i;
     card(x, y, cw, ch, isSel, t2.ui);
-    ctx.fillStyle = t2.ui; ctx.fillRect(Math.round(x + 18 * u), Math.round(y + 18 * u), Math.round(cw - 36 * u), Math.round(6 * u));
+    cupFx(i, x, y, cw, ch, u);
+    const fr = ART_OBJ[CUP_FRAME[i]];
+    if (fr) drawFrame9(fr, x, y, cw, ch, u); else { ctx.fillStyle = t2.ui; ctx.fillRect(Math.round(x + 18 * u), Math.round(y + 18 * u), Math.round(cw - 36 * u), Math.round(6 * u)); }
     text(c.name, x + cw / 2, y + 72 * u, 26 * u, isSel ? t2.accent : '#fff', 'center', 900);
     for (let k = 0; k < 3; k++) {
       const tr = TRACKS[i * 3 + k], yy = y + (120 + 32 * k) * u;
-      text(tr.name, x + 24 * u, yy, 14 * u, '#fff', 'left', 600, false);
-      if (mode === 0) medalDot(x + cw - 32 * u, yy - 6 * u, 7 * u, medalFor(tr));
+      text(tr.name, x + 36 * u, yy, 14 * u, '#fff', 'left', 600, false);
+      if (mode === 0) medalDot(x + cw - 44 * u, yy - 6 * u, 7 * u, medalFor(tr));
     }
     if (mode === 1) {
       const best = OUT.save.cups[i + '-' + ui.cls];
