@@ -33,7 +33,7 @@ const LAPS = 3, SHIP_R = 22, HOVER = 5, SHIP_SIZE = 1.2;
 const WALL_H = 26, WALL_T = 10, ROAD_T = 16;
 const BERM = 420;   // vlakke berm naast de vangrail (op wegniveau) waar het decor op staat; daarachter de helling
 // Versie van de 3D-versie, rechtsonder op het startscherm. Bij elke publicatie op de website eentje ophogen.
-const GAME_VERSION = '3D-158';
+const GAME_VERSION = '3D-159';
 const LOW_H = 1080;           // aantal beeldlijnen (zoals FINE in komeet.html); daarna zonder vervaging vergroot
 const GROUND_Y = -40;        // grond iets onder het laagste stuk weg
 
@@ -1464,6 +1464,9 @@ const CLASSES = [
   { name: '100CC', sub: 'Standard', mul: 1, ai: 0, lead: 0.955, chase: 1.035, info: ['Normal speed', 'A fair fight', 'As the cups were meant'] },
   { name: '150CC', sub: 'Fast and fierce', mul: 1.13, ai: 0.03, lead: 0.972, chase: 1.05, info: ['Everything faster', 'Rivals fight back', 'For the experts'] }
 ];
+// volgorde in het menu (van rustig naar het coolst); intern houden de cups hun nummer (records, bekers, muziek, plaatjes)
+const CUP_ORDER = [0, 1, 4, 5, 9, 6, 2, 10, 8, 11, 3, 7];
+const cupPos = c => CUP_ORDER.indexOf(c), cupStep = (c, d) => CUP_ORDER[(cupPos(c) + d + CUP_ORDER.length) % CUP_ORDER.length];
 const CUPS = [
   { name: 'SUNNY CUP', theme: 0, sub: 'Beach, harbour and funfair' },
   { name: 'BLOSSOMING CUP', theme: 1, sub: 'Blossoms, bamboo and neon' },
@@ -1874,7 +1877,7 @@ function netNext(next) {
   const room = NET.room, cupMode = room.omode === 1;
   let tr;
   if (cupMode) {
-    if (NET.cup && NET.cup.done) { const c = next ? ((room.cup || 0) + 1) % CUPS.length : room.cup || 0; NET.cup = null; netSet({ cup: c, cupRace: 0 }); tr = cupTrack(c, 0); }   // cup klaar: volgende cup of dezelfde opnieuw
+    if (NET.cup && NET.cup.done) { const c = next ? cupStep(room.cup || 0, 1) : room.cup || 0; NET.cup = null; netSet({ cup: c, cupRace: 0 }); tr = cupTrack(c, 0); }   // cup klaar: volgende cup of dezelfde opnieuw
     else if (next) tr = cupTrack(room.cup || 0, room.cupRace || 0);   // volgende race van de cup
     else return;   // midden in een cup geen herkansing (de punten lopen door)
   } else { tr = room.track || 1; if (next) { tr = 1 + (tr % (TRACKS.length - 1)); netSet({ track: tr }); } }
@@ -2018,7 +2021,7 @@ function onlineKey(code) {
   const cupMode = room.omode === 1, busy = cupMode && room.cupRace > 0;
   if (NET.sel === 0 && (L || R) && !busy) { netSet({ omode: cupMode ? 0 : 1, cupRace: 0 }); NET.cup = null; }
   if (NET.sel === 1 && (L || R) && !busy) {
-    if (cupMode) { const c = ((room.cup || 0) + (R ? 1 : CUPS.length - 1)) % CUPS.length; netSet({ cup: c }); ui.bg = cupTrack(c, 0); }
+    if (cupMode) { const c = cupStep(room.cup || 0, R ? 1 : -1); netSet({ cup: c }); ui.bg = cupTrack(c, 0); }
     else { ui.bg = 1 + ((((room.track || 1) - 1) + (R ? 1 : TRACKS.length - 2)) % (TRACKS.length - 1)); netSet({ track: ui.bg }); }
     loadTrack(ui.bg);
   }
@@ -2056,7 +2059,7 @@ function menuKey(code) {
       if (back) ui.screen = 'mode';
       break;
     case 'cup':
-      if (lr) ui.cup = Math.max(0, Math.min(CUPS.length - 1, ui.cup + lr));
+      if (lr) ui.cup = CUP_ORDER[Math.max(0, Math.min(CUP_ORDER.length - 1, cupPos(ui.cup) + lr))];
       if (ok) ui.screen = ui.mode === 0 ? 'track' : 'char';
       if (back) ui.screen = 'cls';
       break;
@@ -4875,11 +4878,11 @@ function cupFx(i, x, y, w, h, u) {
 function drawCupGrid(u, sel, mode) {
   // een rij cups die van links naar rechts schuift: de gekozen staat in het midden, links en rechts zie je de buren (niet voor de eerste/na de laatste)
   const { gap, cw, ch, y0 } = menuBox(u);
-  cupScroll += (sel - cupScroll) * 0.2; if (Math.abs(sel - cupScroll) < 0.01) cupScroll = sel;
+  const sp = cupPos(sel); cupScroll += (sp - cupScroll) * 0.2; if (Math.abs(sp - cupScroll) < 0.01) cupScroll = sp;
   // van ver naar dichtbij tekenen: de kaarten verder van het midden zijn kleiner en donkerder en liggen eronder
-  const order = CUPS.map((c, i) => i).sort((a, b) => Math.abs(b - cupScroll) - Math.abs(a - cupScroll));
+  const order = CUPS.map((c, i) => i).sort((a, b) => Math.abs(cupPos(b) - cupScroll) - Math.abs(cupPos(a) - cupScroll));
   order.forEach(i => { const c = CUPS[i];
-    const off = i - cupScroll, ao = Math.abs(off); if (ao > 3.4) return;
+    const off = cupPos(i) - cupScroll, ao = Math.abs(off); if (ao > 3.4) return;
     const k = 1 - 0.13 * Math.min(ao, 3), sx = Math.sign(off) * (Math.min(ao, 1) * (cw + gap) + Math.max(0, ao - 1) * (cw * 0.72 + gap * 0.5));
     const x = Math.round(W / 2 - cw / 2 + sx), y = y0;
     ctx.save();   // niet verkleinen (pixelart): verder van het midden alleen donkerder (lijst en embleem als donkere kopie) en half erachter
@@ -4904,7 +4907,7 @@ function drawCupGrid(u, sel, mode) {
     ctx.restore();
   });
   // stipjes onder de rij: waar je bent tussen alle cups
-  for (let i = 0; i < CUPS.length; i++) { const r = Math.round((i === sel ? 5 : 3) * u); ctx.fillStyle = i === sel ? THEMES[CUPS[sel].theme].accent : 'rgba(255,255,255,0.35)'; fillDisc(W / 2 + (i - (CUPS.length - 1) / 2) * 18 * u, y0 + ch + 24 * u, r); }
+  for (let i = 0; i < CUPS.length; i++) { const r = Math.round((i === sp ? 5 : 3) * u); ctx.fillStyle = i === sp ? THEMES[CUPS[sel].theme].accent : 'rgba(255,255,255,0.35)'; fillDisc(W / 2 + (i - (CUPS.length - 1) / 2) * 18 * u, y0 + ch + 24 * u, r); }
 }
 let logoBox = null;
 // startanimatie van het titelscherm (alleen bij het openen van het spel): logo valt groot binnen, blijft even staan,
