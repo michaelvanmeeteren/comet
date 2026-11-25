@@ -13,7 +13,7 @@
 <canvas id="gl"></canvas>
 <canvas id="hud"></canvas>
 <div id="msg"></div>
-<script src="art/sprites.js?h=0236aec743"></script>
+<script src="art/sprites.js?h=c077d379e8"></script>
 <script>
 'use strict';
 // =====================================================================================================
@@ -33,7 +33,7 @@ const LAPS = 3, SHIP_R = 22, HOVER = 5, SHIP_SIZE = 1.2;
 const WALL_H = 26, WALL_T = 10, ROAD_T = 16;
 const BERM = 420;   // vlakke berm naast de vangrail (op wegniveau) waar het decor op staat; daarachter de helling
 // Versie van de 3D-versie, rechtsonder op het startscherm. Bij elke publicatie op de website eentje ophogen.
-const GAME_VERSION = '3D-145';
+const GAME_VERSION = '3D-146';
 const LOW_H = 1080;           // aantal beeldlijnen (zoals FINE in komeet.html); daarna zonder vervaging vergroot
 const GROUND_Y = -40;        // grond iets onder het laagste stuk weg
 
@@ -1481,6 +1481,7 @@ const CUPS = [
   { name: 'GEAR CUP', theme: 7, sub: 'Cogs, steam and a clocktower' }
 ];
 const POINTS = [10, 7, 5, 3, 2, 1];
+const CUP_DECO = ['cdka', 'cdkb', 'cdkc', 'cdkd', 'cdke', 'cdkf', 'cdkg', 'cdkh', 'cdki', 'cdkj', 'cdkk', 'cdkl'];   // versiering per cup (art/obj, SpriteCook)
 const TRO_NAMES = ['tcoast', 'tsakura', 'tcastle', 'tstar', 'tdune', 'tlotus', 'tfrost', 'tlegend', 'tabyss', 'tsugar', 'tphantom', 'tgear'];   // beker per cup (art/obj)
 const MEDAL_COL = ['#4a4860', '#c8793a', '#cfd6e0', '#ffd24a'], MEDAL_NAME = ['', 'BRONZE', 'SILVER', 'GOLD'];
 const PAL_GHOST = ['#9ff', '#7de', '#5cd', '#4bc', '#268', '#aff', '#dff'];
@@ -4177,7 +4178,7 @@ const KUI = (() => {
   const SPR_BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5].map(v => (v + 0.5) / 16);
   const ART_OBJ = {};
   const proj3 = p => { const m = LAST_VP; if (!m) return null; const x = m[0] * p[0] + m[4] * p[1] + m[8] * p[2] + m[12], y = m[1] * p[0] + m[5] * p[1] + m[9] * p[2] + m[13], w = m[3] * p[0] + m[7] * p[1] + m[11] * p[2] + m[15]; return w > 1 ? [(x / w * 0.5 + 0.5) * W, (1 - (y / w * 0.5 + 0.5)) * H, w] : null; };
-  for (const k of ['keyart', ...Array.from({ length: 12 }, (_, i) => 'cupcard' + i), 'mtime', 'mcup', 'monline', 'cls50', 'cls100', 'cls150', 'icolock', 'icostar', 'icogear', 'icoghost', 'icowatch', 'icocrown', 'icoflag', 'icoglobe', 'icomedals', ...TRO_NAMES, 'logo', 'trophy', 'e0', 'e1', 'e2', 'e3', 'e4', 'e5', 'e6', 'e7', 'e8', 'e9', 'e10', 'e11', 'trophygold', 'trophysilver', 'trophybronze', 'podium', 'confetti', 'crown', 'selhi', 'sello', ...Array.from({ length: 18 }, (_, i) => ['b' + i + 'x', 'b' + i + 'x2', 'b' + i + 's', 'b' + i + 'w', 'b' + i + 'v', 'b' + i + 'd', 'b' + i + 'q', 'f' + i + 'h', 'f' + i + 'a', 'f' + i + 'o', 'f' + i + 's']).flat()]) if (ART.obj[k]) { const im = new Image(); im.onload = () => { ART_OBJ[k] = im; }; im.src = ART.obj[k]; }
+  for (const k of [...CUP_DECO, 'keyart', ...Array.from({ length: 12 }, (_, i) => 'cupcard' + i), 'mtime', 'mcup', 'monline', 'cls50', 'cls100', 'cls150', 'icolock', 'icostar', 'icogear', 'icoghost', 'icowatch', 'icocrown', 'icoflag', 'icoglobe', 'icomedals', ...TRO_NAMES, 'logo', 'trophy', 'e0', 'e1', 'e2', 'e3', 'e4', 'e5', 'e6', 'e7', 'e8', 'e9', 'e10', 'e11', 'trophygold', 'trophysilver', 'trophybronze', 'podium', 'confetti', 'crown', 'selhi', 'sello', ...Array.from({ length: 18 }, (_, i) => ['b' + i + 'x', 'b' + i + 'x2', 'b' + i + 's', 'b' + i + 'w', 'b' + i + 'v', 'b' + i + 'd', 'b' + i + 'q', 'f' + i + 'h', 'f' + i + 'a', 'f' + i + 'o', 'f' + i + 's']).flat()]) if (ART.obj[k]) { const im = new Image(); im.onload = () => { ART_OBJ[k] = im; }; im.src = ART.obj[k]; }
   const TRACKS_ALL = TRACKS_OUTER, TRACKS = TRACKS_ALL.slice(1);
   const LOOKS = TRACKS.map(t => ({ names: THEMES[CUPS[t.cup].theme].names }));
   const roadWx = () => null;
@@ -4831,6 +4832,12 @@ function drawCupGrid(u, sel, mode) {
     if (mode === 1) {
       const best = OUT.save.cups[i + '-' + ui.cls];
       text(best ? 'Best: ' + ord(best) + ' place' : 'Not raced yet', x + cw / 2, y + 236 * u, 15 * u, best && best <= 3 ? MEDAL_COL[4 - best] : '#cfd3ff', 'center', 700, false);
+    }
+    const dk = ART_OBJ[CUP_DECO[i]];
+    if (dk) {   // thematische versiering: linksonder, en in de tijdrit gespiegeld rechtsonder (in de cup staat daar de beker)
+      const dh = Math.round(92 * u), dw = Math.round(dk.width * dh / dk.height), by = Math.round(y + ch - 10 * u - dh);
+      ctx.imageSmoothingEnabled = false; ctx.drawImage(dk, Math.round(x + 10 * u), by, dw, dh);
+      if (mode === 0) { ctx.save(); ctx.translate(Math.round(x + cw - 10 * u), 0); ctx.scale(-1, 1); ctx.drawImage(dk, 0, by, dw, dh); ctx.restore(); }
     }
     const em = ART_OBJ['e' + i];
     if (em) { const es = Math.round(72 * u); ctx.drawImage(em, Math.round(x + cw / 2 - es / 2), Math.round(y + ch - es - 22 * u + (isSel ? Math.sin(G.time * 4) * 2 * u : 0)), es, es); }
