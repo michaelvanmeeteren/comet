@@ -33,7 +33,7 @@ const LAPS = 3, SHIP_R = 22, HOVER = 5, SHIP_SIZE = 1.2;
 const WALL_H = 26, WALL_T = 10, ROAD_T = 16;
 const BERM = 420;   // vlakke berm naast de vangrail (op wegniveau) waar het decor op staat; daarachter de helling
 // Versie van de 3D-versie, rechtsonder op het startscherm. Bij elke publicatie op de website eentje ophogen.
-const GAME_VERSION = '3D-147';
+const GAME_VERSION = '3D-148';
 const LOW_H = 1080;           // aantal beeldlijnen (zoals FINE in komeet.html); daarna zonder vervaging vergroot
 const GROUND_Y = -40;        // grond iets onder het laagste stuk weg
 
@@ -4811,9 +4811,20 @@ function drawArt(im, cx, cy, h) {
   ctx.drawImage(im, Math.round(cx - w / 2), Math.round(cy - h / 2), Math.round(w), Math.round(h)); return true;
 }
 // lijst om een kaart: hoeken (30% van het plaatje) blijven gelijk, de randen rekken mee; iets buiten de kaart zodat de binnenkant vrij blijft
+const FRAME_T = new Map();
+// dikte van de rand in het plaatje: vanaf het midden naar buiten tot de eerste niet-doorzichtige pixel, gemiddeld over de vier kanten
+function frameThick(im) {
+  if (FRAME_T.has(im)) return FRAME_T.get(im);
+  const cv = document.createElement('canvas'); cv.width = im.width; cv.height = im.height; const x = cv.getContext('2d'); x.drawImage(im, 0, 0);
+  const d = x.getImageData(0, 0, im.width, im.height).data, W2 = im.width, H2 = im.height, op = (px, py) => d[(py * W2 + px) * 4 + 3] > 40;
+  const cx = W2 >> 1, cy = H2 >> 1; let l = cx, r = cx, t = cy, b = cy;
+  while (l > 0 && !op(l, cy)) l--; while (r < W2 - 1 && !op(r, cy)) r++; while (t > 0 && !op(cx, t)) t--; while (b < H2 - 1 && !op(cx, b)) b++;
+  const th = Math.max(4, (l + (W2 - 1 - r) + t + (H2 - 1 - b)) / 4);
+  FRAME_T.set(im, th); return th;
+}
 function drawFrame9(im, x, y, w, h, u) {
-  const e = 14 * u; x -= e; y -= e; w += 2 * e; h += 2 * e;
-  const sw = im.width, sh = im.height, c = Math.round(Math.min(sw, sh) * 0.3), k = w / sw, d = Math.round(c * k);
+  const T = 24 * u, e = 10 * u; x -= e; y -= e; w += 2 * e; h += 2 * e;   // rand overal ongeveer T breed, een stukje buiten de kaart
+  const sw = im.width, sh = im.height, c = Math.round(Math.min(sw, sh) * 0.3), k = T / frameThick(im), d = Math.min(Math.round(c * k), Math.round(w * 0.42));
   const xs = [0, c, sw - c, sw], ys = [0, c, sh - c, sh], xd = [x, x + d, x + w - d, x + w], yd = [y, y + d, y + h - d, y + h];
   ctx.imageSmoothingEnabled = false;
   for (let a = 0; a < 3; a++) for (let b = 0; b < 3; b++) { if (a === 1 && b === 1) continue;
@@ -4867,12 +4878,6 @@ function drawCupGrid(u, sel, mode) {
     if (mode === 1) {
       const best = OUT.save.cups[i + '-' + ui.cls];
       text(best ? 'Best: ' + ord(best) + ' place' : 'Not raced yet', x + cw / 2, y + 236 * u, 15 * u, best && best <= 3 ? MEDAL_COL[4 - best] : '#cfd3ff', 'center', 700, false);
-    }
-    const dk = ART_OBJ[CUP_DECO[i]];
-    if (dk) {   // thematische versiering: linksonder, en in de tijdrit gespiegeld rechtsonder (in de cup staat daar de beker)
-      const dh = Math.round(92 * u), dw = Math.round(dk.width * dh / dk.height), by = Math.round(y + ch - 10 * u - dh);
-      ctx.imageSmoothingEnabled = false; ctx.drawImage(dk, Math.round(x + 10 * u), by, dw, dh);
-      if (mode === 0) { ctx.save(); ctx.translate(Math.round(x + cw - 10 * u), 0); ctx.scale(-1, 1); ctx.drawImage(dk, 0, by, dw, dh); ctx.restore(); }
     }
     const em = ART_OBJ['e' + i];
     if (em) { const es = Math.round(72 * u); ctx.drawImage(em, Math.round(x + cw / 2 - es / 2), Math.round(y + ch - es - 22 * u + (isSel ? Math.sin(G.time * 4) * 2 * u : 0)), es, es); }
