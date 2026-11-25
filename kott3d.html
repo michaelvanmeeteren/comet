@@ -33,7 +33,7 @@ const LAPS = 3, SHIP_R = 22, HOVER = 5, SHIP_SIZE = 1.2;
 const WALL_H = 26, WALL_T = 10, ROAD_T = 16;
 const BERM = 420;   // vlakke berm naast de vangrail (op wegniveau) waar het decor op staat; daarachter de helling
 // Versie van de 3D-versie, rechtsonder op het startscherm. Bij elke publicatie op de website eentje ophogen.
-const GAME_VERSION = '3D-135';
+const GAME_VERSION = '3D-136';
 const LOW_H = 1080;           // aantal beeldlijnen (zoals FINE in komeet.html); daarna zonder vervaging vergroot
 const GROUND_Y = -40;        // grond iets onder het laagste stuk weg
 
@@ -4318,16 +4318,7 @@ const KUI = (() => {
   const menuMedals = (tr, car) => { const m = medalsSoon(TRACKS_ALL.indexOf(tr.def || tr), car); return m && m.map(t => t / CLASSES[ui.cls].mul); };
   const medalFor = tr => { const r = recOf(tr); if (!r) return (OUT.save.medal || {})[tr.id] || 0; const m = menuMedals(tr, ui.car); if (!m) return 0; return r.total <= m[2] ? 3 : r.total <= m[1] ? 2 : r.total <= m[0] ? 1 : 0; };
   let G = {}, T = {};
-  function trackTip(tr) {
-  const n = t => tr.haz.filter(h => h.type === t).length;
-  if (n('loop')) return T.def && T.def._twist === 'wall' ? 'WALL RIDE - THE ROAD TURNS SIDEWAYS' : 'CORKSCREW - HOLD ON TIGHT';
-  if (n('cannon')) return 'HIT THE CANNON AND FLY';
-  if (n('gap')) return 'JUMP THE GAPS - TOO SLOW AND YOU FALL IN';
-  if (n('wave')) return 'WATCH OUT FOR THE WAVES';
-  if (tr.grav < 1) return 'LOW GRAVITY - BIG AIR, AIR BOOSTS';
-  if (TRACK_DEFS[tr.index].grip < 1) return 'SLIPPERY ICE - DRIFT EARLY';
-  if (n('bump') >= 8) return 'BUMPY DUNES AHEAD';
-  if (tr.pads.length >= 13) return 'CHAIN THE BOOST PADS';
+  function trackTip(tr) {   // geen tips meer in de intro (uitlegtekst is niet gewenst)
   return '';
 }
 function drawIntro(u) {
@@ -5055,9 +5046,6 @@ function drawMenu(u) {
         const segs = 10, sw = bw / segs, fill = Math.round(Math.max(0.08, Math.min(1, st[1])) * segs);
         for (let q = 0; q < segs; q++) { ctx.fillStyle = q < fill ? ap[2] : 'rgba(255,255,255,0.14)'; ctx.fillRect(Math.round(rx + q * sw), Math.round(yy + 4 * u), Math.max(2, Math.round(sw - 2 * u)), Math.round(7 * u)); }
       });
-      const words = c.desc.split(' '), half = Math.ceil(words.length / 2);
-      text(words.slice(0, half).join(' '), rx, ty + 136 * u, 12 * u, '#fff', 'left', 500, false);
-      text(words.slice(half).join(' '), rx, ty + 152 * u, 12 * u, '#fff', 'left', 500, false);
       // de vier schepen als knopjes onder het podium
       const kw = 110 * u, ky = pcy + 52 * u;
       CARS.forEach((cc, i) => { const kx = W / 2 - kw * 2 + i * kw; card(kx + 4 * u, ky, kw - 8 * u, 36 * u, ui.car === i, ap[2]); text(cc.name, kx + kw / 2, ky + 24 * u, 14 * u, ui.car === i ? ap[2] : '#fff', 'center', 800); });
