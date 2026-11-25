@@ -33,7 +33,7 @@ const LAPS = 3, SHIP_R = 22, HOVER = 5, SHIP_SIZE = 1.2;
 const WALL_H = 26, WALL_T = 10, ROAD_T = 16;
 const BERM = 420;   // vlakke berm naast de vangrail (op wegniveau) waar het decor op staat; daarachter de helling
 // Versie van de 3D-versie, rechtsonder op het startscherm. Bij elke publicatie op de website eentje ophogen.
-const GAME_VERSION = '3D-144';
+const GAME_VERSION = '3D-145';
 const LOW_H = 1080;           // aantal beeldlijnen (zoals FINE in komeet.html); daarna zonder vervaging vergroot
 const GROUND_Y = -40;        // grond iets onder het laagste stuk weg
 
@@ -4812,9 +4812,13 @@ function drawCupGrid(u, sel, mode) {
   // een rij cups die van links naar rechts schuift: de gekozen staat in het midden, links en rechts zie je de buren (niet voor de eerste/na de laatste)
   const { gap, cw, ch, y0 } = menuBox(u);
   cupScroll += (sel - cupScroll) * 0.2; if (Math.abs(sel - cupScroll) < 0.01) cupScroll = sel;
-  CUPS.forEach((c, i) => {
-    const off = i - cupScroll; if (Math.abs(off) > 1.7) return;
-    const x = Math.round(W / 2 - cw / 2 + off * (cw + gap)), y = y0;
+  // van ver naar dichtbij tekenen: de kaarten verder van het midden zijn kleiner en donkerder en liggen eronder
+  const order = CUPS.map((c, i) => i).sort((a, b) => Math.abs(b - cupScroll) - Math.abs(a - cupScroll));
+  order.forEach(i => { const c = CUPS[i];
+    const off = i - cupScroll, ao = Math.abs(off); if (ao > 3.4) return;
+    const k = 1 - 0.13 * Math.min(ao, 3), sx = Math.sign(off) * (Math.min(ao, 1) * (cw + gap) + Math.max(0, ao - 1) * (cw * 0.72 + gap * 0.5));
+    const x = Math.round(W / 2 - cw / 2 + sx), y = y0;
+    ctx.save(); ctx.translate(x + cw / 2, y + ch / 2); ctx.scale(k, k); ctx.translate(-(x + cw / 2), -(y + ch / 2));
     const t2 = THEMES[c.theme], isSel = sel === i;
     card(x, y, cw, ch, isSel, t2.ui);
     ctx.fillStyle = t2.ui; ctx.fillRect(Math.round(x + 18 * u), Math.round(y + 18 * u), Math.round(cw - 36 * u), Math.round(6 * u));
@@ -4834,7 +4838,8 @@ function drawCupGrid(u, sel, mode) {
       const best = OUT.save.cups[i + '-' + ui.cls], tc = trophyCanvas(i, best && best <= 3 ? 4 - best : 0);
       if (tc) drawArt(tc, x + cw - 48 * u, y + ch - 56 * u + (isSel && best <= 3 ? Math.sin(G.time * 3) * 2 * u : 0), 66 * u);
     }
-    if (!isSel) { ctx.fillStyle = 'rgba(5,3,12,0.45)'; ctx.fillRect(x, y, Math.round(cw), Math.round(ch)); }
+    if (!isSel) { ctx.fillStyle = 'rgba(5,3,12,' + Math.min(0.8, 0.3 + 0.17 * ao).toFixed(2) + ')'; ctx.fillRect(x, y, Math.round(cw), Math.round(ch)); }
+    ctx.restore();
   });
   // stipjes onder de rij: waar je bent tussen alle cups
   for (let i = 0; i < CUPS.length; i++) { const r = Math.round((i === sel ? 5 : 3) * u); ctx.fillStyle = i === sel ? THEMES[CUPS[sel].theme].accent : 'rgba(255,255,255,0.35)'; fillDisc(W / 2 + (i - (CUPS.length - 1) / 2) * 18 * u, y0 + ch + 24 * u, r); }
