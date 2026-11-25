@@ -33,7 +33,7 @@ const LAPS = 3, SHIP_R = 22, HOVER = 5, SHIP_SIZE = 1.2;
 const WALL_H = 26, WALL_T = 10, ROAD_T = 16;
 const BERM = 420;   // vlakke berm naast de vangrail (op wegniveau) waar het decor op staat; daarachter de helling
 // Versie van de 3D-versie, rechtsonder op het startscherm. Bij elke publicatie op de website eentje ophogen.
-const GAME_VERSION = '3D-148';
+const GAME_VERSION = '3D-149';
 const LOW_H = 1080;           // aantal beeldlijnen (zoals FINE in komeet.html); daarna zonder vervaging vergroot
 const GROUND_Y = -40;        // grond iets onder het laagste stuk weg
 
@@ -4871,13 +4871,13 @@ function drawCupGrid(u, sel, mode) {
     if (fr) drawFrame9(fr, x, y, cw, ch, u); else { ctx.fillStyle = t2.ui; ctx.fillRect(Math.round(x + 18 * u), Math.round(y + 18 * u), Math.round(cw - 36 * u), Math.round(6 * u)); }
     text(c.name, x + cw / 2, y + 72 * u, 26 * u, isSel ? t2.accent : '#fff', 'center', 900);
     for (let k = 0; k < 3; k++) {
-      const tr = TRACKS[i * 3 + k], yy = y + (120 + 32 * k) * u;
-      text(tr.name, x + 36 * u, yy, 14 * u, '#fff', 'left', 600, false);
-      if (mode === 0) medalDot(x + cw - 44 * u, yy - 6 * u, 7 * u, medalFor(tr));
+      const tr = TRACKS[i * 3 + k], yy = y + (126 + 38 * k) * u;   // gecentreerd; in de tijdrit met de medaille rechts ernaast
+      text(tr.name, mode === 0 ? x + cw / 2 - 14 * u : x + cw / 2, yy, mode === 0 ? 15.5 * u : 17 * u, '#fff', 'center', 600, false);
+      if (mode === 0) medalDot(x + cw - 38 * u, yy - 7 * u, 8 * u, medalFor(tr));
     }
     if (mode === 1) {
       const best = OUT.save.cups[i + '-' + ui.cls];
-      text(best ? 'Best: ' + ord(best) + ' place' : 'Not raced yet', x + cw / 2, y + 236 * u, 15 * u, best && best <= 3 ? MEDAL_COL[4 - best] : '#cfd3ff', 'center', 700, false);
+      text(best ? 'Best: ' + ord(best) + ' place' : 'Not raced yet', x + cw / 2, y + 250 * u, 17 * u, best && best <= 3 ? MEDAL_COL[4 - best] : '#cfd3ff', 'center', 700, false);
     }
     const em = ART_OBJ['e' + i];
     if (em) { const es = Math.round(72 * u); ctx.drawImage(em, Math.round(x + cw / 2 - es / 2), Math.round(y + ch - es - 22 * u + (isSel ? Math.sin(G.time * 4) * 2 * u : 0)), es, es); }
