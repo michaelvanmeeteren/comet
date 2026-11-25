@@ -33,7 +33,7 @@ const LAPS = 3, SHIP_R = 22, HOVER = 5, SHIP_SIZE = 1.2;
 const WALL_H = 26, WALL_T = 10, ROAD_T = 16;
 const BERM = 420;   // vlakke berm naast de vangrail (op wegniveau) waar het decor op staat; daarachter de helling
 // Versie van de 3D-versie, rechtsonder op het startscherm. Bij elke publicatie op de website eentje ophogen.
-const GAME_VERSION = '3D-143';
+const GAME_VERSION = '3D-144';
 const LOW_H = 1080;           // aantal beeldlijnen (zoals FINE in komeet.html); daarna zonder vervaging vergroot
 const GROUND_Y = -40;        // grond iets onder het laagste stuk weg
 
@@ -2054,8 +2054,7 @@ function menuKey(code) {
       if (back) ui.screen = 'mode';
       break;
     case 'cup':
-      if (lr) ui.cup = (ui.cup + lr + CUPS.length) % CUPS.length;
-      if (ud) { const n = ui.cup + ud * 4; if (n >= 0 && n < CUPS.length) ui.cup = n; beep(520, 0.06, 'square', 0.04); }
+      if (lr) ui.cup = Math.max(0, Math.min(CUPS.length - 1, ui.cup + lr));
       if (ok) ui.screen = ui.mode === 0 ? 'track' : 'char';
       if (back) ui.screen = 'cls';
       break;
@@ -4742,6 +4741,8 @@ function nineSlice(im, x, y, w, h, c, k) {
   ctx.drawImage(im, c, 0, mw, c, x + d, y, w - 2 * d, d); ctx.drawImage(im, c, sh - c, mw, c, x + d, y + h - d, w - 2 * d, d);
   ctx.drawImage(im, 0, c, c, mh, x, y + d, d, h - 2 * d); ctx.drawImage(im, sw - c, c, c, mh, x + w - d, y + d, d, h - 2 * d);
 }
+// vaste indeling voor de kaartmenu's (modus, klasse, cup, baan): drie kaarten even breed en hoog, op dezelfde hoogte
+function menuBox(u) { const gap = 30 * u, cw = Math.min(300 * u, (W - 80 * u - 2 * gap) / 3), ch = 400 * u, y0 = 150 * u; return { gap, cw, ch, y0, x0: W / 2 - (cw * 3 + gap * 2) / 2 }; }
 function header(u, title, hint) {
   ctx.fillStyle = 'rgba(5,3,12,0.45)'; ctx.fillRect(0, 0, W, H);
   text(title, W / 2, 86 * u, 46 * u, '#fff', 'center', 900);
@@ -4808,41 +4809,35 @@ function drawArt(im, cx, cy, h) {
   ctx.drawImage(im, Math.round(cx - w / 2), Math.round(cy - h / 2), Math.round(w), Math.round(h)); return true;
 }
 function drawCupGrid(u, sel, mode) {
-  const cols = 4, gap = 18 * u, cw = Math.min(250 * u, (W - 80 * u - gap * (cols - 1)) / cols), ch = 300 * u;
-  const x0 = W / 2 - (cw * cols + gap * (cols - 1)) / 2, y0 = 150 * u, areaH = Math.min(H - y0 - 70 * u, ch * 1.5 + gap);
-  const rows = Math.ceil(CUPS.length / cols), maxS = Math.max(0, rows * (ch + gap) - gap - areaH);
-  const target = Math.max(0, Math.min(maxS, Math.floor(sel / cols) * (ch + gap)));
-  cupScroll += (target - cupScroll) * 0.2;
-  if (Math.abs(target - cupScroll) < 0.5) cupScroll = target;
-  const sc = Math.round(cupScroll);
-  ctx.save();
-  ctx.beginPath(); ctx.rect(0, Math.round(y0 - 8 * u), W, Math.round(areaH + 16 * u)); ctx.clip();
+  // een rij cups die van links naar rechts schuift: de gekozen staat in het midden, links en rechts zie je de buren (niet voor de eerste/na de laatste)
+  const { gap, cw, ch, y0 } = menuBox(u);
+  cupScroll += (sel - cupScroll) * 0.2; if (Math.abs(sel - cupScroll) < 0.01) cupScroll = sel;
   CUPS.forEach((c, i) => {
-    const x = x0 + (i % cols) * (cw + gap), y = Math.round(y0 + Math.floor(i / cols) * (ch + gap)) - sc;
-    if (y > y0 + areaH + 8 * u || y + ch < y0 - 8 * u) return;
+    const off = i - cupScroll; if (Math.abs(off) > 1.7) return;
+    const x = Math.round(W / 2 - cw / 2 + off * (cw + gap)), y = y0;
     const t2 = THEMES[c.theme], isSel = sel === i;
     card(x, y, cw, ch, isSel, t2.ui);
     ctx.fillStyle = t2.ui; ctx.fillRect(Math.round(x + 18 * u), Math.round(y + 18 * u), Math.round(cw - 36 * u), Math.round(6 * u));
-    text(c.name, x + cw / 2, y + 58 * u, 24 * u, isSel ? t2.accent : '#fff', 'center', 900);
+    text(c.name, x + cw / 2, y + 72 * u, 26 * u, isSel ? t2.accent : '#fff', 'center', 900);
     for (let k = 0; k < 3; k++) {
-      const tr = TRACKS[i * 3 + k], yy = y + (94 + 28 * k) * u;
-      text(tr.name, x + 20 * u, yy, 13 * u, '#fff', 'left', 600, false);
-      if (mode === 0) medalDot(x + cw - 28 * u, yy - 6 * u, 7 * u, medalFor(tr));
+      const tr = TRACKS[i * 3 + k], yy = y + (120 + 32 * k) * u;
+      text(tr.name, x + 24 * u, yy, 14 * u, '#fff', 'left', 600, false);
+      if (mode === 0) medalDot(x + cw - 32 * u, yy - 6 * u, 7 * u, medalFor(tr));
     }
     if (mode === 1) {
       const best = OUT.save.cups[i + '-' + ui.cls];
-      text(best ? 'Best: ' + ord(best) + ' place' : 'Not raced yet', x + cw / 2, y + 184 * u, 15 * u, best && best <= 3 ? MEDAL_COL[4 - best] : '#cfd3ff', 'center', 700, false);
+      text(best ? 'Best: ' + ord(best) + ' place' : 'Not raced yet', x + cw / 2, y + 236 * u, 15 * u, best && best <= 3 ? MEDAL_COL[4 - best] : '#cfd3ff', 'center', 700, false);
     }
     const em = ART_OBJ['e' + i];
-    if (em) { const es = Math.round(56 * u); ctx.drawImage(em, Math.round(x + cw / 2 - es / 2), Math.round(y + ch - es - 8 * u + (isSel ? Math.sin(G.time * 4) * 2 * u : 0)), es, es); }
+    if (em) { const es = Math.round(72 * u); ctx.drawImage(em, Math.round(x + cw / 2 - es / 2), Math.round(y + ch - es - 22 * u + (isSel ? Math.sin(G.time * 4) * 2 * u : 0)), es, es); }
     if (mode === 1) {   // de beker van deze cup: in de kleur van je beste plek, of donker als je hem nog niet hebt
       const best = OUT.save.cups[i + '-' + ui.cls], tc = trophyCanvas(i, best && best <= 3 ? 4 - best : 0);
-      if (tc) drawArt(tc, x + cw - 44 * u, y + ch - 44 * u + (isSel && best <= 3 ? Math.sin(G.time * 3) * 2 * u : 0), 62 * u);
+      if (tc) drawArt(tc, x + cw - 48 * u, y + ch - 56 * u + (isSel && best <= 3 ? Math.sin(G.time * 3) * 2 * u : 0), 66 * u);
     }
+    if (!isSel) { ctx.fillStyle = 'rgba(5,3,12,0.45)'; ctx.fillRect(x, y, Math.round(cw), Math.round(ch)); }
   });
-  ctx.restore();
-  if (sc < maxS - 1) text('- MORE CUPS BELOW -', W / 2, y0 + areaH + 30 * u, 13 * u, '#cfd3ff', 'center', 700);
-  if (sc > 1) text('- MORE CUPS ABOVE -', W / 2, y0 - 16 * u, 13 * u, '#cfd3ff', 'center', 700);
+  // stipjes onder de rij: waar je bent tussen alle cups
+  for (let i = 0; i < CUPS.length; i++) { const r = Math.round((i === sel ? 5 : 3) * u); ctx.fillStyle = i === sel ? THEMES[CUPS[sel].theme].accent : 'rgba(255,255,255,0.35)'; fillDisc(W / 2 + (i - (CUPS.length - 1) / 2) * 18 * u, y0 + ch + 24 * u, r); }
 }
 let logoBox = null;
 // startanimatie van het titelscherm (alleen bij het openen van het spel): logo valt groot binnen, blijft even staan,
@@ -4936,7 +4931,7 @@ function drawMenu(u) {
   if (ui.screen === 'mode') {
     header(u, 'CHOOSE A MODE', hint);
     // drie kaarten, elk met een eigen kleur en een plaatje; de gekozen kaart komt omhoog, de andere zakken weg in het donker
-    const gap = 30 * u, cw = Math.min(330 * u, (W - 60 * u - 2 * gap) / 3), ch = 300 * u, x0 = W / 2 - (cw * 3 + gap * 2) / 2, y0 = H * 0.19;
+    const { gap, cw, ch, x0, y0 } = menuBox(u);
     const items = [
       ['TIME TRIAL', '', [], '#7de8ff'],   // alleen de naam en het plaatje: geen uitlegregels
       ['CUP', '', [], '#ffb833'],
@@ -4944,12 +4939,12 @@ function drawMenu(u) {
     ];
     items.forEach((it, i) => {
       const sel = ui.mode === i, col = it[3], x = x0 + i * (cw + gap), y = y0 - (sel ? Math.round((8 + Math.sin(G.time * 3) * 3) * u) : 0);
-      const cx = x + cw / 2, iy = y + 168 * u;   // midden van het plaatje
+      const cx = x + cw / 2, iy = y + 215 * u;   // midden van het plaatje
       card(x, y, cw, ch, sel, col);
       // kleurband bovenaan met een rasterovergang naar de kaart
       ctx.fillStyle = col; ctx.fillRect(Math.round(x + 2), Math.round(y + 2), Math.round(cw - 4), Math.round(8 * u));
       dband(x + 2, y + 2 + 8 * u, cw - 4, 10 * u, col);
-      text(it[0], cx, y + 70 * u, 40 * u, sel ? col : '#fff', 'center', 900);
+      text(it[0], cx, y + 90 * u, 40 * u, sel ? col : '#fff', 'center', 900);
       // plaatje: een lichtcirkel erachter
       ctx.fillStyle = sel ? 'rgba(255,255,255,0.07)' : 'rgba(255,255,255,0.03)'; fillDisc(cx, iy, 62 * u);
       const MART = ART_OBJ[['mtime', 'mcup', 'monline'][i]];
@@ -4995,15 +4990,16 @@ function drawMenu(u) {
   if (ui.screen === 'online') { drawOnlineMenu(u); return; }
   if (ui.screen === 'cls') {
     header(u, ui.mode === 0 ? 'TIME TRIAL - CHOOSE A CLASS' : 'CHOOSE A CLASS', hint);
-    const cw = Math.min(280 * u, (W - 80 * u) / 3 - 20 * u), ch = 300 * u, gap = 20 * u, x0 = W / 2 - (cw * 3 + gap * 2) / 2, y0 = H * 0.26;
+    const { gap, cw, ch, x0, y0 } = menuBox(u);
     const cols = ['#7dffb0', '#ffb833', '#ff4f8a'];
     CLASSES.forEach((cl, i) => {
       const x = x0 + i * (cw + gap), sel = ui.cls === i;
       card(x, y0, cw, ch, sel, cols[i]);
-      text(cl.name, x + cw / 2, y0 + 76 * u, 46 * u, sel ? cols[i] : '#fff', 'center', 900);
-      text(cl.sub, x + cw / 2, y0 + 114 * u, 15 * u, '#fff', 'center', 700, false);
-      if (!drawArt(ART_OBJ[['cls50', 'cls100', 'cls150'][i]], x + cw / 2, y0 + 205 * u + (sel ? Math.sin(G.time * 3) * 3 * u : 0), (sel ? 124 : 112) * u))
-        for (let k = 0; k <= i; k++) { ctx.fillStyle = cols[i]; ctx.fillRect(Math.round(x + cw / 2 + (k - i / 2) * 22 * u - 7 * u), Math.round(y0 + 262 * u), Math.round(14 * u), Math.round(14 * u)); }
+      text(cl.name, x + cw / 2, y0 + 96 * u, 46 * u, sel ? cols[i] : '#fff', 'center', 900);
+      text(cl.sub, x + cw / 2, y0 + 134 * u, 15 * u, '#fff', 'center', 700, false);
+      if (!drawArt(ART_OBJ[['cls50', 'cls100', 'cls150'][i]], x + cw / 2, y0 + 250 * u + (sel ? Math.sin(G.time * 3) * 3 * u : 0), (sel ? 140 : 126) * u))
+        for (let k = 0; k <= i; k++) { ctx.fillStyle = cols[i]; ctx.fillRect(Math.round(x + cw / 2 + (k - i / 2) * 22 * u - 7 * u), Math.round(y0 + 300 * u), Math.round(14 * u), Math.round(14 * u)); }
+      if (!sel) { ctx.fillStyle = 'rgba(5,3,12,0.38)'; ctx.fillRect(Math.round(x), Math.round(y0), Math.round(cw), Math.round(ch)); }
     });
     return;
   }
@@ -5015,7 +5011,7 @@ function drawMenu(u) {
   }
   if (ui.screen === 'track') {
     header(u, CUPS[ui.cup].name + ' - CHOOSE A TRACK', hint);
-    const gap = 22 * u, cw = Math.min(290 * u, (W - 40 * u - gap * 2) / 3), ch = 400 * u, x0 = W / 2 - (cw * 3 + gap * 2) / 2, y0 = H * 0.2;
+    const { gap, cw, ch, x0, y0 } = menuBox(u);
     for (let k = 0; k < 3; k++) {
       const tr = TRACKS[ui.cup * 3 + k], x = x0 + k * (cw + gap), sel = ui.track === k, rec = recOf(tr);
       card(x, y0, cw, ch, sel, th.ui);
