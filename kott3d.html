@@ -33,7 +33,7 @@ const LAPS = 3, SHIP_R = 22, HOVER = 5, SHIP_SIZE = 1.2;
 const WALL_H = 26, WALL_T = 10, ROAD_T = 16;
 const BERM = 420;   // vlakke berm naast de vangrail (op wegniveau) waar het decor op staat; daarachter de helling
 // Versie van de 3D-versie, rechtsonder op het startscherm. Bij elke publicatie op de website eentje ophogen.
-const GAME_VERSION = '3D-160';
+const GAME_VERSION = '3D-161';
 const LOW_H = 1080;           // aantal beeldlijnen (zoals FINE in komeet.html); daarna zonder vervaging vergroot
 const GROUND_Y = -40;        // grond iets onder het laagste stuk weg
 
@@ -1966,9 +1966,22 @@ function netFollow(e) {
   const buf = e.net; if (!buf || !buf.length) return;
   const tShow = Date.now() - 150;
   let i = buf.length - 1; while (i > 0 && buf[i - 1].t > tShow) i--;
-  const b = buf[i], a = buf[Math.max(0, i - 1)], f = b.t > a.t ? clamp((tShow - a.t) / (b.t - a.t), 0, 1) : 1;
-  const L = (k) => a.v[k] + (b.v[k] - a.v[k]) * f;
-  e.progress = L(8); e.s = e.progress; e.d = L(1); e.psi = b.v[2]; e.z = L(3); e.vT = b.v[4]; e.vR = b.v[5]; e.steer = b.v[6]; e.boosting = !!b.v[7];
+  const b = buf[i], a = buf[Math.max(0, i - 1)];
+  let P, D, Z, psi, ext = false;
+  if (tShow > b.t) {   // het volgende bericht is er nog niet: kort doorrijden met de laatste snelheid (hoogstens een kwart seconde)
+    const dt = Math.min(0.25, (tShow - b.t) / 1000); ext = true;
+    P = b.v[8] + b.v[4] * dt; D = b.v[1] + b.v[5] * dt; Z = b.v[3]; psi = b.v[2];
+  } else {             // tussen twee berichten in schuiven, ook de draairichting (langs de korte kant)
+    const f = b.t > a.t ? clamp((tShow - a.t) / (b.t - a.t), 0, 1) : 1, L = k => a.v[k] + (b.v[k] - a.v[k]) * f;
+    P = L(8); D = L(1); Z = L(3); let dp = b.v[2] - a.v[2]; dp -= Math.round(dp / 6.2832) * 6.2832; psi = a.v[2] + dp * f;
+  }
+  // na het doorrijden komt de echte plek binnen: het verschil rustig wegwerken in plaats van te springen
+  const tn = performance.now(), dts = Math.min(0.1, (tn - (e.netT || tn)) / 1000); e.netT = tn;
+  if (e.netExt && !ext && e.dispP != null) { const eP = e.dispP - P, eD = e.dispD - D; if (Math.abs(eP) < 500 && Math.abs(eD) < 150) { e.errP = eP; e.errD = eD; } }
+  e.netExt = ext;
+  const k = Math.exp(-dts * 8); e.errP = (e.errP || 0) * k; e.errD = (e.errD || 0) * k;
+  e.progress = P + e.errP; e.s = e.progress; e.d = D + e.errD; e.psi = psi; e.z = Z; e.vT = b.v[4]; e.vR = b.v[5]; e.steer = b.v[6]; e.boosting = !!b.v[7];
+  e.dispP = e.progress; e.dispD = e.d;
   e.speed = Math.hypot(e.vT, e.vR); e.ev = {};
 }
 // eigen stand (en bij de host die van de computerrijders) 30 keer per seconde versturen; binnenkomst melden
