@@ -33,7 +33,7 @@ const LAPS = 3, SHIP_R = 22, HOVER = 5, SHIP_SIZE = 1.2;
 const WALL_H = 26, WALL_T = 10, ROAD_T = 16;
 const BERM = 420;   // vlakke berm naast de vangrail (op wegniveau) waar het decor op staat; daarachter de helling
 // Versie van de 3D-versie, rechtsonder op het startscherm. Bij elke publicatie op de website eentje ophogen.
-const GAME_VERSION = '3D-161';
+const GAME_VERSION = '3D-162';
 const LOW_H = 1080;           // aantal beeldlijnen (zoals FINE in komeet.html); daarna zonder vervaging vergroot
 const GROUND_Y = -40;        // grond iets onder het laagste stuk weg
 
@@ -1825,7 +1825,7 @@ function radioTick() {
 // ---------------------------------------------------------------- online
 // Zelfde server als komeet.html (server/server.js). Posities gaan als baancoordinaten in de bekende velden van 's':
 // x = afstand langs de baan, y = zijwaarts, th = koers t.o.v. de baan, z = hoogte, vx/vy = snelheid, p = voortgang.
-const NET_VERSION = 103;   // VERSION_3D in server/server.js
+const NET_VERSION = 104;   // VERSION_3D in server/server.js
 const NET = {
   ws: null, id: null, status: 'off', err: '', room: null, pending: null, code: '', sel: 0, typing: false, offset: 0, race: null,
   addr: (() => { if (location.protocol.startsWith('http')) return location.host; try { return localStorage.getItem('comet.server') || 'https://king-of-the-track.onrender.com'; } catch (e) { return 'https://king-of-the-track.onrender.com'; } })(),
@@ -1923,8 +1923,8 @@ function netOnMessage(m) {
     case 's': {
       if (G3.mode !== 'online' || !S.ents.length) break;
       const now = Date.now(), e = netEnt(m.id);
-      if (e) netPush(e, [m.x, m.y, m.th, m.z, m.vx, m.vy, m.st, m.b, m.p], now);
-      if (Array.isArray(m.bots) && NET.race && m.id === NET.race.host) m.bots.forEach((b, i) => { const be = S.ents.find(q => q.botRemote === i); if (be) netPush(be, b, now); });
+      if (e) netPush(e, [m.x, m.y, m.th, m.z, m.vx, m.vy, m.st, m.b, m.p], now, m.tm);
+      if (Array.isArray(m.bots) && NET.race && m.id === NET.race.host) m.bots.forEach((b, i) => { const be = S.ents.find(q => q.botRemote === i); if (be) netPush(be, b, now, m.tm); });
       break;
     }
     case 'fin': { const e = netEnt(m.id); if (e && !e.finished) { e.finished = true; e.finishT = m.time; S.finishOrder.push(e); } break; }
@@ -1961,10 +1961,22 @@ function netBuildRace(grid) {
   itemsReset(); camInit = false;
 }
 // ontvangen standen bewaren en ze iets terug in de tijd tonen (vloeiend, ook als er een bericht later komt)
-function netPush(e, a, now) { e.net.push({ t: now, v: a.map(Number) }); if (e.net.length > 8) e.net.shift(); }
+// tm = racetijd van de verzender (ms): dan schuiven de schepen gelijkmatig, ook als berichten wisselend snel binnenkomen.
+// offset = aankomst min tm, de kleinste die we zagen (langzaam omhoog als het netwerk trager wordt); jitter bepaalt hoe ver we terugkijken
+function netPush(e, a, now, tm) {
+  let t = now;
+  if (Number.isFinite(tm)) {
+    const o = now - tm;
+    if (e.netOff == null || o < e.netOff) e.netOff = o; else e.netOff += (o - e.netOff) * 0.02;
+    e.netJit = (e.netJit == null ? 30 : e.netJit) * 0.9 + Math.abs(o - e.netOff) * 0.1;
+    t = tm + e.netOff;
+  }
+  if (e.net.length && t <= e.net[e.net.length - 1].t) return;   // oud of dubbel bericht
+  e.net.push({ t, v: a.map(Number) }); if (e.net.length > 10) e.net.shift();
+}
 function netFollow(e) {
   const buf = e.net; if (!buf || !buf.length) return;
-  const tShow = Date.now() - 150;
+  const tShow = Date.now() - (e.netOff == null ? 150 : clamp(70 + 2.5 * (e.netJit || 30), 80, 220));   // terugkijken: kort bij een rustige verbinding
   let i = buf.length - 1; while (i > 0 && buf[i - 1].t > tShow) i--;
   const b = buf[i], a = buf[Math.max(0, i - 1)];
   let P, D, Z, psi, ext = false;
@@ -1988,7 +2000,7 @@ function netFollow(e) {
 function netTick() {
   const p = S.player, R = NET.race; if (!R) return;
   if (Math.round(S.raceTime / DT) % 4 === 0) {
-    const m = { t: 's', x: Math.round(((p.s % TR.len) + TR.len) % TR.len), y: Math.round(p.d), th: Math.round(p.psi * 1000) / 1000, z: Math.round(p.z), vx: Math.round(p.vT), vy: Math.round(p.vR), st: Math.round(p.steer * 100) / 100, b: p.boosting ? 1 : 0, p: Math.round(p.progress), l: p.lap };
+    const m = { t: 's', x: Math.round(((p.s % TR.len) + TR.len) % TR.len), y: Math.round(p.d), th: Math.round(p.psi * 1000) / 1000, z: Math.round(p.z), vx: Math.round(p.vT), vy: Math.round(p.vR), st: Math.round(p.steer * 100) / 100, b: p.boosting ? 1 : 0, p: Math.round(p.progress), l: p.lap, tm: Math.round(S.raceTime * 1000) };
     if (R.host === NET.id) m.bots = S.ents.filter(e => e.bot != null).map(e => [Math.round(e.s), Math.round(e.d), Math.round(e.psi * 1000) / 1000, Math.round(e.z), Math.round(e.vT), Math.round(e.vR), Math.round(e.steer * 100) / 100, e.boosting ? 1 : 0, Math.round(e.progress), e.finished ? 1 : 0]);
     NET.send(m);
   }
